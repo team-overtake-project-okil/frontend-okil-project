@@ -16,13 +16,14 @@ function App() {
       <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
         <div className="mx-auto flex w-full max-w-7xl flex-col">
           <Header />
-
           <Hero />
-
           <Info />
-
           <Map />
+        </div>
 
+        <hr className="w-full" />
+
+        <div className="mx-auto flex w-full max-w-7xl flex-col">
           <Footer />
         </div>
       </div>
