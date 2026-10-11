@@ -14,15 +14,17 @@ function App() {
   return (
     <>
       <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
-        <Header />
+        <div className="mx-auto flex w-full max-w-7xl flex-col">
+          <Header />
 
-        <Hero />
+          <Hero />
 
-        <Info />
+          <Info />
 
-        <Map />
+          <Map />
 
-        <Footer />
+          <Footer />
+        </div>
       </div>
     </>
   );

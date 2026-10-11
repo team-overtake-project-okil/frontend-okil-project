@@ -3,7 +3,7 @@ import { InfoCard } from "./InfoCard";
 export const Info = () => {
   return (
     <div className="flex w-full justify-center bg-[#F3F3F9] px-6 py-24">
-      <div className="mx-auto grid w-full max-w-6xl grid-cols-3 gap-10">
+      <div className="mx-auto grid w-full grid-cols-3 gap-10">
         <InfoCard
           id="01"
           title="Відкриті дані"
