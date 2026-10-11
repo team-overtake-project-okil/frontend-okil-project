@@ -14,7 +14,7 @@ function App() {
   return (
     <>
       <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
-        <div className="mx-auto flex min-h-svh w-full max-w-7xl flex-col">
+        <div className="mx-auto flex w-full max-w-7xl flex-col">
           <Header />
 
           <Hero />
