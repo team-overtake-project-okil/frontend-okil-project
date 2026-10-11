@@ -3,6 +3,7 @@ import { TogglerCard } from "./TogglerCard";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import SearchIcon from "../icons/search";
 import mapImage from "../assets/map.svg";
+import { CharacCard } from "./CharacCard";
 
 const mapTabs = [
   { value: "overall", label: "Загальний" },
@@ -200,7 +201,36 @@ export const Map = () => {
           </div>
         </div>
 
-        <div data-characteristics></div>
+        <div data-characteristics>
+          <div className="text-[13px] text-[#8E8E93]">
+            вул. Личаківська 54 · H3 e4bffff
+          </div>
+
+          <div data-rate-number className="flex items-baseline-last gap-4">
+            <div className="text-7xl font-bold">73</div>
+
+            <div className="flex flex-col">
+              <div className="text-sm font-medium">Добре</div>
+
+              <div className="text-xs text-[#8E8E93]">з 100</div>
+            </div>
+          </div>
+
+          <div className="pt-2 text-xs font-light text-[#8E8E93]">
+            Вулиця проходить через 17 гекс. Номер 54: показано <br /> гексагон
+            найближчої зупинки з відповідним номером.
+          </div>
+
+          <div data-characteristics-list className="pt-4">
+            <CharacCard title="Мобільність" value={100} />
+            <CharacCard title="Побут" value={73} />
+            <CharacCard title="Здоров'я" value={85} />
+            <CharacCard title="Освіта" value={67} />
+            <CharacCard title="Дозвілля" value={39} />
+            <CharacCard title="Укриття" value={60} />
+            <CharacCard title="Тиша" value={19} />
+          </div>
+        </div>
       </div>
     </div>
   );
