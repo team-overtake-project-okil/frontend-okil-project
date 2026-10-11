@@ -1,4 +1,31 @@
+import { cn } from "cn";
 import { TogglerCard } from "./TogglerCard";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+import SearchIcon from "../icons/search";
+import mapImage from "../assets/map.svg";
+
+const mapTabs = [
+  { value: "overall", label: "Загальний" },
+  { value: "mobility", label: "Мобільність" },
+  { value: "daily", label: "Побут" },
+  { value: "health", label: "Здоров'я" },
+  { value: "education", label: "Освіта" },
+  { value: "leisure", label: "Дозвілля" },
+  { value: "shelter", label: "Укриття" },
+  { value: "silence", label: "Тиша" },
+];
+
+// iOS-style segmented control (Figma: h 35.5, gap 1, padding 2, radius 11, fill #767680 @ 12%)
+const segmentedList =
+  "h-[35.5px] scrollbar-none justify-start gap-px overflow-x-auto overflow-y-hidden rounded-[11px] bg-[#767680]/12 p-0.5 group-data-horizontal/tabs:h-[35.5px] [&::-webkit-scrollbar]:hidden";
+
+const segmentedTrigger = cn(
+  // after:hidden drops the base underline indicator that overflows the list by 2px on Y
+  "h-full flex-none rounded-[9px] px-3.5 text-[13px] leading-none font-medium text-[#3C3C43]/60 after:hidden hover:text-[#3C3C43]/85",
+  "data-active:bg-white data-active:font-semibold data-active:text-black data-active:shadow-[0_3px_8px_rgba(0,0,0,0.12),0_3px_1px_rgba(0,0,0,0.04)]",
+  // divider between inactive segments (hidden on the first, the active one, and the one after active)
+  "before:absolute before:top-1/2 before:-left-px before:h-4 before:w-px before:-translate-y-1/2 before:bg-[#3C3C43]/30 first:before:hidden data-active:before:hidden [[data-active]+&]:before:hidden",
+);
 
 export const Map = () => {
   return (
@@ -30,7 +57,7 @@ export const Map = () => {
         </div>
       </div>
 
-      <div data-map className="flex">
+      <div data-map className="flex gap-6">
         <div data-togglers className="px-1">
           <div className="flex items-baseline-last justify-between">
             {/* мб поміняти розмір шрифту */}
@@ -103,7 +130,75 @@ export const Map = () => {
           </div>
         </div>
 
-        <div data-mapandsearch></div>
+        <div data-map-and-search className="flex flex-col">
+          <div data-tabs className="w-full max-w-137">
+            <Tabs
+              defaultValue="overall"
+              className="w-full flex-none items-start gap-0 self-stretch pb-3 data-horizontal:flex-row"
+            >
+              <TabsList className={cn(segmentedList, "w-full")}>
+                {mapTabs.map(({ value, label }) => (
+                  <TabsTrigger
+                    key={value}
+                    className={segmentedTrigger}
+                    value={value}
+                  >
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {/* <TabsContent value="account">
+                Make changes to your account here.
+              </TabsContent>
+              <TabsContent value="password">
+                Change your password here.
+              </TabsContent> */}
+            </Tabs>
+          </div>
+
+          <div data-reacheability className="flex flex-col gap-2 pb-3.5">
+            <div className="text-[13px] text-[#8E8E93]">
+              Куди доїдете транспортом
+            </div>
+
+            <div>
+              <Tabs
+                defaultValue="on"
+                className="w-fit flex-none items-start gap-0 data-horizontal:flex-row"
+              >
+                <TabsList className={cn(segmentedList, "w-fit")}>
+                  <TabsTrigger className={segmentedTrigger} value="off">
+                    вимк
+                  </TabsTrigger>
+                  <TabsTrigger className={segmentedTrigger} value="on">
+                    увімк
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          </div>
+
+          <div data-search-small className="flex flex-col gap-2 pb-3">
+            <div className="text-[13px] text-[#8E8E93]">Пошук за адресою</div>
+
+            <div className="flex w-80 items-center gap-2 rounded-xl bg-[#767680]/12 px-3 py-2">
+              <SearchIcon className="size-4 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Наприклад: вул. Залізнична 7П"
+                className="w-full text-sm text-black outline-none placeholder:text-[#8E8E93]"
+              />
+            </div>
+          </div>
+
+          <div data-map>
+            {/* the negative margins needs to be deleted when there will be a func library for the map */}
+            <img
+              src={mapImage}
+              className="-mx-7.5 -mt-5.5 -mb-9.5 max-w-none"
+            />
+          </div>
+        </div>
 
         <div data-characteristics></div>
       </div>
