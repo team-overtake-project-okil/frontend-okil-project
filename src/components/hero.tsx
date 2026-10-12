@@ -38,7 +38,7 @@ export const Hero = () => {
                   Знайти за вулицею
                 </span>
                 <div className="flex w-full items-center gap-2 rounded-xl bg-gray-100 px-3 py-2">
-                  <SearchIcon className="size-4" />
+                  <SearchIcon className="size-4 text-zinc-500" />
                   <input
                     type="text"
                     placeholder="Введіть вулицю, наприклад Залізнична 7П"
