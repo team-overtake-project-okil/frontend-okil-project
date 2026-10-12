@@ -4,6 +4,15 @@ import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import SearchIcon from "../icons/search";
 import mapImage from "../assets/map.svg";
 import { CharacCard } from "./CharacCard";
+import { useState } from "react";
+
+const togglerIds = ["01", "02", "03", "04", "05", "06", "07"] as const;
+const lockedTogglerIds = new Set<string>(["06"]);
+
+type TogglerState = { value: number; on: boolean };
+const DEFAULT_TOGGLER: TogglerState = { value: 1, on: true };
+const defaultTogglers = (): Record<string, TogglerState> =>
+  Object.fromEntries(togglerIds.map((id) => [id, DEFAULT_TOGGLER]));
 
 const mapTabs = [
   { value: "overall", label: "Загальний" },
@@ -27,8 +36,32 @@ const segmentedTrigger = cn(
   // divider between inactive segments (hidden on the first, the active one, and the one after active)
   "before:absolute before:top-1/2 before:-left-px before:h-4 before:w-px before:-translate-y-1/2 before:bg-[#3C3C43]/30 first:before:hidden data-active:before:hidden [[data-active]+&]:before:hidden",
 );
-
 export const Map = () => {
+  const [togglers, setTogglers] = useState(defaultTogglers);
+
+  const updateToggler = (id: string, patch: Partial<TogglerState>) =>
+    setTogglers((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+
+  // state + handlers for one card
+  const togglerProps = (id: string) => ({
+    id,
+    locked: lockedTogglerIds.has(id),
+    value: togglers[id].value,
+    on: togglers[id].on,
+    onValueChange: (value: number) => updateToggler(id, { value }),
+    onOnChange: (on: boolean) => updateToggler(id, { on }),
+  });
+
+  const handleReset = () =>
+    setTogglers((prev) =>
+      Object.fromEntries(
+        togglerIds.map((id) => [
+          id,
+          lockedTogglerIds.has(id) || prev[id].on ? DEFAULT_TOGGLER : prev[id],
+        ]),
+      ),
+    );
+
   return (
     <div className="flex flex-col gap-8 px-6 py-20">
       <div data-head className="flex items-baseline-last justify-between">
@@ -64,7 +97,10 @@ export const Map = () => {
             {/* мб поміняти розмір шрифту */}
             <div className="text-[13px] text-[#8E8E93]">Що важливо для вас</div>
             {/* хендлери потім поставити */}
-            <button className="text-[15px] text-[#007AFF] transition-opacity hover:opacity-70">
+            <button
+              onClick={handleReset}
+              className="text-[15px] text-[#007AFF] transition-opacity hover:opacity-70"
+            >
               Скинути
             </button>
           </div>
@@ -76,7 +112,7 @@ export const Map = () => {
 
           <div className="rounded-[22px] bg-white">
             <TogglerCard
-              id="01"
+              {...togglerProps("01")}
               title="Мобільність"
               description="Транспорт (GTFS), парковки, заправки"
             />
@@ -84,7 +120,7 @@ export const Map = () => {
             <hr />
 
             <TogglerCard
-              id="02"
+              {...togglerProps("02")}
               title="Щоденні потреби"
               description="Аптеки, магазини, пошта, банки"
             />
@@ -92,7 +128,7 @@ export const Map = () => {
             <hr />
 
             <TogglerCard
-              id="03"
+              {...togglerProps("03")}
               title="Здоров’я"
               description="Лікарні, поліклініки, стоматології"
             />
@@ -100,7 +136,7 @@ export const Map = () => {
             <hr />
 
             <TogglerCard
-              id="04"
+              {...togglerProps("04")}
               title="Освіта"
               description="Садочки, школи, виші"
             />
@@ -108,7 +144,7 @@ export const Map = () => {
             <hr />
 
             <TogglerCard
-              id="05"
+              {...togglerProps("05")}
               title="Дозвілля, спорт, їжа"
               description="Парки, ТРЦ, спортзали, заклади"
             />
@@ -116,7 +152,7 @@ export const Map = () => {
             <hr />
 
             <TogglerCard
-              id="06"
+              {...togglerProps("06")}
               title="Безпека і стійкість"
               description="Обов’язкова категорія"
             />
@@ -124,7 +160,7 @@ export const Map = () => {
             <hr />
 
             <TogglerCard
-              id="07"
+              {...togglerProps("07")}
               title="Навантаження"
               description="Шум, трафік, повітря (інвертовано)"
             />
