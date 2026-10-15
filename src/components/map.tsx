@@ -1,4 +1,3 @@
-
 import { cn } from "cn";
 import { TogglerCard } from "./TogglerCard";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
@@ -268,4 +267,3 @@ export const Map = () => {
     </div>
   );
 };
-
