@@ -4,13 +4,19 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN;
 
-export function MapboxMap() {
+interface MapboxMapProps {
+  searchedLocation?: { lat: number; lng: number } | null;
+}
+
+export function MapboxMap({ searchedLocation }: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null); 
+  const markerRef = useRef<mapboxgl.Marker | null>(null); 
 
   useEffect(() => {
-    if (!mapContainer.current || !token) return;
+    if (!mapContainer.current || !token || mapRef.current) return;
 
-    const map = new mapboxgl.Map({
+    mapRef.current = new mapboxgl.Map({
       container: mapContainer.current,
       accessToken: token,
       style: "mapbox://styles/mapbox/streets-v12",
@@ -18,12 +24,33 @@ export function MapboxMap() {
       zoom: 12,
     });
 
-    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    mapRef.current.addControl(new mapboxgl.NavigationControl(), "top-right");
 
     return () => {
-      map.remove();
+      mapRef.current?.remove();
+      mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !searchedLocation) return;
+
+    const { lng, lat } = searchedLocation;
+
+    mapRef.current.flyTo({
+      center: [lng, lat],
+      zoom: 15,
+      essential: true
+    });
+
+    if (markerRef.current) {
+      markerRef.current.setLngLat([lng, lat]);
+    } else {
+      markerRef.current = new mapboxgl.Marker({ color: "#2563eb" })
+        .setLngLat([lng, lat])
+        .addTo(mapRef.current);
+    }
+  }, [searchedLocation]);
 
   if (!token) {
     return <p>Mapbox token is missing.</p>;
