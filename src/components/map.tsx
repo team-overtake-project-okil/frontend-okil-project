@@ -1,8 +1,9 @@
+
 import { cn } from "cn";
 import { TogglerCard } from "./TogglerCard";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import SearchIcon from "../icons/search";
-import mapImage from "../assets/map.svg";
+import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
 import { useState } from "react";
 
@@ -228,12 +229,8 @@ export const Map = () => {
             </div>
           </div>
 
-          <div data-map>
-            {/* the negative margins needs to be deleted when there will be a func library for the map */}
-            <img
-              src={mapImage}
-              className="-mx-7.5 -mt-5.5 -mb-9.5 max-w-none"
-            />
+          <div data-map className="w-full min-w-0">
+            <MapboxMap />
           </div>
         </div>
 
@@ -271,3 +268,4 @@ export const Map = () => {
     </div>
   );
 };
+

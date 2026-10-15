@@ -6,7 +6,7 @@ import "./App.css";
 
 import { Hero } from "./components/hero";
 import { Info } from "./components/info";
-import { MapboxMap } from "./components/MapboxMap";
+import { Map } from "./components/map";
 import { Footer } from "./components/footer";
 import { Header } from "./components/header";
 
@@ -18,7 +18,7 @@ function App() {
         <div className="mx-auto flex w-full max-w-7xl flex-col">
           <Hero />
           <Info />
-          <MapboxMap />
+          <Map />
         </div>
 
         <hr className="w-full" />
