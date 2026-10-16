@@ -1,37 +1,41 @@
 import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { cellToBoundary, gridDisk, latLngToCell } from "h3-js";
+import {
+  cellToBoundary,
+  gridDistance,
+  latLngToCell,
+  polygonToCells,
+} from "h3-js";
+import cityBoundary from "../data/lviv-city.json";
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN;
 
 const LVIV_LAT = 49.8429;
 const LVIV_LNG = 24.0316;
 const H3_RES = 9;
-const H3_RING = 5;
 
-// Placeholder tint so the grid reads as a score layer until real data is wired.
-function placeholderScore(id: string) {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 33 + id.charCodeAt(i)) >>> 0;
-  }
-  return hash % 101;
-}
-
+// Administrative boundary of the city of Lviv (OSM relation 2032280).
 function lvivHexes() {
   const origin = latLngToCell(LVIV_LAT, LVIV_LNG, H3_RES);
+  const cells = polygonToCells(cityBoundary.coordinates, H3_RES, true);
+  const maxSteps = Math.max(...cells.map((id) => gridDistance(origin, id)));
 
   return {
-    type: "FeatureCollection",
-    features: gridDisk(origin, H3_RING).map((id) => ({
-      type: "Feature",
-      properties: { id, score: placeholderScore(id), selected: id === origin },
-      geometry: {
-        type: "Polygon",
-        coordinates: [cellToBoundary(id, true)],
-      },
-    })),
+    type: "FeatureCollection" as const,
+    features: cells.map((id) => {
+      const steps = gridDistance(origin, id);
+      const score =
+        maxSteps === 0 ? 100 : Math.round(100 * (1 - steps / maxSteps));
+      return {
+        type: "Feature" as const,
+        properties: { id, score, selected: id === origin },
+        geometry: {
+          type: "Polygon" as const,
+          coordinates: [cellToBoundary(id, true)],
+        },
+      };
+    }),
   };
 }
 
@@ -52,10 +56,18 @@ export function MapboxMap() {
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
     map.on("load", () => {
+      const hexes = lvivHexes();
+
       map.addSource("h3-hexes", {
         type: "geojson",
-        data: lvivHexes(),
+        data: hexes,
       });
+
+      const bounds = new mapboxgl.LngLatBounds();
+      for (const [lng, lat] of cityBoundary.coordinates[0]) {
+        bounds.extend([lng, lat]);
+      }
+      map.fitBounds(bounds, { padding: 24, duration: 0 });
 
       map.addLayer({
         id: "h3-hexes-fill",
@@ -73,7 +85,8 @@ export function MapboxMap() {
             100,
             "#34C759",
           ],
-          "fill-opacity": 0.38,
+          //побавитись з опасіті
+          "fill-opacity": 0.5,
         },
       });
 
@@ -88,6 +101,7 @@ export function MapboxMap() {
         },
       });
 
+      //щоб видалити обводку - забрати цей блок
       map.addLayer({
         id: "h3-hexes-selected",
         type: "line",
@@ -112,7 +126,7 @@ export function MapboxMap() {
   return (
     <div
       ref={mapContainer}
-      className="h-[500px] w-full overflow-hidden rounded-2xl"
+      className="h-125 w-full overflow-hidden rounded-2xl"
     />
   );
 }
