@@ -29,7 +29,9 @@ function lvivHexes() {
         maxSteps === 0 ? 100 : Math.round(100 * (1 - steps / maxSteps));
       return {
         type: "Feature" as const,
-        properties: { id, score, selected: id === origin },
+        properties: { id, score },
+        //для того щоб виділити гекс
+        // properties: { id, score, selected: id === origin },
         geometry: {
           type: "Polygon" as const,
           coordinates: [cellToBoundary(id, true)],
