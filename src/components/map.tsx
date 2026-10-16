@@ -6,6 +6,12 @@ import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
 import { useState } from "react";
 
+const MOCK_DB = [
+  { address: "вул. залізнична 7п", lat: 49.845475, lng: 23.996944 },
+  { address: "вул. степана бандери 12", lat: 49.835472, lng: 24.014389 },
+  { address: "пл. ринок 1", lat: 49.84161, lng: 24.03133 },
+];
+
 const togglerIds = ["01", "02", "03", "04", "05", "06", "07"] as const;
 const lockedTogglerIds = new Set<string>(["06"]);
 
@@ -38,6 +44,40 @@ const segmentedTrigger = cn(
 );
 export const Map = () => {
   const [togglers, setTogglers] = useState(defaultTogglers);
+
+  const [searchValue, setSearchValue] = useState("");
+  const [searchedLocation, setSearchedLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [suggestions, setSuggestions] = useState<typeof MOCK_DB>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchValue(value);
+
+    if (value.trim().length >= 2) {
+      const filtered = MOCK_DB.filter((item) =>
+        item.address.includes(value.toLowerCase())
+      );
+      setSuggestions(filtered);
+      setIsDropdownOpen(true);
+    } else {
+      setSuggestions([]);
+      setIsDropdownOpen(false);
+    }
+  };
+
+  const handleSelectSuggestion = (item: typeof MOCK_DB[0]) => {
+    setSearchValue(item.address);
+    setSearchedLocation({ lat: item.lat, lng: item.lng });
+    setIsDropdownOpen(false);
+  };
+
+  const handleSearch = () => {
+    const searchStr = searchValue.trim().toLowerCase();
+    const found = MOCK_DB.find((item) => item.address === searchStr);
+    if (found) setSearchedLocation({ lat: found.lat, lng: found.lng });
+    else alert("Не знайдено! Спробуй ввести: вул. залізнична 7п");
+  }; 
 
   const updateToggler = (id: string, patch: Partial<TogglerState>) =>
     setTogglers((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -218,18 +258,37 @@ export const Map = () => {
           <div data-search-small className="flex flex-col gap-2 pb-3">
             <div className="text-[13px] text-[#8E8E93]">Пошук за адресою</div>
 
-            <div className="flex w-80 items-center gap-2 rounded-xl bg-[#767680]/12 px-3 py-2">
-              <SearchIcon className="size-4 text-zinc-500" />
-              <input
-                type="text"
-                placeholder="Наприклад: вул. Залізнична 7П"
-                className="w-full text-sm text-black outline-none placeholder:text-[#8E8E93]"
-              />
+            <div className="relative w-80">
+              <div className="flex w-full items-center gap-2 rounded-xl bg-[#767680]/12 px-3 py-2">
+                <SearchIcon className="size-4 text-zinc-500" />
+                <input
+                  type="text"
+                  placeholder="Наприклад: вул. Залізнична 7П"
+                  className="w-full text-sm text-black outline-none placeholder:text-[#8E8E93] bg-transparent"
+                  value={searchValue}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                />
+              </div>
+
+              {isDropdownOpen && suggestions.length > 0 && (
+                <ul className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-xl bg-white shadow-lg border border-gray-100">
+                  {suggestions.map((item, index) => (
+                    <li
+                      key={index}
+                      onClick={() => handleSelectSuggestion(item)}
+                      className="cursor-pointer border-b border-gray-50 px-4 py-2.5 text-sm transition-colors last:border-0 hover:bg-gray-50 hover:text-blue-600"
+                    >
+                      {item.address}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 
           <div data-map className="w-full min-w-0">
-            <MapboxMap />
+            <MapboxMap searchedLocation={searchedLocation} />
           </div>
         </div>
 

@@ -41,11 +41,17 @@ function lvivHexes() {
   };
 }
 
-export function MapboxMap() {
+interface MapboxMapProps {
+  searchedLocation?: { lat: number; lng: number } | null;
+}
+
+export function MapboxMap({ searchedLocation }: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
 
   useEffect(() => {
-    if (!mapContainer.current || !token) return;
+    if (!mapContainer.current || !token || mapRef.current) return;
 
     const map = new mapboxgl.Map({
       container: mapContainer.current,
@@ -54,6 +60,8 @@ export function MapboxMap() {
       center: [LVIV_LNG, LVIV_LAT],
       zoom: 12,
     });
+
+    mapRef.current = map;
 
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
@@ -118,8 +126,29 @@ export function MapboxMap() {
 
     return () => {
       map.remove();
+      mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !searchedLocation) return;
+
+    const { lng, lat } = searchedLocation;
+
+    mapRef.current.flyTo({
+      center: [lng, lat],
+      zoom: 15,
+      essential: true,
+    });
+
+    if (markerRef.current) {
+      markerRef.current.setLngLat([lng, lat]);
+    } else {
+      markerRef.current = new mapboxgl.Marker({ color: "#2563eb" })
+        .setLngLat([lng, lat])
+        .addTo(mapRef.current);
+    }
+  }, [searchedLocation]);
 
   if (!token) {
     return <p>Mapbox token is missing.</p>;
