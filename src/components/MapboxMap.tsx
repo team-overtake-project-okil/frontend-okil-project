@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
@@ -30,8 +30,6 @@ function lvivHexes() {
       return {
         type: "Feature" as const,
         properties: { id, score },
-        //для того щоб виділити гекс
-        // properties: { id, score, selected: id === origin },
         geometry: {
           type: "Polygon" as const,
           coordinates: [cellToBoundary(id, true)],
@@ -43,12 +41,42 @@ function lvivHexes() {
 
 interface MapboxMapProps {
   searchedLocation?: { lat: number; lng: number } | null;
+  onHexSelect?: (hexId: string) => void;
 }
 
-export function MapboxMap({ searchedLocation }: MapboxMapProps) {
+export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const onHexSelectRef = useRef(onHexSelect);
+
+  // Keep the latest callback without recreating the Mapbox map.
+  useEffect(() => {
+    onHexSelectRef.current = onHexSelect;
+  }, [onHexSelect]);
+
+  // Select the H3 cell corresponding to the searched address.
+  const selectHex = useCallback((lat: number, lng: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const source = map.getSource("h3-selected") as mapboxgl.GeoJSONSource | undefined;
+    if (!source) return;
+
+    const hexId = latLngToCell(lat, lng, H3_RES);
+    console.log("H3 Hexagon ID:", hexId);
+
+    source.setData({
+      type: "Feature",
+      properties: { id: hexId },
+      geometry: {
+        type: "Polygon",
+        coordinates: [cellToBoundary(hexId, true)],
+      },
+    });
+
+    onHexSelectRef.current?.(hexId);
+  }, []);
 
   useEffect(() => {
     if (!mapContainer.current || !token || mapRef.current) return;
@@ -111,31 +139,50 @@ export function MapboxMap({ searchedLocation }: MapboxMapProps) {
         },
       });
 
-      //щоб видалити обводку - забрати цей блок
+      // Separate GeoJSON source for the selected hexagon.
+      // It is independent of the mock score layer and also works outside the city boundary.
+      map.addSource("h3-selected", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+
+      map.addLayer({
+        id: "h3-selected-fill",
+        type: "fill",
+        source: "h3-selected",
+        paint: {
+          "fill-color": "#007AFF",
+          "fill-opacity": 0.3,
+        },
+      });
+
       map.addLayer({
         id: "h3-hexes-selected",
         type: "line",
-        source: "h3-hexes",
-        filter: ["==", ["get", "selected"], true],
+        source: "h3-selected",
         paint: {
           "line-color": "#007AFF",
-          "line-width": 2.5,
+          "line-width": 3,
         },
       });
+
     });
 
     return () => {
+      markerRef.current?.remove();
+      markerRef.current = null;
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [selectHex]);
 
   useEffect(() => {
-    if (!mapRef.current || !searchedLocation) return;
+    const map = mapRef.current;
+    if (!map || !searchedLocation) return;
 
     const { lng, lat } = searchedLocation;
 
-    mapRef.current.flyTo({
+    map.flyTo({
       center: [lng, lat],
       zoom: 15,
       essential: true,
@@ -146,9 +193,20 @@ export function MapboxMap({ searchedLocation }: MapboxMapProps) {
     } else {
       markerRef.current = new mapboxgl.Marker({ color: "#2563eb" })
         .setLngLat([lng, lat])
-        .addTo(mapRef.current);
+        .addTo(map);
     }
-  }, [searchedLocation]);
+
+    // Sources are only available after the initial Mapbox style load.
+    if (map.getSource("h3-selected")) {
+      selectHex(lat, lng);
+    } else {
+      const onLoad = () => selectHex(lat, lng);
+      map.once("load", onLoad);
+      return () => {
+        map.off("load", onLoad);
+      };
+    }
+  }, [searchedLocation, selectHex]);
 
   if (!token) {
     return <p>Mapbox token is missing.</p>;
