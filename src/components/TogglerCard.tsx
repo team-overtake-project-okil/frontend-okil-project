@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 import { cn } from "cn";
@@ -25,6 +26,42 @@ const LEVELS: Record<number, string> = {
 function levelLabel(value: number) {
   const snapped = Math.round(Math.min(100, Math.max(0, value)) / 20) * 20;
   return LEVELS[snapped];
+}
+
+function LevelLabel({ label }: { label: string }) {
+  const [current, setCurrent] = useState(label);
+  const [previous, setPrevious] = useState<string | null>(null);
+  const currentRef = useRef(label);
+
+  useEffect(() => {
+    if (label === currentRef.current) return;
+
+    setPrevious(currentRef.current);
+    currentRef.current = label;
+    setCurrent(label);
+
+    const timeout = window.setTimeout(() => setPrevious(null), 200);
+    return () => window.clearTimeout(timeout);
+  }, [label]);
+
+  return (
+    <span className="grid">
+      {previous !== null && (
+        <span className="col-start-1 row-start-1 animate-out fade-out fill-mode-forwards duration-200">
+          {previous}
+        </span>
+      )}
+      <span
+        key={current}
+        className={cn(
+          "col-start-1 row-start-1",
+          previous !== null && "animate-in fade-in duration-200",
+        )}
+      >
+        {current}
+      </span>
+    </span>
+  );
 }
 
 export const TogglerCard = ({
@@ -85,12 +122,7 @@ export const TogglerCard = ({
             disabled && "opacity-50",
           )}
         >
-          <span
-            key={label}
-            className="inline-block animate-in fade-in duration-200"
-          >
-            {label}
-          </span>
+          <LevelLabel label={label} />
         </div>
       </div>
     </div>
