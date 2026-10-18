@@ -16,7 +16,7 @@ const togglerIds = ["01", "02", "03", "04", "05", "06", "07"] as const;
 const lockedTogglerIds = new Set<string>(["06"]);
 
 type TogglerState = { value: number; on: boolean };
-const DEFAULT_TOGGLER: TogglerState = { value: 1, on: true };
+const DEFAULT_TOGGLER: TogglerState = { value: 0, on: true };
 const defaultTogglers = (): Record<string, TogglerState> =>
   Object.fromEntries(togglerIds.map((id) => [id, DEFAULT_TOGGLER]));
 
@@ -46,7 +46,10 @@ export const Map = () => {
   const [togglers, setTogglers] = useState(defaultTogglers);
 
   const [searchValue, setSearchValue] = useState("");
-  const [searchedLocation, setSearchedLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [searchedLocation, setSearchedLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [suggestions, setSuggestions] = useState<typeof MOCK_DB>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -56,7 +59,7 @@ export const Map = () => {
 
     if (value.trim().length >= 2) {
       const filtered = MOCK_DB.filter((item) =>
-        item.address.includes(value.toLowerCase())
+        item.address.includes(value.toLowerCase()),
       );
       setSuggestions(filtered);
       setIsDropdownOpen(true);
@@ -66,7 +69,7 @@ export const Map = () => {
     }
   };
 
-  const handleSelectSuggestion = (item: typeof MOCK_DB[0]) => {
+  const handleSelectSuggestion = (item: (typeof MOCK_DB)[0]) => {
     setSearchValue(item.address);
     setSearchedLocation({ lat: item.lat, lng: item.lng });
     setIsDropdownOpen(false);
@@ -77,7 +80,7 @@ export const Map = () => {
     const found = MOCK_DB.find((item) => item.address === searchStr);
     if (found) setSearchedLocation({ lat: found.lat, lng: found.lng });
     else alert("Не знайдено! Спробуй ввести: вул. залізнична 7п");
-  }; 
+  };
 
   const updateToggler = (id: string, patch: Partial<TogglerState>) =>
     setTogglers((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -264,7 +267,7 @@ export const Map = () => {
                 <input
                   type="text"
                   placeholder="Наприклад: вул. Залізнична 7П"
-                  className="w-full text-sm text-black outline-none placeholder:text-[#8E8E93] bg-transparent"
+                  className="w-full bg-transparent text-sm text-black outline-none placeholder:text-[#8E8E93]"
                   value={searchValue}
                   onChange={handleInputChange}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -272,7 +275,7 @@ export const Map = () => {
               </div>
 
               {isDropdownOpen && suggestions.length > 0 && (
-                <ul className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-xl bg-white shadow-lg border border-gray-100">
+                <ul className="absolute top-full left-0 z-50 mt-1 w-full overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
                   {suggestions.map((item, index) => (
                     <li
                       key={index}

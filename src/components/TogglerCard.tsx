@@ -13,7 +13,20 @@ type TogglerCardProps = {
   onOnChange: (on: boolean) => void;
 };
 
-//може потім по пропсам макс % на слайдер передавати ?
+const LEVELS: Record<number, string> = {
+  0: "не важливо",
+  20: "так собі",
+  40: "нормально",
+  60: "важливо",
+  80: "дуже важливо",
+  100: "критично",
+};
+
+function levelLabel(value: number) {
+  const snapped = Math.round(Math.min(100, Math.max(0, value)) / 20) * 20;
+  return LEVELS[snapped];
+}
+
 export const TogglerCard = ({
   id,
   title,
@@ -25,6 +38,7 @@ export const TogglerCard = ({
   onOnChange,
 }: TogglerCardProps) => {
   const disabled = !locked && !on;
+  const label = levelLabel(value);
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3.5">
@@ -54,18 +68,29 @@ export const TogglerCard = ({
         className="flex items-center justify-between gap-6 pr-2 pl-7"
       >
         <Slider
+          className="min-w-0 flex-1"
           value={value}
           onValueChange={(next) => {
             onValueChange(Array.isArray(next) ? next[0] : next);
           }}
           max={100}
-          step={1}
-          min={1}
+          step={20}
+          min={0}
           disabled={disabled}
         />
 
-        <div className={cn("text-xs font-light", disabled && "opacity-50")}>
-          {value}%
+        <div
+          className={cn(
+            "w-22 shrink-0 text-xs font-light whitespace-nowrap",
+            disabled && "opacity-50",
+          )}
+        >
+          <span
+            key={label}
+            className="inline-block animate-in fade-in duration-200"
+          >
+            {label}
+          </span>
         </div>
       </div>
     </div>

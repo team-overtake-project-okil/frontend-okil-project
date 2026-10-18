@@ -1,6 +1,25 @@
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 import { cn } from "cn"
 
+function registerSliderMotion() {
+  if (typeof CSS === "undefined" || typeof CSS.registerProperty !== "function") return
+
+  for (const name of ["--position", "--start-position"] as const) {
+    try {
+      CSS.registerProperty({
+        name,
+        syntax: "<percentage>",
+        inherits: false,
+        initialValue: "0%",
+      })
+    } catch {
+      // already registered
+    }
+  }
+}
+
+registerSliderMotion()
+
 function Slider({
   className,
   defaultValue,
@@ -36,14 +55,14 @@ function Slider({
         >
           <SliderPrimitive.Indicator
             data-slot="slider-range"
-            className="bg-primary select-none data-horizontal:h-full data-vertical:w-full"
+            className="bg-primary transition-[--start-position] duration-200 ease-out select-none data-horizontal:h-full data-vertical:w-full"
           />
         </SliderPrimitive.Track>
         {Array.from({ length: _values.length }, (_, index) => (
           <SliderPrimitive.Thumb
             data-slot="slider-thumb"
             key={index}
-            className="relative block size-3 shrink-0 rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
+            className="relative block size-3 shrink-0 rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow,--position] duration-200 ease-out select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
           />
         ))}
       </SliderPrimitive.Control>
