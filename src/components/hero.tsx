@@ -1,11 +1,12 @@
 import heroImage from "../assets/hero_part.png";
 import ArrowRight from "../icons/arrow-right";
 import SearchIcon from "../icons/search";
+import { scrollToSection } from "../lib/scroll";
 
 export const Hero = () => {
   return (
     //h-screen!!!! after adding header
-    <section className="px-6 pt-24 pb-20">
+    <section id="hero" className="px-6 pt-24 pb-20">
       <div className="mx-auto flex max-w-306 flex-row items-center gap-10">
         <div className="flex min-w-0 flex-1 flex-col gap-5">
           <div className="flex flex-col gap-8">
@@ -47,7 +48,10 @@ export const Hero = () => {
                 </div>
               </div>
 
-              <button className="group flex h-25 w-61.75 flex-col items-start gap-4 rounded-[22px] bg-[#007AFF] p-4 text-left text-white shadow-sm transition-colors hover:bg-blue-600">
+              <button
+                onClick={() => scrollToSection("map")}
+                className="group flex h-25 w-61.75 flex-col items-start gap-4 rounded-[22px] bg-[#007AFF] p-4 text-left text-white shadow-sm transition-colors hover:bg-blue-600"
+              >
                 <span className="text-xs opacity-80">Просто цікаво</span>
                 <span className="flex w-full items-center justify-between text-base font-medium">
                   Помнєцкати гексагони

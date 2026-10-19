@@ -107,7 +107,7 @@ export const Map = () => {
     );
 
   return (
-    <div className="flex flex-col gap-8 px-6 py-20">
+    <div id="map" className="flex flex-col gap-8 px-6 py-20">
       <div data-head className="flex items-baseline-last justify-between">
         <div data-mapname className="flex flex-col gap-3">
           <div className="text-[13px] font-medium text-[#8E8E93]">
