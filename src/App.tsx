@@ -9,8 +9,10 @@ import { Info } from "./components/info";
 import { Map } from "./components/map";
 import { Footer } from "./components/footer";
 import { Header } from "./components/header";
+import { useRoutes } from "./lib/routes";
 
 function App() {
+  useRoutes();
   return (
     <>
       <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
