@@ -44,6 +44,7 @@ const segmentedTrigger = cn(
 );
 export const Map = () => {
   const [togglers, setTogglers] = useState(defaultTogglers);
+  const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
 
   const [searchValue, setSearchValue] = useState("");
   const [searchedLocation, setSearchedLocation] = useState<{
@@ -291,13 +292,16 @@ export const Map = () => {
           </div>
 
           <div data-map className="w-full min-w-0">
-            <MapboxMap searchedLocation={searchedLocation} />
+            <MapboxMap
+              searchedLocation={searchedLocation}
+              onHexSelect={setSelectedHexId}
+            />
           </div>
         </div>
 
         <div data-characteristics>
           <div className="text-[13px] text-[#8E8E93]">
-            вул. Личаківська 54 · H3 e4bffff
+            Обраний H3: {selectedHexId ?? "знайдіть адресу"}
           </div>
 
           <div data-rate-number className="flex items-baseline-last gap-4">
