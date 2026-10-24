@@ -3,21 +3,31 @@
 // import reactLogo from "./assets/react.svg";
 // import viteLogo from "./assets/vite.svg";
 import "./App.css";
-import Header from "./components/header";
-import Hero from "./components/hero";
-import Info from "./components/info";
-import Map from "./components/map";
-import Footer from "./components/footer";
+
+import { Hero } from "./components/hero";
+import { Info } from "./components/info";
+import { Map } from "./components/map";
+import { Footer } from "./components/footer";
+import { Header } from "./components/header";
+import { useRoutes } from "./lib/routes";
 
 function App() {
+  useRoutes();
   return (
     <>
-      <div className="flex h-full w-full items-center justify-center text-6xl">
+      <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
         <Header />
-        <Hero/>
-        <Info />
-        <Map />
-        <Footer/>
+        <div className="mx-auto flex w-full max-w-7xl flex-col">
+          <Hero />
+          <Info />
+          <Map />
+        </div>
+
+        <hr className="w-full" />
+
+        <div className="mx-auto flex w-full max-w-7xl flex-col">
+          <Footer />
+        </div>
       </div>
     </>
   );
