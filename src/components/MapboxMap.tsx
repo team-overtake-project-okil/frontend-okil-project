@@ -1,23 +1,18 @@
 import { useCallback, useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import {
-  cellToBoundary,
-  gridDistance,
-  latLngToCell,
-  polygonToCells,
-} from "h3-js";
+import { cellToBoundary, gridDistance, polygonToCells } from "h3-js";
 import cityBoundary from "../data/lviv-city.json";
+import { H3_RES, coordsToH3 } from "../lib/h3";
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN;
 
 const LVIV_LAT = 49.8429;
 const LVIV_LNG = 24.0316;
-const H3_RES = 9;
 
 // Administrative boundary of the city of Lviv (OSM relation 2032280).
 function lvivHexes() {
-  const origin = latLngToCell(LVIV_LAT, LVIV_LNG, H3_RES);
+  const origin = coordsToH3(LVIV_LAT, LVIV_LNG);
   const cells = polygonToCells(cityBoundary.coordinates, H3_RES, true);
   const maxSteps = Math.max(...cells.map((id) => gridDistance(origin, id)));
 
@@ -63,7 +58,7 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
     const source = map.getSource("h3-selected") as mapboxgl.GeoJSONSource | undefined;
     if (!source) return;
 
-    const hexId = latLngToCell(lat, lng, H3_RES);
+    const hexId = coordsToH3(lat, lng);
     console.log("H3 Hexagon ID:", hexId);
 
     source.setData({
@@ -107,7 +102,7 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
     map.on("click", (e) => {
-      const hexId = latLngToCell(e.lngLat.lat, e.lngLat.lng, H3_RES);
+      const hexId = coordsToH3(e.lngLat.lat, e.lngLat.lng);
       console.log(hexId);
       selectHex(e.lngLat.lat, e.lngLat.lng);
     });
