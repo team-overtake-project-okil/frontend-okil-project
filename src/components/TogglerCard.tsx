@@ -77,6 +77,17 @@ export const TogglerCard = ({
   const disabled = !locked && !on;
   const label = levelLabel(value);
 
+  const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    const THUMB = 12; // size-3
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(
+      1,
+      Math.max(0, (e.clientX - rect.left - THUMB / 2) / (rect.width - THUMB)),
+    );
+    onValueChange(Math.round(ratio * 5) * 20);
+  };
+
   return (
     <div className="flex flex-col gap-3 px-4 py-3.5">
       <div
@@ -104,17 +115,19 @@ export const TogglerCard = ({
         data-slider
         className="flex items-center justify-between gap-6 pr-2 pl-7"
       >
-        <Slider
-          className="min-w-0 flex-1"
-          value={value}
-          onValueChange={(next) => {
-            onValueChange(Array.isArray(next) ? next[0] : next);
-          }}
-          max={100}
-          step={20}
-          min={0}
-          disabled={disabled}
-        />
+        <div className="min-w-0 flex-1" onPointerDown={handleTrackPointerDown}>
+          <Slider
+            className="w-full"
+            value={value}
+            onValueChange={(next) => {
+              onValueChange(Array.isArray(next) ? next[0] : next);
+            }}
+            max={100}
+            step={20}
+            min={0}
+            disabled={disabled}
+          />
+        </div>
 
         <div
           className={cn(
