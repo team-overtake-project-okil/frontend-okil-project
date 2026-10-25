@@ -5,6 +5,19 @@ import SearchIcon from "../icons/search";
 import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetcher } from "../lib/fetcher";
+
+export type Hexagon = {
+  h3_id: string;
+  health: number;
+  study: number;
+  daily: number;
+  mobility: number;
+  sport: number;
+  enjoyment: number;
+  security: number;
+};
 
 const MOCK_DB = [
   { address: "вул. залізнична 7п", lat: 49.845475, lng: 23.996944 },
@@ -43,6 +56,15 @@ const segmentedTrigger = cn(
   "before:absolute before:top-1/2 before:-left-px before:h-4 before:w-px before:-translate-y-1/2 before:bg-[#3C3C43]/30 first:before:hidden data-active:before:hidden [[data-active]+&]:before:hidden",
 );
 export const Map = () => {
+  const {
+    data: hexagons = [],
+    // isLoading,
+    // isError,
+  } = useQuery({
+    queryKey: ["hexagons"],
+    queryFn: () => fetcher("/hexagons") as Promise<Hexagon[]>,
+  });
+
   const [togglers, setTogglers] = useState(defaultTogglers);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
 
@@ -293,6 +315,7 @@ export const Map = () => {
 
           <div data-map className="w-full min-w-0">
             <MapboxMap
+              hexagons={hexagons}
               searchedLocation={searchedLocation}
               onHexSelect={setSelectedHexId}
             />
@@ -325,8 +348,8 @@ export const Map = () => {
             <CharacCard title="Здоров'я" value={85} />
             <CharacCard title="Освіта" value={67} />
             <CharacCard title="Дозвілля" value={39} />
-            <CharacCard title="Укриття" value={60} />
-            <CharacCard title="Тиша" value={19} />
+            <CharacCard title="Спорт" value={36} />
+            <CharacCard title="Безпека" value={60} />
           </div>
         </div>
       </div>

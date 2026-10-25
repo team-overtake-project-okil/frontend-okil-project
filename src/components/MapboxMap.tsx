@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import {
-  cellToBoundary,
-  gridDistance,
-  latLngToCell,
-  polygonToCells,
-} from "h3-js";
+import { cellToBoundary, latLngToCell, polygonToCells } from "h3-js";
 import cityBoundary from "../data/lviv-city.json";
+import type { Hexagon } from "./map";
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -16,20 +12,37 @@ const LVIV_LNG = 24.0316;
 const H3_RES = 9;
 
 // Administrative boundary of the city of Lviv (OSM relation 2032280).
-function lvivHexes() {
-  const origin = latLngToCell(LVIV_LAT, LVIV_LNG, H3_RES);
-  const cells = polygonToCells(cityBoundary.coordinates, H3_RES, true);
-  const maxSteps = Math.max(...cells.map((id) => gridDistance(origin, id)));
+const lvivCellIds = polygonToCells(cityBoundary.coordinates, H3_RES, true);
+
+function overallScore(hex: Hexagon) {
+  const values = [
+    hex.health,
+    hex.study,
+    hex.daily,
+    hex.mobility,
+    hex.sport,
+    hex.enjoyment,
+    hex.security,
+  ];
+  return Math.round(
+    values.reduce((sum, value) => sum + value, 0) / values.length,
+  );
+}
+
+function lvivHexes(hexagons: Hexagon[]) {
+  const scoreById = new Map(
+    hexagons.map((hex) => [hex.h3_id, overallScore(hex)] as const),
+  );
+  const ids = new Set<string>(lvivCellIds);
+  for (const hex of hexagons) ids.add(hex.h3_id);
 
   return {
     type: "FeatureCollection" as const,
-    features: cells.map((id) => {
-      const steps = gridDistance(origin, id);
-      const score =
-        maxSteps === 0 ? 100 : Math.round(100 * (1 - steps / maxSteps));
+    features: [...ids].map((id) => {
+      const score = scoreById.get(id);
       return {
         type: "Feature" as const,
-        properties: { id, score },
+        properties: score === undefined ? { id } : { id, score },
         geometry: {
           type: "Polygon" as const,
           coordinates: [cellToBoundary(id, true)],
@@ -40,11 +53,16 @@ function lvivHexes() {
 }
 
 interface MapboxMapProps {
+  hexagons: Hexagon[];
   searchedLocation?: { lat: number; lng: number } | null;
   onHexSelect?: (hexId: string) => void;
 }
 
-export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
+export function MapboxMap({
+  hexagons,
+  searchedLocation,
+  onHexSelect,
+}: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
@@ -60,7 +78,8 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
     const map = mapRef.current;
     if (!map) return;
 
-    const source = map.getSource("h3-selected") as mapboxgl.GeoJSONSource | undefined;
+    const source = map.getSource("h3-selected") as
+      mapboxgl.GeoJSONSource | undefined;
     if (!source) return;
 
     const hexId = latLngToCell(lat, lng, H3_RES);
@@ -94,11 +113,9 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
     map.on("load", () => {
-      const hexes = lvivHexes();
-
       map.addSource("h3-hexes", {
         type: "geojson",
-        data: hexes,
+        data: lvivHexes(hexagons),
       });
 
       const bounds = new mapboxgl.LngLatBounds();
@@ -113,18 +130,23 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
         source: "h3-hexes",
         paint: {
           "fill-color": [
-            "interpolate",
-            ["linear"],
-            ["get", "score"],
-            0,
-            "#FF3B30",
-            50,
-            "#FFCC00",
-            100,
-            "#34C759",
+            "case",
+            ["has", "score"],
+            [
+              "interpolate",
+              ["linear"],
+              ["get", "score"],
+              0,
+              "#FF3B30",
+              50,
+              "#FFCC00",
+              100,
+              "#34C759",
+            ],
+            "#D1D1D6",
           ],
-          //побавитись з опасіті
-          "fill-opacity": 0.5,
+          //є score - опасіті 0.5, немає - 0.28
+          "fill-opacity": ["case", ["has", "score"], 0.5, 0.28],
         },
       });
 
@@ -165,7 +187,6 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
           "line-width": 3,
         },
       });
-
     });
 
     return () => {
@@ -175,6 +196,20 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
       mapRef.current = null;
     };
   }, [selectHex]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const apply = () => {
+      const source = map.getSource("h3-hexes") as
+        mapboxgl.GeoJSONSource | undefined;
+      source?.setData(lvivHexes(hexagons));
+    };
+
+    if (map.getSource("h3-hexes")) apply();
+    else map.once("load", apply);
+  }, [hexagons]);
 
   useEffect(() => {
     const map = mapRef.current;
