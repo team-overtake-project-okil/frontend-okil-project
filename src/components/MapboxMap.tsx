@@ -91,7 +91,26 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
 
     mapRef.current = map;
 
+    const canvas = map.getCanvas();
+    canvas.style.cursor = "default";
+
+    const onMouseDown = () => {
+      canvas.style.cursor = "move";
+    };
+    const onMouseUp = () => {
+      canvas.style.cursor = "default";
+    };
+
+    map.on("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp);
+
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    map.on("click", (e) => {
+      const hexId = latLngToCell(e.lngLat.lat, e.lngLat.lng, H3_RES);
+      console.log(hexId);
+      selectHex(e.lngLat.lat, e.lngLat.lng);
+    });
 
     map.on("load", () => {
       const hexes = lvivHexes();
@@ -169,6 +188,7 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
     });
 
     return () => {
+      window.removeEventListener("mouseup", onMouseUp);
       markerRef.current?.remove();
       markerRef.current = null;
       map.remove();

@@ -4,7 +4,9 @@ import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import SearchIcon from "../icons/search";
 import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import ClearInput from "../icons/clear-input";
+
 
 const MOCK_DB = [
   { address: "вул. залізнична 7п", lat: 49.845475, lng: 23.996944 },
@@ -12,8 +14,8 @@ const MOCK_DB = [
   { address: "пл. ринок 1", lat: 49.84161, lng: 24.03133 },
 ];
 
-const togglerIds = ["01", "02", "03", "04", "05", "06", "07"] as const;
-const lockedTogglerIds = new Set<string>(["06"]);
+const togglerIds = ["01", "02", "03", "04", "05", "06", "07", "08"] as const;
+const lockedTogglerIds = new Set<string>(["08"]);
 
 type TogglerState = { value: number; on: boolean };
 const DEFAULT_TOGGLER: TogglerState = { value: 0, on: true };
@@ -27,13 +29,14 @@ const mapTabs = [
   { value: "health", label: "Здоров'я" },
   { value: "education", label: "Освіта" },
   { value: "leisure", label: "Дозвілля" },
+  { value: "sport", label: "Спорт" },
+  { value: "food", label: "Їжа" },
   { value: "shelter", label: "Укриття" },
-  { value: "silence", label: "Тиша" },
 ];
 
 // iOS-style segmented control (Figma: h 35.5, gap 1, padding 2, radius 11, fill #767680 @ 12%)
 const segmentedList =
-  "h-[35.5px] scrollbar-none snap-x snap-mandatory scroll-pl-0.5 justify-start gap-px overflow-x-auto overflow-y-hidden rounded-[11px] bg-[#767680]/12 p-0.5 group-data-horizontal/tabs:h-[35.5px] [&::-webkit-scrollbar]:hidden";
+  "h-[35.5px] scrollbar-none overscroll-x-contain scroll-pl-0.5 justify-start gap-px overflow-x-auto overflow-y-hidden rounded-[11px] bg-[#767680]/12 p-0.5 group-data-horizontal/tabs:h-[35.5px] [&::-webkit-scrollbar]:hidden";
 
 const segmentedTrigger = cn(
   // after:hidden drops the base underline indicator that overflows the list by 2px on Y
@@ -70,10 +73,36 @@ export const Map = () => {
     }
   };
 
+  const tabsWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const list =
+      tabsWrapRef.current?.querySelector<HTMLElement>('[role="tablist"]');
+    if (!list) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (list.scrollWidth <= list.clientWidth) return;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+
+      e.preventDefault();
+      list.scrollLeft += e.deltaY;
+    };
+
+    list.addEventListener("wheel", onWheel, { passive: false });
+    return () => list.removeEventListener("wheel", onWheel);
+  }, []);
+
   const handleSelectSuggestion = (item: (typeof MOCK_DB)[0]) => {
     setSearchValue(item.address);
     setSearchedLocation({ lat: item.lat, lng: item.lng });
     setIsDropdownOpen(false);
+  };
+
+  const handleClear = () => {
+    setSearchValue("");
+    setSuggestions([]);
+    setIsDropdownOpen(false);
+    setSearchedLocation(null);
   };
 
   const handleSearch = () => {
@@ -95,6 +124,10 @@ export const Map = () => {
     onValueChange: (value: number) => updateToggler(id, { value }),
     onOnChange: (on: boolean) => updateToggler(id, { on }),
   });
+
+  const handleApply = () => {
+    //Передати ваги на бек
+  };
 
   const handleReset = () =>
     setTogglers((prev) =>
@@ -189,30 +222,44 @@ export const Map = () => {
 
             <TogglerCard
               {...togglerProps("05")}
-              title="Дозвілля, спорт, їжа"
-              description="Парки, ТРЦ, спортзали, заклади"
+              title="Дозвілля"
+              description="Парки, ТРЦ, кінотеатри"
             />
 
             <hr />
 
             <TogglerCard
               {...togglerProps("06")}
-              title="Безпека і стійкість"
-              description="Обов’язкова категорія"
+              title="Спорт"
+              description="Спортзали, стадіони, басейни"
             />
 
             <hr />
 
             <TogglerCard
               {...togglerProps("07")}
-              title="Навантаження"
-              description="Шум, трафік, повітря (інвертовано)"
+              title="Їжа"
+              description="Кафе, ресторани, заклади харчування"
+            />
+
+            <hr />
+
+            <TogglerCard
+              {...togglerProps("08")}
+              title="Безпека і стійкість"
+              description="Обов’язкова категорія"
             />
           </div>
+          <button
+            onClick={handleApply}
+            className="mt-4 w-full rounded-[14px] bg-[#007AFF] py-3 text-[15px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
+          >
+            Застосувати
+          </button>
         </div>
 
         <div data-map-and-search className="flex flex-col">
-          <div data-tabs className="w-full max-w-137">
+          <div data-tabs ref={tabsWrapRef} className="w-full max-w-137">
             <Tabs
               defaultValue="overall"
               className="w-full flex-none items-start gap-0 self-stretch pb-3 data-horizontal:flex-row"
@@ -248,10 +295,10 @@ export const Map = () => {
                 className="w-fit flex-none items-start gap-0 data-horizontal:flex-row"
               >
                 <TabsList className={cn(segmentedList, "w-fit")}>
-                  <TabsTrigger className={segmentedTrigger} value="off">
+                  <TabsTrigger className={segmentedTrigger} value="on">
                     вимк
                   </TabsTrigger>
-                  <TabsTrigger className={segmentedTrigger} value="on">
+                  <TabsTrigger className={segmentedTrigger} value="off">
                     увімк
                   </TabsTrigger>
                 </TabsList>
@@ -273,6 +320,16 @@ export const Map = () => {
                   onChange={handleInputChange}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 />
+                {searchValue && (
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    aria-label="Очистити"
+                    className="shrink-0 text-[#8E8E93] transition-opacity hover:opacity-70"
+                  >
+                    <ClearInput className="size-4" />
+                  </button>
+                )}
               </div>
 
               {isDropdownOpen && suggestions.length > 0 && (
