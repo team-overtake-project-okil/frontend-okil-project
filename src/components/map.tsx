@@ -12,8 +12,8 @@ const MOCK_DB = [
   { address: "пл. ринок 1", lat: 49.84161, lng: 24.03133 },
 ];
 
-const togglerIds = ["01", "02", "03", "04", "05", "06", "07"] as const;
-const lockedTogglerIds = new Set<string>(["06"]);
+const togglerIds = ["01", "02", "03", "04", "05", "06", "07", "08"] as const;
+const lockedTogglerIds = new Set<string>(["08"]);
 
 type TogglerState = { value: number; on: boolean };
 const DEFAULT_TOGGLER: TogglerState = { value: 0, on: true };
@@ -95,6 +95,10 @@ export const Map = () => {
     onValueChange: (value: number) => updateToggler(id, { value }),
     onOnChange: (on: boolean) => updateToggler(id, { on }),
   });
+
+  const handleApply = () => {
+    //Передати ваги на бек
+  };
 
   const handleReset = () =>
     setTogglers((prev) =>
@@ -189,26 +193,40 @@ export const Map = () => {
 
             <TogglerCard
               {...togglerProps("05")}
-              title="Дозвілля, спорт, їжа"
-              description="Парки, ТРЦ, спортзали, заклади"
+              title="Дозвілля"
+              description="Парки, ТРЦ, кінотеатри"
             />
 
             <hr />
 
             <TogglerCard
               {...togglerProps("06")}
-              title="Безпека і стійкість"
-              description="Обов’язкова категорія"
+              title="Спорт"
+              description="Спортзали, стадіони, басейни"
             />
 
             <hr />
 
             <TogglerCard
               {...togglerProps("07")}
-              title="Навантаження"
-              description="Шум, трафік, повітря (інвертовано)"
+              title="Їжа"
+              description="Кафе, ресторани, заклади харчування"
+            />
+
+            <hr />
+
+            <TogglerCard
+              {...togglerProps("08")}
+              title="Безпека і стійкість"
+              description="Обов’язкова категорія"
             />
           </div>
+          <button
+            onClick={handleApply}
+            className="mt-4 w-full rounded-[14px] bg-[#007AFF] py-3 text-[15px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
+          >
+            Застосувати
+          </button>
         </div>
 
         <div data-map-and-search className="flex flex-col">
