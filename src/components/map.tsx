@@ -3,13 +3,14 @@ import { TogglerCard } from "./TogglerCard";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
+import { Skeleton } from "./ui/skeleton";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetcher } from "../lib/fetcher";
 import { AddressSearch } from "./AddressSearch";
 import type { AddressSuggestion } from "../services/geocoding";
 
-type HexagonAssessment = {
+export type Hexagon = {
   h3_id: string;
   health: number;
   study: number;
@@ -17,8 +18,20 @@ type HexagonAssessment = {
   mobility: number;
   sport: number;
   enjoyment: number;
+  food: number;
   security: number;
+};
+
+//треба передивитись це взагалі повністю
+type HexagonAssessment = {
   overall_rating: number;
+  health: number;
+  study: number;
+  daily: number;
+  mobility: number;
+  sport: number;
+  enjoyment: number;
+  security: number;
 };
 
 const togglerIds = ["01", "02", "03", "04", "05", "06", "07", "08"] as const;
@@ -69,13 +82,30 @@ const segmentedTrigger = cn(
   // divider between inactive segments (hidden on the first, the active one, and the one after active)
   "before:absolute before:top-1/2 before:-left-px before:h-4 before:w-px before:-translate-y-1/2 before:bg-[#3C3C43]/30 first:before:hidden data-active:before:hidden [[data-active]+&]:before:hidden",
 );
+
 interface MapProps {
   clearSelectionKey: number;
   searchedLocation: AddressSuggestion | null;
   onAddressChange: (address: AddressSuggestion | null) => void;
 }
 
-export const Map = ({ searchedLocation, onAddressChange, clearSelectionKey }: MapProps) => {
+export const Map = ({
+  searchedLocation,
+  onAddressChange,
+  clearSelectionKey,
+}: MapProps) => {
+  const {
+    data: hexagonsData = [],
+    isLoading: isHexagonsLoading,
+    isError: isHexagonsError,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["hexagons"],
+    queryFn: () => fetcher("/hexagons") as Promise<Hexagon[]>,
+  });
+
+  const showSkeleton = isHexagonsLoading || (isHexagonsError && isFetching);
   const [togglers, setTogglers] = useState(defaultTogglers);
   const [appliedTogglers, setAppliedTogglers] = useState(defaultTogglers);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
@@ -338,11 +368,32 @@ export const Map = ({ searchedLocation, onAddressChange, clearSelectionKey }: Ma
           />
 
           <div data-map className="w-full min-w-0">
-            <MapboxMap
-              clearSelectionKey={clearSelectionKey}
-              searchedLocation={searchedLocation}
-              onHexSelect={setSelectedHexId}
-            />
+            {showSkeleton ? (
+              <Skeleton className="h-125 w-full rounded-2xl bg-[#767680]/12" />
+            ) : isHexagonsError ? (
+              <div className="flex h-125 w-full flex-col items-center justify-center gap-2 rounded-2xl bg-[#767680]/12 px-6 text-center">
+                <div className="text-sm font-medium">
+                  Не вдалося завантажити карту
+                </div>
+                <div className="text-[13px] text-[#8E8E93]">
+                  Перевірте з'єднання і спробуйте ще раз.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  className="mt-1 text-[15px] text-[#007AFF] transition-opacity hover:opacity-70"
+                >
+                  Спробувати знову
+                </button>
+              </div>
+            ) : (
+              <MapboxMap
+                hexagons={hexagonsData}
+                clearSelectionKey={clearSelectionKey}
+                searchedLocation={searchedLocation}
+                onHexSelect={setSelectedHexId}
+              />
+            )}
           </div>
         </div>
 
