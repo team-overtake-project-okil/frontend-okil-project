@@ -3,18 +3,48 @@ import { TogglerCard } from "./TogglerCard";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetcher } from "../lib/fetcher";
 import { AddressSearch } from "./AddressSearch";
 import type { AddressSuggestion } from "../services/geocoding";
 
+type HexagonAssessment = {
+  h3_id: string;
+  health: number;
+  study: number;
+  daily: number;
+  mobility: number;
+  sport: number;
+  enjoyment: number;
+  security: number;
+  overall_rating: number;
+};
 
 const togglerIds = ["01", "02", "03", "04", "05", "06", "07", "08"] as const;
 const lockedTogglerIds = new Set<string>(["08"]);
 
 type TogglerState = { value: number; on: boolean };
+type TogglerStates = Record<string, TogglerState>;
 const DEFAULT_TOGGLER: TogglerState = { value: 0, on: true };
-const defaultTogglers = (): Record<string, TogglerState> =>
+const defaultTogglers = (): TogglerStates =>
   Object.fromEntries(togglerIds.map((id) => [id, DEFAULT_TOGGLER]));
+
+function buildAssessmentWeights(togglers: TogglerStates) {
+  const weight = (id: string) =>
+    togglers[id].on ? togglers[id].value / 20 : 0;
+
+  return {
+    weight_health: weight("03"),
+    weight_study: weight("04"),
+    weight_daily: weight("02"),
+    weight_mobility: weight("01"),
+    weight_sport: weight("06"),
+    // Food is a temporary standalone control; fold it into enjoyment for now.
+    weight_enjoyment: Math.max(weight("05"), weight("07")),
+    weight_security: weight("08"),
+  };
+}
 
 const mapTabs = [
   { value: "overall", label: "Загальний" },
@@ -46,8 +76,33 @@ interface MapProps {
 
 export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
   const [togglers, setTogglers] = useState(defaultTogglers);
+  const [appliedTogglers, setAppliedTogglers] = useState(defaultTogglers);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
+  const assessmentWeights = useMemo(
+    () => buildAssessmentWeights(appliedTogglers),
+    [appliedTogglers],
+  );
+  const assessment = useQuery({
+    queryKey: ["hexagon-assessment", selectedHexId, assessmentWeights],
+    enabled: selectedHexId !== null,
+    queryFn: () => {
+      if (selectedHexId === null) {
+        throw new Error(
+          "A hexagon must be selected to request its assessment.",
+        );
+      }
 
+      const params = new URLSearchParams(
+        Object.entries(assessmentWeights).map(([key, value]) => [
+          key,
+          String(value),
+        ]),
+      );
+      return fetcher(
+        `/hexagons/${encodeURIComponent(selectedHexId)}?${params.toString()}`,
+      ) as Promise<HexagonAssessment>;
+    },
+  });
 
   const tabsWrapRef = useRef<HTMLDivElement>(null);
 
@@ -82,7 +137,21 @@ export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
   });
 
   const handleApply = () => {
-    //Передати ваги на бек
+    const nextAppliedTogglers = { ...togglers };
+    const nextWeights = buildAssessmentWeights(nextAppliedTogglers);
+    const weightsUnchanged =
+      nextWeights.weight_health === assessmentWeights.weight_health &&
+      nextWeights.weight_study === assessmentWeights.weight_study &&
+      nextWeights.weight_daily === assessmentWeights.weight_daily &&
+      nextWeights.weight_mobility === assessmentWeights.weight_mobility &&
+      nextWeights.weight_sport === assessmentWeights.weight_sport &&
+      nextWeights.weight_enjoyment === assessmentWeights.weight_enjoyment &&
+      nextWeights.weight_security === assessmentWeights.weight_security;
+
+    setAppliedTogglers(nextAppliedTogglers);
+    if (selectedHexId && weightsUnchanged) {
+      void assessment.refetch();
+    }
   };
 
   const handleReset = () =>
@@ -262,7 +331,10 @@ export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
             </div>
           </div>
 
-          <AddressSearch selectedAddress={searchedLocation} onLocationChange={onAddressChange} />
+          <AddressSearch
+            selectedAddress={searchedLocation}
+            onLocationChange={onAddressChange}
+          />
 
           <div data-map className="w-full min-w-0">
             <MapboxMap
@@ -278,29 +350,63 @@ export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
           </div>
 
           <div data-rate-number className="flex items-baseline-last gap-4">
-            <div className="text-7xl font-bold">73</div>
+            <div className="text-7xl font-bold">
+              {assessment.data?.overall_rating ?? "—"}
+            </div>
 
             <div className="flex flex-col">
-              <div className="text-sm font-medium">Добре</div>
+              <div className="text-sm font-medium">
+                {assessment.data ? "Оцінка" : "загальна"}
+              </div>
 
               <div className="text-xs text-[#8E8E93]">з 100</div>
             </div>
           </div>
 
-          <div className="pt-2 text-xs font-light text-[#8E8E93]">
-            Вулиця проходить через 17 гекс. Номер 54: показано <br /> гексагон
-            найближчої зупинки з відповідним номером.
-          </div>
+          {assessment.isFetching && selectedHexId && (
+            <p className="pt-2 text-xs text-[#8E8E93]" role="status">
+              Завантаження оцінки…
+            </p>
+          )}
 
-          <div data-characteristics-list className="pt-4">
-            <CharacCard title="Мобільність" value={100} />
-            <CharacCard title="Побут" value={73} />
-            <CharacCard title="Здоров'я" value={85} />
-            <CharacCard title="Освіта" value={67} />
-            <CharacCard title="Дозвілля" value={39} />
-            <CharacCard title="Укриття" value={60} />
-            <CharacCard title="Тиша" value={19} />
-          </div>
+          {assessment.isError && (
+            <div className="pt-2 text-xs text-red-600" role="alert">
+              <p>
+                Не вдалося завантажити оцінку гексагона:{" "}
+                {assessment.error instanceof Error
+                  ? assessment.error.message
+                  : "невідома помилка"}
+              </p>
+              <button
+                type="button"
+                className="mt-1 underline"
+                onClick={() => void assessment.refetch()}
+              >
+                Спробувати ще раз
+              </button>
+            </div>
+          )}
+
+          {!selectedHexId && (
+            <p className="pt-2 text-xs font-light text-[#8E8E93]">
+              Оберіть гексагон на карті, щоб побачити його оцінку.
+            </p>
+          )}
+
+          {assessment.data && (
+            <div data-characteristics-list className="pt-4">
+              <CharacCard
+                title="Мобільність"
+                value={assessment.data.mobility}
+              />
+              <CharacCard title="Побут" value={assessment.data.daily} />
+              <CharacCard title="Здоров'я" value={assessment.data.health} />
+              <CharacCard title="Освіта" value={assessment.data.study} />
+              <CharacCard title="Дозвілля" value={assessment.data.enjoyment} />
+              <CharacCard title="Спорт" value={assessment.data.sport} />
+              <CharacCard title="Безпека" value={assessment.data.security} />
+            </div>
+          )}
         </div>
       </div>
     </div>
