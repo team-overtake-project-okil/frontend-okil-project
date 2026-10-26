@@ -5,23 +5,22 @@ import {
   cellToBoundary,
   cellToLatLng,
   gridDistance,
-  latLngToCell,
   polygonToCells,
 } from "h3-js";
 import cityBoundary from "../data/lviv-city.json";
+import { H3_RES, coordsToH3 } from "../lib/h3";
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN;
 
 const LVIV_LAT = 49.8429;
 const LVIV_LNG = 24.0316;
-const H3_RES = 9;
 const SELECTION_ZOOM = 13.5;
 const SCORE_COLOR: mapboxgl.ExpressionSpecification = [
   "interpolate", ["linear"], ["get", "score"],
   0, "#FF3B30", 50, "#FFCC00", 100, "#34C759",
 ];
 // Align a vertex of the central H3 cell with the vertical screen axis.
-const referenceHex = latLngToCell(LVIV_LAT, LVIV_LNG, H3_RES);
+const referenceHex = coordsToH3(LVIV_LAT, LVIV_LNG);
 const [referenceLat, referenceLng] = cellToLatLng(referenceHex);
 const [vertexLat, vertexLng] = cellToBoundary(referenceHex).reduce(
   (northmost, vertex) => vertex[0] > northmost[0] ? vertex : northmost,
@@ -47,7 +46,7 @@ const navigationBounds: [[number, number], [number, number]] = [
 
 // Administrative boundary of the city of Lviv (OSM relation 2032280).
 function lvivHexes() {
-  const origin = latLngToCell(LVIV_LAT, LVIV_LNG, H3_RES);
+  const origin = coordsToH3(LVIV_LAT, LVIV_LNG);
   const cells = polygonToCells(cityBoundary.coordinates, H3_RES, true);
   const maxSteps = Math.max(...cells.map((id) => gridDistance(origin, id)));
 
@@ -91,10 +90,11 @@ export function MapboxMap({ searchedLocation, onHexSelect, clearSelectionKey }: 
     const map = mapRef.current;
     if (!map) return;
 
-    const source = map.getSource("h3-selected") as mapboxgl.GeoJSONSource | undefined;
+    const source = map.getSource("h3-selected") as
+      mapboxgl.GeoJSONSource | undefined;
     if (!source) return;
 
-    const hexId = latLngToCell(lat, lng, H3_RES);
+    const hexId = coordsToH3(lat, lng);
     // Only cells present in the city layer can be selected.
     if (!hexScoresRef.current.has(hexId)) return;
 
@@ -225,7 +225,6 @@ export function MapboxMap({ searchedLocation, onHexSelect, clearSelectionKey }: 
           "line-opacity": 0.85,
         },
       });
-
     });
 
     return () => {
