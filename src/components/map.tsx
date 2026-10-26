@@ -1,18 +1,12 @@
 import { cn } from "cn";
 import { TogglerCard } from "./TogglerCard";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
-import SearchIcon from "../icons/search";
 import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
 import { useEffect, useRef, useState } from "react";
-import ClearInput from "../icons/clear-input";
+import { AddressSearch } from "./AddressSearch";
+import type { AddressSuggestion } from "../services/geocoding";
 
-
-const MOCK_DB = [
-  { address: "вул. залізнична 7п", lat: 49.845475, lng: 23.996944 },
-  { address: "вул. степана бандери 12", lat: 49.835472, lng: 24.014389 },
-  { address: "пл. ринок 1", lat: 49.84161, lng: 24.03133 },
-];
 
 const togglerIds = ["01", "02", "03", "04", "05", "06", "07", "08"] as const;
 const lockedTogglerIds = new Set<string>(["08"]);
@@ -45,33 +39,15 @@ const segmentedTrigger = cn(
   // divider between inactive segments (hidden on the first, the active one, and the one after active)
   "before:absolute before:top-1/2 before:-left-px before:h-4 before:w-px before:-translate-y-1/2 before:bg-[#3C3C43]/30 first:before:hidden data-active:before:hidden [[data-active]+&]:before:hidden",
 );
-export const Map = () => {
+interface MapProps {
+  searchedLocation: AddressSuggestion | null;
+  onAddressChange: (address: AddressSuggestion | null) => void;
+}
+
+export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
   const [togglers, setTogglers] = useState(defaultTogglers);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
 
-  const [searchValue, setSearchValue] = useState("");
-  const [searchedLocation, setSearchedLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const [suggestions, setSuggestions] = useState<typeof MOCK_DB>([]);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchValue(value);
-
-    if (value.trim().length >= 2) {
-      const filtered = MOCK_DB.filter((item) =>
-        item.address.includes(value.toLowerCase()),
-      );
-      setSuggestions(filtered);
-      setIsDropdownOpen(true);
-    } else {
-      setSuggestions([]);
-      setIsDropdownOpen(false);
-    }
-  };
 
   const tabsWrapRef = useRef<HTMLDivElement>(null);
 
@@ -91,26 +67,6 @@ export const Map = () => {
     list.addEventListener("wheel", onWheel, { passive: false });
     return () => list.removeEventListener("wheel", onWheel);
   }, []);
-
-  const handleSelectSuggestion = (item: (typeof MOCK_DB)[0]) => {
-    setSearchValue(item.address);
-    setSearchedLocation({ lat: item.lat, lng: item.lng });
-    setIsDropdownOpen(false);
-  };
-
-  const handleClear = () => {
-    setSearchValue("");
-    setSuggestions([]);
-    setIsDropdownOpen(false);
-    setSearchedLocation(null);
-  };
-
-  const handleSearch = () => {
-    const searchStr = searchValue.trim().toLowerCase();
-    const found = MOCK_DB.find((item) => item.address === searchStr);
-    if (found) setSearchedLocation({ lat: found.lat, lng: found.lng });
-    else alert("Не знайдено! Спробуй ввести: вул. залізнична 7п");
-  };
 
   const updateToggler = (id: string, patch: Partial<TogglerState>) =>
     setTogglers((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -306,47 +262,7 @@ export const Map = () => {
             </div>
           </div>
 
-          <div data-search-small className="flex flex-col gap-2 pb-3">
-            <div className="text-[13px] text-[#8E8E93]">Пошук за адресою</div>
-
-            <div className="relative w-80">
-              <div className="flex w-full items-center gap-2 rounded-xl bg-[#767680]/12 px-3 py-2">
-                <SearchIcon className="size-4 text-zinc-500" />
-                <input
-                  type="text"
-                  placeholder="Наприклад: вул. Залізнична 7П"
-                  className="w-full bg-transparent text-sm text-black outline-none placeholder:text-[#8E8E93]"
-                  value={searchValue}
-                  onChange={handleInputChange}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                />
-                {searchValue && (
-                  <button
-                    type="button"
-                    onClick={handleClear}
-                    aria-label="Очистити"
-                    className="shrink-0 text-[#8E8E93] transition-opacity hover:opacity-70"
-                  >
-                    <ClearInput className="size-4" />
-                  </button>
-                )}
-              </div>
-
-              {isDropdownOpen && suggestions.length > 0 && (
-                <ul className="absolute top-full left-0 z-50 mt-1 w-full overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
-                  {suggestions.map((item, index) => (
-                    <li
-                      key={index}
-                      onClick={() => handleSelectSuggestion(item)}
-                      className="cursor-pointer border-b border-gray-50 px-4 py-2.5 text-sm transition-colors last:border-0 hover:bg-gray-50 hover:text-blue-600"
-                    >
-                      {item.address}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+          <AddressSearch selectedAddress={searchedLocation} onLocationChange={onAddressChange} />
 
           <div data-map className="w-full min-w-0">
             <MapboxMap
