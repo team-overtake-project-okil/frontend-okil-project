@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { cellToBoundary, latLngToCell, gridDistance, polygonToCells } from "h3-js";
+import { cellToBoundary, polygonToCells, cellToLatLng } from "h3-js";
 import cityBoundary from "../data/lviv-city.json";
 import type { Hexagon } from "./map";
 import { H3_RES, coordsToH3 } from "../lib/h3";
@@ -11,22 +11,39 @@ const token = import.meta.env.VITE_MAPBOX_TOKEN;
 const LVIV_LAT = 49.8429;
 const LVIV_LNG = 24.0316;
 const SELECTION_ZOOM = 13.5;
-const SCORE_COLOR: mapboxgl.ExpressionSpecification = [
-  "interpolate", ["linear"], ["get", "score"],
-  0, "#FF3B30", 50, "#FFCC00", 100, "#34C759",
-];
+// const SCORE_COLOR: mapboxgl.ExpressionSpecification = [
+//   "interpolate",
+//   ["linear"],
+//   ["get", "score"],
+//   0,
+//   "#FF3B30",
+//   50,
+//   "#FFCC00",
+//   100,
+//   "#34C759",
+// ];
+
 // Align a vertex of the central H3 cell with the vertical screen axis.
 const referenceHex = coordsToH3(LVIV_LAT, LVIV_LNG);
 const [referenceLat, referenceLng] = cellToLatLng(referenceHex);
 const [vertexLat, vertexLng] = cellToBoundary(referenceHex).reduce(
-  (northmost, vertex) => vertex[0] > northmost[0] ? vertex : northmost,
+  (northmost, vertex) => (vertex[0] > northmost[0] ? vertex : northmost),
 );
-const referencePoint = mapboxgl.MercatorCoordinate.fromLngLat([referenceLng, referenceLat]);
-const vertexPoint = mapboxgl.MercatorCoordinate.fromLngLat([vertexLng, vertexLat]);
-const GRID_BEARING = Math.atan2(
-  vertexPoint.x - referencePoint.x,
-  referencePoint.y - vertexPoint.y,
-) * 180 / Math.PI;
+const referencePoint = mapboxgl.MercatorCoordinate.fromLngLat([
+  referenceLng,
+  referenceLat,
+]);
+const vertexPoint = mapboxgl.MercatorCoordinate.fromLngLat([
+  vertexLng,
+  vertexLat,
+]);
+const GRID_BEARING =
+  (Math.atan2(
+    vertexPoint.x - referencePoint.x,
+    referencePoint.y - vertexPoint.y,
+  ) *
+    180) /
+  Math.PI;
 
 const cityBounds = new mapboxgl.LngLatBounds();
 for (const [lng, lat] of cityBoundary.coordinates[0]) {
@@ -34,10 +51,16 @@ for (const [lng, lat] of cityBoundary.coordinates[0]) {
 }
 // Convert the 5 km margin to degrees at Lviv's latitude.
 const latitudeMargin = 5 / 111.32;
-const longitudeMargin = latitudeMargin / Math.cos(LVIV_LAT * Math.PI / 180);
+const longitudeMargin = latitudeMargin / Math.cos((LVIV_LAT * Math.PI) / 180);
 const navigationBounds: [[number, number], [number, number]] = [
-  [cityBounds.getWest() - longitudeMargin, cityBounds.getSouth() - latitudeMargin],
-  [cityBounds.getEast() + longitudeMargin, cityBounds.getNorth() + latitudeMargin],
+  [
+    cityBounds.getWest() - longitudeMargin,
+    cityBounds.getSouth() - latitudeMargin,
+  ],
+  [
+    cityBounds.getEast() + longitudeMargin,
+    cityBounds.getNorth() + latitudeMargin,
+  ],
 ];
 
 // Administrative boundary of the city of Lviv (OSM relation 2032280).
@@ -89,11 +112,16 @@ interface MapboxMapProps {
   clearSelectionKey?: number;
 }
 
-export function MapboxMap({ hexagons, searchedLocation, onHexSelect, clearSelectionKey }: MapboxMapProps) {
+export function MapboxMap({
+  hexagons,
+  searchedLocation,
+  onHexSelect,
+  clearSelectionKey,
+}: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const onHexSelectRef = useRef(onHexSelect);
-  const hexScoresRef = useRef(new Map<string, number>());
+  const hexScoresRef = useRef(new Map<string, number | undefined>());
 
   // Keep the latest callback without recreating the Mapbox map.
   useEffect(() => {
@@ -172,19 +200,35 @@ export function MapboxMap({ hexagons, searchedLocation, onHexSelect, clearSelect
     map.on("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
 
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+    map.addControl(
+      new mapboxgl.NavigationControl({ showCompass: false }),
+      "top-right",
+    );
 
     map.on("click", (e) => {
       selectHex(e.lngLat.lat, e.lngLat.lng);
     });
 
     map.on("load", () => {
+      const hexes = lvivHexes(hexagons);
+      hexScoresRef.current = new Map(
+        hexes.features.map((feature) => [
+          feature.properties.id,
+          "score" in feature.properties ? feature.properties.score : undefined,
+        ]),
+      );
+
       map.addSource("h3-hexes", {
         type: "geojson",
-        data: lvivHexes(hexagons),
+        data: hexes,
       });
 
-      map.fitBounds(cityBounds, { padding: 24, duration: 0, retainPadding: false, bearing: GRID_BEARING });
+      map.fitBounds(cityBounds, {
+        padding: 24,
+        duration: 0,
+        retainPadding: false,
+        bearing: GRID_BEARING,
+      });
 
       map.addLayer({
         id: "h3-hexes-fill",
@@ -292,7 +336,8 @@ export function MapboxMap({ hexagons, searchedLocation, onHexSelect, clearSelect
       if (searchedLocation) {
         selectHex(searchedLocation.lat, searchedLocation.lng);
       } else {
-        const source = map.getSource("h3-selected") as mapboxgl.GeoJSONSource | undefined;
+        const source = map.getSource("h3-selected") as
+          mapboxgl.GeoJSONSource | undefined;
         source?.setData({ type: "FeatureCollection", features: [] });
         // Stop an unfinished selection flight without moving the camera.
         map.stop();
