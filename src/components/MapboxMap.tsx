@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
@@ -9,6 +9,7 @@ import {
 } from "h3-js";
 import cityBoundary from "../data/lviv-city.json";
 import { H3_RES, coordsToH3 } from "../lib/h3";
+import { useRoutesByHex } from "../lib/useRoutesByHex";
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -79,10 +80,18 @@ export function MapboxMap({ searchedLocation, onHexSelect, clearSelectionKey }: 
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const onHexSelectRef = useRef(onHexSelect);
   const hexScoresRef = useRef(new Map<string, number>());
+  const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
+  const routesQuery = useRoutesByHex(selectedHexId);
+  const routes = routesQuery.data;
 
   // Keep the latest callback without recreating the Mapbox map.
+  // It also remembers the selected hexagon (null when the selection is cleared)
+  // so that the routes of this hexagon can be loaded.
   useEffect(() => {
-    onHexSelectRef.current = onHexSelect;
+    onHexSelectRef.current = (hexId) => {
+      setSelectedHexId(hexId);
+      onHexSelect?.(hexId);
+    };
   }, [onHexSelect]);
 
   // Use the same selection and camera behavior for addresses and map clicks.
@@ -225,14 +234,67 @@ export function MapboxMap({ searchedLocation, onHexSelect, clearSelectionKey }: 
           "line-opacity": 0.85,
         },
       });
-    });
 
+
+      // Routes of the selected hexagon. The source starts empty and is filled
+      // after the backend request finishes.
+      map.addSource("routes", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+
+      // White casing under the line keeps routes readable on top of the hexagons.
+      map.addLayer({
+        id: "routes-casing",
+        type: "line",
+        source: "routes",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "#FFFFFF",
+          "line-opacity": 0.85,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 16, 8],
+        },
+      });
+
+      map.addLayer({
+        id: "routes-line",
+        type: "line",
+        source: "routes",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "#5B21B6",
+          "line-opacity": 0.9,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 16, 4],
+        },
+      });
+    });
     return () => {
       window.removeEventListener("mouseup", onMouseUp);
       map.remove();
       mapRef.current = null;
     };
   }, [selectHex]);
+
+  // Push the routes of the selected hexagon into the map (empty when nothing is selected).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const data = routes ?? { type: "FeatureCollection" as const, features: [] };
+    const apply = () => {
+      const source = map.getSource("routes") as mapboxgl.GeoJSONSource | undefined;
+      source?.setData(data);
+    };
+
+    if (map.getSource("routes")) {
+      apply();
+    } else {
+      map.once("load", apply);
+      return () => {
+        map.off("load", apply);
+      };
+    }
+  }, [routes]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -265,10 +327,40 @@ export function MapboxMap({ searchedLocation, onHexSelect, clearSelectionKey }: 
     return <p>Mapbox token is missing.</p>;
   }
 
+  const routesCount = routes?.features.length ?? 0;
+  const routesStatus = !selectedHexId
+    ? null
+    : routesQuery.isFetching
+      ? "Loading routes…"
+      : routesQuery.isError
+        ? "Couldn't load routes"
+        : routesCount === 0
+          ? "No routes with a stop in this hexagon"
+          : `Routes in this hexagon: ${routesCount}`;
+
   return (
-    <div
-      ref={mapContainer}
-      className="h-125 w-full overflow-hidden rounded-2xl"
-    />
+    <div className="relative h-125 w-full">
+      <div
+        ref={mapContainer}
+        className="h-full w-full overflow-hidden rounded-2xl"
+      />
+      {routesStatus && (
+        <div
+          role="status"
+          className="absolute left-3 top-3 flex items-center gap-3 rounded-lg bg-white/90 px-3 py-2 text-sm shadow"
+        >
+          <span>{routesStatus}</span>
+          {routesQuery.isError && !routesQuery.isFetching && (
+            <button
+              type="button"
+              className="rounded border px-2 py-0.5"
+              onClick={() => routesQuery.refetch()}
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
