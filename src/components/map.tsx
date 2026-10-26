@@ -70,11 +70,12 @@ const segmentedTrigger = cn(
   "before:absolute before:top-1/2 before:-left-px before:h-4 before:w-px before:-translate-y-1/2 before:bg-[#3C3C43]/30 first:before:hidden data-active:before:hidden [[data-active]+&]:before:hidden",
 );
 interface MapProps {
+  clearSelectionKey: number;
   searchedLocation: AddressSuggestion | null;
   onAddressChange: (address: AddressSuggestion | null) => void;
 }
 
-export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
+export const Map = ({ searchedLocation, onAddressChange, clearSelectionKey }: MapProps) => {
   const [togglers, setTogglers] = useState(defaultTogglers);
   const [appliedTogglers, setAppliedTogglers] = useState(defaultTogglers);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
@@ -338,6 +339,7 @@ export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
 
           <div data-map className="w-full min-w-0">
             <MapboxMap
+              clearSelectionKey={clearSelectionKey}
               searchedLocation={searchedLocation}
               onHexSelect={setSelectedHexId}
             />
