@@ -1,13 +1,14 @@
 import { cn } from "cn";
 import { TogglerCard } from "./TogglerCard";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
-import SearchIcon from "../icons/search";
 import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
 import { Skeleton } from "./ui/skeleton";
-import { useState } from "react";
+import { seEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetcher } from "../lib/fetcher";
+import { AddressSearch } from "./AddressSearch";
+import type { AddressSuggestion } from "../services/geocoding";
 
 export type Hexagon = {
   h3_id: string;
@@ -21,19 +22,30 @@ export type Hexagon = {
   security: number;
 };
 
-const MOCK_DB = [
-  { address: "вул. залізнична 7п", lat: 49.845475, lng: 23.996944 },
-  { address: "вул. степана бандери 12", lat: 49.835472, lng: 24.014389 },
-  { address: "пл. ринок 1", lat: 49.84161, lng: 24.03133 },
-];
-
-const togglerIds = ["01", "02", "03", "04", "05", "06", "07"] as const;
-const lockedTogglerIds = new Set<string>(["06"]);
+const togglerIds = ["01", "02", "03", "04", "05", "06", "07", "08"] as const;
+const lockedTogglerIds = new Set<string>(["08"]);
 
 type TogglerState = { value: number; on: boolean };
+type TogglerStates = Record<string, TogglerState>;
 const DEFAULT_TOGGLER: TogglerState = { value: 0, on: true };
-const defaultTogglers = (): Record<string, TogglerState> =>
+const defaultTogglers = (): TogglerStates =>
   Object.fromEntries(togglerIds.map((id) => [id, DEFAULT_TOGGLER]));
+
+function buildAssessmentWeights(togglers: TogglerStates) {
+  const weight = (id: string) =>
+    togglers[id].on ? togglers[id].value / 20 : 0;
+
+  return {
+    weight_health: weight("03"),
+    weight_study: weight("04"),
+    weight_daily: weight("02"),
+    weight_mobility: weight("01"),
+    weight_sport: weight("06"),
+    // Food is a temporary standalone control; fold it into enjoyment for now.
+    weight_enjoyment: Math.max(weight("05"), weight("07")),
+    weight_security: weight("08"),
+  };
+}
 
 const mapTabs = [
   { value: "overall", label: "Загальний" },
@@ -42,13 +54,14 @@ const mapTabs = [
   { value: "health", label: "Здоров'я" },
   { value: "education", label: "Освіта" },
   { value: "leisure", label: "Дозвілля" },
+  { value: "sport", label: "Спорт" },
+  { value: "food", label: "Їжа" },
   { value: "shelter", label: "Укриття" },
-  { value: "silence", label: "Тиша" },
 ];
 
 // iOS-style segmented control (Figma: h 35.5, gap 1, padding 2, radius 11, fill #767680 @ 12%)
 const segmentedList =
-  "h-[35.5px] scrollbar-none snap-x snap-mandatory scroll-pl-0.5 justify-start gap-px overflow-x-auto overflow-y-hidden rounded-[11px] bg-[#767680]/12 p-0.5 group-data-horizontal/tabs:h-[35.5px] [&::-webkit-scrollbar]:hidden";
+  "h-[35.5px] scrollbar-none overscroll-x-contain scroll-pl-0.5 justify-start gap-px overflow-x-auto overflow-y-hidden rounded-[11px] bg-[#767680]/12 p-0.5 group-data-horizontal/tabs:h-[35.5px] [&::-webkit-scrollbar]:hidden";
 
 const segmentedTrigger = cn(
   // after:hidden drops the base underline indicator that overflows the list by 2px on Y
@@ -57,7 +70,14 @@ const segmentedTrigger = cn(
   // divider between inactive segments (hidden on the first, the active one, and the one after active)
   "before:absolute before:top-1/2 before:-left-px before:h-4 before:w-px before:-translate-y-1/2 before:bg-[#3C3C43]/30 first:before:hidden data-active:before:hidden [[data-active]+&]:before:hidden",
 );
-export const Map = () => {
+    
+interface MapProps {
+  clearSelectionKey: number;
+  searchedLocation: AddressSuggestion | null;
+  onAddressChange: (address: AddressSuggestion | null) => void;
+}
+
+export const Map = ({ searchedLocation, onAddressChange, clearSelectionKey }: MapProps) => {
   const {
     data: hexagonsData = [],
     isLoading: isHexagonsLoading,
@@ -68,48 +88,55 @@ export const Map = () => {
     queryKey: ["hexagons"],
     queryFn: () => fetcher("/hexagons") as Promise<Hexagon[]>,
   });
-
+  
   const showSkeleton = isHexagonsLoading || (isHexagonsError && isFetching);
-
   const [togglers, setTogglers] = useState(defaultTogglers);
+  const [appliedTogglers, setAppliedTogglers] = useState(defaultTogglers);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
+  const assessmentWeights = useMemo(
+    () => buildAssessmentWeights(appliedTogglers),
+    [appliedTogglers],
+  );
+  const assessment = useQuery({
+    queryKey: ["hexagon-assessment", selectedHexId, assessmentWeights],
+    enabled: selectedHexId !== null,
+    queryFn: () => {
+      if (selectedHexId === null) {
+        throw new Error(
+          "A hexagon must be selected to request its assessment.",
+        );
+      }
 
-  const [searchValue, setSearchValue] = useState("");
-  const [searchedLocation, setSearchedLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const [suggestions, setSuggestions] = useState<typeof MOCK_DB>([]);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchValue(value);
-
-    if (value.trim().length >= 2) {
-      const filtered = MOCK_DB.filter((item) =>
-        item.address.includes(value.toLowerCase()),
+      const params = new URLSearchParams(
+        Object.entries(assessmentWeights).map(([key, value]) => [
+          key,
+          String(value),
+        ]),
       );
-      setSuggestions(filtered);
-      setIsDropdownOpen(true);
-    } else {
-      setSuggestions([]);
-      setIsDropdownOpen(false);
-    }
-  };
+      return fetcher(
+        `/hexagons/${encodeURIComponent(selectedHexId)}?${params.toString()}`,
+      ) as Promise<HexagonAssessment>;
+    },
+  });
 
-  const handleSelectSuggestion = (item: (typeof MOCK_DB)[0]) => {
-    setSearchValue(item.address);
-    setSearchedLocation({ lat: item.lat, lng: item.lng });
-    setIsDropdownOpen(false);
-  };
+  const tabsWrapRef = useRef<HTMLDivElement>(null);
 
-  const handleSearch = () => {
-    const searchStr = searchValue.trim().toLowerCase();
-    const found = MOCK_DB.find((item) => item.address === searchStr);
-    if (found) setSearchedLocation({ lat: found.lat, lng: found.lng });
-    else alert("Не знайдено! Спробуй ввести: вул. залізнична 7п");
-  };
+  useEffect(() => {
+    const list =
+      tabsWrapRef.current?.querySelector<HTMLElement>('[role="tablist"]');
+    if (!list) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (list.scrollWidth <= list.clientWidth) return;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+
+      e.preventDefault();
+      list.scrollLeft += e.deltaY;
+    };
+
+    list.addEventListener("wheel", onWheel, { passive: false });
+    return () => list.removeEventListener("wheel", onWheel);
+  }, []);
 
   const updateToggler = (id: string, patch: Partial<TogglerState>) =>
     setTogglers((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -123,6 +150,24 @@ export const Map = () => {
     onValueChange: (value: number) => updateToggler(id, { value }),
     onOnChange: (on: boolean) => updateToggler(id, { on }),
   });
+
+  const handleApply = () => {
+    const nextAppliedTogglers = { ...togglers };
+    const nextWeights = buildAssessmentWeights(nextAppliedTogglers);
+    const weightsUnchanged =
+      nextWeights.weight_health === assessmentWeights.weight_health &&
+      nextWeights.weight_study === assessmentWeights.weight_study &&
+      nextWeights.weight_daily === assessmentWeights.weight_daily &&
+      nextWeights.weight_mobility === assessmentWeights.weight_mobility &&
+      nextWeights.weight_sport === assessmentWeights.weight_sport &&
+      nextWeights.weight_enjoyment === assessmentWeights.weight_enjoyment &&
+      nextWeights.weight_security === assessmentWeights.weight_security;
+
+    setAppliedTogglers(nextAppliedTogglers);
+    if (selectedHexId && weightsUnchanged) {
+      void assessment.refetch();
+    }
+  };
 
   const handleReset = () =>
     setTogglers((prev) =>
@@ -217,30 +262,44 @@ export const Map = () => {
 
             <TogglerCard
               {...togglerProps("05")}
-              title="Дозвілля, спорт, їжа"
-              description="Парки, ТРЦ, спортзали, заклади"
+              title="Дозвілля"
+              description="Парки, ТРЦ, кінотеатри"
             />
 
             <hr />
 
             <TogglerCard
               {...togglerProps("06")}
-              title="Безпека і стійкість"
-              description="Обов’язкова категорія"
+              title="Спорт"
+              description="Спортзали, стадіони, басейни"
             />
 
             <hr />
 
             <TogglerCard
               {...togglerProps("07")}
-              title="Навантаження"
-              description="Шум, трафік, повітря (інвертовано)"
+              title="Їжа"
+              description="Кафе, ресторани, заклади харчування"
+            />
+
+            <hr />
+
+            <TogglerCard
+              {...togglerProps("08")}
+              title="Безпека і стійкість"
+              description="Обов’язкова категорія"
             />
           </div>
+          <button
+            onClick={handleApply}
+            className="mt-4 w-full rounded-[14px] bg-[#007AFF] py-3 text-[15px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
+          >
+            Застосувати
+          </button>
         </div>
 
         <div data-map-and-search className="flex flex-col">
-          <div data-tabs className="w-full max-w-137">
+          <div data-tabs ref={tabsWrapRef} className="w-full max-w-137">
             <Tabs
               defaultValue="overall"
               className="w-full flex-none items-start gap-0 self-stretch pb-3 data-horizontal:flex-row"
@@ -276,10 +335,10 @@ export const Map = () => {
                 className="w-fit flex-none items-start gap-0 data-horizontal:flex-row"
               >
                 <TabsList className={cn(segmentedList, "w-fit")}>
-                  <TabsTrigger className={segmentedTrigger} value="off">
+                  <TabsTrigger className={segmentedTrigger} value="on">
                     вимк
                   </TabsTrigger>
-                  <TabsTrigger className={segmentedTrigger} value="on">
+                  <TabsTrigger className={segmentedTrigger} value="off">
                     увімк
                   </TabsTrigger>
                 </TabsList>
@@ -287,64 +346,38 @@ export const Map = () => {
             </div>
           </div>
 
-          <div data-search-small className="flex flex-col gap-2 pb-3">
-            <div className="text-[13px] text-[#8E8E93]">Пошук за адресою</div>
-
-            <div className="relative w-80">
-              <div className="flex w-full items-center gap-2 rounded-xl bg-[#767680]/12 px-3 py-2">
-                <SearchIcon className="size-4 text-zinc-500" />
-                <input
-                  type="text"
-                  placeholder="Наприклад: вул. Залізнична 7П"
-                  className="w-full bg-transparent text-sm text-black outline-none placeholder:text-[#8E8E93]"
-                  value={searchValue}
-                  onChange={handleInputChange}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                />
-              </div>
-
-              {isDropdownOpen && suggestions.length > 0 && (
-                <ul className="absolute top-full left-0 z-50 mt-1 w-full overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
-                  {suggestions.map((item, index) => (
-                    <li
-                      key={index}
-                      onClick={() => handleSelectSuggestion(item)}
-                      className="cursor-pointer border-b border-gray-50 px-4 py-2.5 text-sm transition-colors last:border-0 hover:bg-gray-50 hover:text-blue-600"
-                    >
-                      {item.address}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+          <AddressSearch
+            selectedAddress={searchedLocation}
+            onLocationChange={onAddressChange}
+          />
 
           <div data-map className="w-full min-w-0">
             {showSkeleton ? (
-              <Skeleton className="h-125 w-full rounded-2xl bg-[#767680]/12" />
-            ) : isHexagonsError ? (
-              <div className="flex h-125 w-full flex-col items-center justify-center gap-2 rounded-2xl bg-[#767680]/12 px-6 text-center">
-                <div className="text-sm font-medium">
-                  Не вдалося завантажити карту
-                </div>
-                <div className="text-[13px] text-[#8E8E93]">
-                  Перевірте з’єднання і спробуйте ще раз.
-                </div>
-                <button
-                  type="button"
-                  onClick={() => refetch()}
-                  className="mt-1 text-[15px] text-[#007AFF] transition-opacity hover:opacity-70"
-                >
-                  Спробувати знову
-                </button>
+            <Skeleton className="h-125 w-full rounded-2xl bg-[#767680]/12" />
+          ) : isHexagonsError ? (
+            <div className="flex h-125 w-full flex-col items-center justify-center gap-2 rounded-2xl bg-[#767680]/12 px-6 text-center">
+              <div className="text-sm font-medium">
+                Не вдалося завантажити карту
               </div>
-            ) : (
-              <MapboxMap
-                hexagons={hexagonsData}
-                searchedLocation={searchedLocation}
-                onHexSelect={setSelectedHexId}
-              />
-            )}
+              <div className="text-[13px] text-[#8E8E93]">
+                Перевірте з'єднання і спробуйте ще раз.
+              </div>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="mt-1 text-[15px] text-[#007AFF] transition-opacity hover:opacity-70"
+              >
+                Спробувати знову
+              </button>
+            </div>
+          ) : (
+            <MapboxMap
+              hexagons={hexagonsData}
+              clearSelectionKey={clearSelectionKey}
+              searchedLocation={searchedLocation}
+              onHexSelect={setSelectedHexId}
+            />
+          )}
           </div>
         </div>
 
@@ -354,29 +387,63 @@ export const Map = () => {
           </div>
 
           <div data-rate-number className="flex items-baseline-last gap-4">
-            <div className="text-7xl font-bold">73</div>
+            <div className="text-7xl font-bold">
+              {assessment.data?.overall_rating ?? "—"}
+            </div>
 
             <div className="flex flex-col">
-              <div className="text-sm font-medium">Добре</div>
+              <div className="text-sm font-medium">
+                {assessment.data ? "Оцінка" : "загальна"}
+              </div>
 
               <div className="text-xs text-[#8E8E93]">з 100</div>
             </div>
           </div>
 
-          <div className="pt-2 text-xs font-light text-[#8E8E93]">
-            Вулиця проходить через 17 гекс. Номер 54: показано <br /> гексагон
-            найближчої зупинки з відповідним номером.
-          </div>
+          {assessment.isFetching && selectedHexId && (
+            <p className="pt-2 text-xs text-[#8E8E93]" role="status">
+              Завантаження оцінки…
+            </p>
+          )}
 
-          <div data-characteristics-list className="pt-4">
-            <CharacCard title="Мобільність" value={100} />
-            <CharacCard title="Побут" value={73} />
-            <CharacCard title="Здоров'я" value={85} />
-            <CharacCard title="Освіта" value={67} />
-            <CharacCard title="Дозвілля" value={39} />
-            <CharacCard title="Спорт" value={36} />
-            <CharacCard title="Безпека" value={60} />
-          </div>
+          {assessment.isError && (
+            <div className="pt-2 text-xs text-red-600" role="alert">
+              <p>
+                Не вдалося завантажити оцінку гексагона:{" "}
+                {assessment.error instanceof Error
+                  ? assessment.error.message
+                  : "невідома помилка"}
+              </p>
+              <button
+                type="button"
+                className="mt-1 underline"
+                onClick={() => void assessment.refetch()}
+              >
+                Спробувати ще раз
+              </button>
+            </div>
+          )}
+
+          {!selectedHexId && (
+            <p className="pt-2 text-xs font-light text-[#8E8E93]">
+              Оберіть гексагон на карті, щоб побачити його оцінку.
+            </p>
+          )}
+
+          {assessment.data && (
+            <div data-characteristics-list className="pt-4">
+              <CharacCard
+                title="Мобільність"
+                value={assessment.data.mobility}
+              />
+              <CharacCard title="Побут" value={assessment.data.daily} />
+              <CharacCard title="Здоров'я" value={assessment.data.health} />
+              <CharacCard title="Освіта" value={assessment.data.study} />
+              <CharacCard title="Дозвілля" value={assessment.data.enjoyment} />
+              <CharacCard title="Спорт" value={assessment.data.sport} />
+              <CharacCard title="Безпека" value={assessment.data.security} />
+            </div>
+          )}
         </div>
       </div>
     </div>
