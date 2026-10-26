@@ -5,7 +5,6 @@ import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import ClearInput from "../icons/clear-input";
 import { fetcher } from "../lib/fetcher";
 import { AddressSearch } from "./AddressSearch";
 import type { AddressSuggestion } from "../services/geocoding";
@@ -84,15 +83,13 @@ export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
     [appliedTogglers],
   );
   const assessment = useQuery({
-    queryKey: [
-      "hexagon-assessment",
-      selectedHexId,
-      assessmentWeights,
-    ],
+    queryKey: ["hexagon-assessment", selectedHexId, assessmentWeights],
     enabled: selectedHexId !== null,
     queryFn: () => {
       if (selectedHexId === null) {
-        throw new Error("A hexagon must be selected to request its assessment.");
+        throw new Error(
+          "A hexagon must be selected to request its assessment.",
+        );
       }
 
       const params = new URLSearchParams(
@@ -106,7 +103,6 @@ export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
       ) as Promise<HexagonAssessment>;
     },
   });
-
 
   const tabsWrapRef = useRef<HTMLDivElement>(null);
 
@@ -335,7 +331,10 @@ export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
             </div>
           </div>
 
-          <AddressSearch selectedAddress={searchedLocation} onLocationChange={onAddressChange} />
+          <AddressSearch
+            selectedAddress={searchedLocation}
+            onLocationChange={onAddressChange}
+          />
 
           <div data-map className="w-full min-w-0">
             <MapboxMap
@@ -396,7 +395,10 @@ export const Map = ({ searchedLocation, onAddressChange }: MapProps) => {
 
           {assessment.data && (
             <div data-characteristics-list className="pt-4">
-              <CharacCard title="Мобільність" value={assessment.data.mobility} />
+              <CharacCard
+                title="Мобільність"
+                value={assessment.data.mobility}
+              />
               <CharacCard title="Побут" value={assessment.data.daily} />
               <CharacCard title="Здоров'я" value={assessment.data.health} />
               <CharacCard title="Освіта" value={assessment.data.study} />
