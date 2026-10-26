@@ -3,6 +3,8 @@
 // import reactLogo from "./assets/react.svg";
 // import viteLogo from "./assets/vite.svg";
 import "./App.css";
+import { useState } from "react";
+import type { AddressSuggestion } from "./services/geocoding";
 
 import { Hero } from "./components/hero";
 import { Info } from "./components/info";
@@ -12,15 +14,16 @@ import { Header } from "./components/header";
 import { useRoutes } from "./lib/routes";
 
 function App() {
+  const [selectedAddress, setSelectedAddress] = useState<AddressSuggestion | null>(null);
   useRoutes();
   return (
     <>
       <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
         <Header />
         <div className="mx-auto flex w-full max-w-7xl flex-col">
-          <Hero />
+          <Hero selectedAddress={selectedAddress} onAddressChange={setSelectedAddress} />
           <Info />
-          <Map />
+          <Map searchedLocation={selectedAddress} onAddressChange={setSelectedAddress} />
         </div>
 
         <hr className="w-full" />
