@@ -87,7 +87,6 @@ function lvivHexes(hexagons: Hexagon[]) {
     hexagons.map((hex) => [hex.h3_id, overallScore(hex)] as const),
   );
   const ids = new Set<string>(lvivCellIds);
-  for (const hex of hexagons) ids.add(hex.h3_id);
 
   return {
     type: "FeatureCollection" as const,
@@ -322,15 +321,7 @@ export function MapboxMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !searchedLocation) return;
-
-    const { lng, lat } = searchedLocation;
-
-    map.flyTo({
-      center: [lng, lat],
-      zoom: 15,
-      essential: true,
-    });
+    if (!map) return;
 
     const applySelection = () => {
       if (searchedLocation) {
