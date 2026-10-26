@@ -60,7 +60,8 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
     const map = mapRef.current;
     if (!map) return;
 
-    const source = map.getSource("h3-selected") as mapboxgl.GeoJSONSource | undefined;
+    const source = map.getSource("h3-selected") as
+      mapboxgl.GeoJSONSource | undefined;
     if (!source) return;
 
     const hexId = latLngToCell(lat, lng, H3_RES);
@@ -108,6 +109,11 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
 
     map.on("click", (e) => {
       const hexId = latLngToCell(e.lngLat.lat, e.lngLat.lng, H3_RES);
+      map.flyTo({
+        center: [e.lngLat.lng, e.lngLat.lat],
+        zoom: 13,
+        essential: true,
+      });
       console.log(hexId);
       selectHex(e.lngLat.lat, e.lngLat.lng);
     });
@@ -184,7 +190,6 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
           "line-width": 3,
         },
       });
-
     });
 
     return () => {
