@@ -22,6 +22,7 @@ function overallScore(hex: Hexagon) {
     hex.mobility,
     hex.sport,
     hex.enjoyment,
+    hex.food,
     hex.security,
   ];
   return Math.round(

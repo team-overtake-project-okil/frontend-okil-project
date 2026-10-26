@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import SearchIcon from "../icons/search";
 import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
+import { Skeleton } from "./ui/skeleton";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetcher } from "../lib/fetcher";
@@ -16,6 +17,7 @@ export type Hexagon = {
   mobility: number;
   sport: number;
   enjoyment: number;
+  food: number;
   security: number;
 };
 
@@ -57,13 +59,17 @@ const segmentedTrigger = cn(
 );
 export const Map = () => {
   const {
-    data: hexagons = [],
-    // isLoading,
-    // isError,
+    data: hexagonsData = [],
+    isLoading: isHexagonsLoading,
+    isError: isHexagonsError,
+    isFetching,
+    refetch,
   } = useQuery({
     queryKey: ["hexagons"],
     queryFn: () => fetcher("/hexagons") as Promise<Hexagon[]>,
   });
+
+  const showSkeleton = isHexagonsLoading || (isHexagonsError && isFetching);
 
   const [togglers, setTogglers] = useState(defaultTogglers);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
@@ -314,11 +320,31 @@ export const Map = () => {
           </div>
 
           <div data-map className="w-full min-w-0">
-            <MapboxMap
-              hexagons={hexagons}
-              searchedLocation={searchedLocation}
-              onHexSelect={setSelectedHexId}
-            />
+            {showSkeleton ? (
+              <Skeleton className="h-125 w-full rounded-2xl bg-[#767680]/12" />
+            ) : isHexagonsError ? (
+              <div className="flex h-125 w-full flex-col items-center justify-center gap-2 rounded-2xl bg-[#767680]/12 px-6 text-center">
+                <div className="text-sm font-medium">
+                  Не вдалося завантажити карту
+                </div>
+                <div className="text-[13px] text-[#8E8E93]">
+                  Перевірте з’єднання і спробуйте ще раз.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  className="mt-1 text-[15px] text-[#007AFF] transition-opacity hover:opacity-70"
+                >
+                  Спробувати знову
+                </button>
+              </div>
+            ) : (
+              <MapboxMap
+                hexagons={hexagonsData}
+                searchedLocation={searchedLocation}
+                onHexSelect={setSelectedHexId}
+              />
+            )}
           </div>
         </div>
 
