@@ -3,6 +3,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
   cellToBoundary,
+  cellToLatLng,
   gridDistance,
   latLngToCell,
   polygonToCells,
@@ -14,6 +15,35 @@ const token = import.meta.env.VITE_MAPBOX_TOKEN;
 const LVIV_LAT = 49.8429;
 const LVIV_LNG = 24.0316;
 const H3_RES = 9;
+const SELECTION_ZOOM = 13.5;
+const SCORE_COLOR: mapboxgl.ExpressionSpecification = [
+  "interpolate", ["linear"], ["get", "score"],
+  0, "#FF3B30", 50, "#FFCC00", 100, "#34C759",
+];
+// Align a vertex of the central H3 cell with the vertical screen axis.
+const referenceHex = latLngToCell(LVIV_LAT, LVIV_LNG, H3_RES);
+const [referenceLat, referenceLng] = cellToLatLng(referenceHex);
+const [vertexLat, vertexLng] = cellToBoundary(referenceHex).reduce(
+  (northmost, vertex) => vertex[0] > northmost[0] ? vertex : northmost,
+);
+const referencePoint = mapboxgl.MercatorCoordinate.fromLngLat([referenceLng, referenceLat]);
+const vertexPoint = mapboxgl.MercatorCoordinate.fromLngLat([vertexLng, vertexLat]);
+const GRID_BEARING = Math.atan2(
+  vertexPoint.x - referencePoint.x,
+  referencePoint.y - vertexPoint.y,
+) * 180 / Math.PI;
+
+const cityBounds = new mapboxgl.LngLatBounds();
+for (const [lng, lat] of cityBoundary.coordinates[0]) {
+  cityBounds.extend([lng, lat]);
+}
+// Convert the 5 km margin to degrees at Lviv's latitude.
+const latitudeMargin = 5 / 111.32;
+const longitudeMargin = latitudeMargin / Math.cos(LVIV_LAT * Math.PI / 180);
+const navigationBounds: [[number, number], [number, number]] = [
+  [cityBounds.getWest() - longitudeMargin, cityBounds.getSouth() - latitudeMargin],
+  [cityBounds.getEast() + longitudeMargin, cityBounds.getNorth() + latitudeMargin],
+];
 
 // Administrative boundary of the city of Lviv (OSM relation 2032280).
 function lvivHexes() {
@@ -41,21 +71,22 @@ function lvivHexes() {
 
 interface MapboxMapProps {
   searchedLocation?: { lat: number; lng: number } | null;
-  onHexSelect?: (hexId: string) => void;
+  onHexSelect?: (hexId: string | null) => void;
+  clearSelectionKey?: number;
 }
 
-export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
+export function MapboxMap({ searchedLocation, onHexSelect, clearSelectionKey }: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markerRef = useRef<mapboxgl.Marker | null>(null);
   const onHexSelectRef = useRef(onHexSelect);
+  const hexScoresRef = useRef(new Map<string, number>());
 
   // Keep the latest callback without recreating the Mapbox map.
   useEffect(() => {
     onHexSelectRef.current = onHexSelect;
   }, [onHexSelect]);
 
-  // Select the H3 cell corresponding to the searched address.
+  // Use the same selection and camera behavior for addresses and map clicks.
   const selectHex = useCallback((lat: number, lng: number) => {
     const map = mapRef.current;
     if (!map) return;
@@ -64,17 +95,27 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
     if (!source) return;
 
     const hexId = latLngToCell(lat, lng, H3_RES);
-    console.log("H3 Hexagon ID:", hexId);
+    // Only cells present in the city layer can be selected.
+    if (!hexScoresRef.current.has(hexId)) return;
+
+    const [centerLat, centerLng] = cellToLatLng(hexId);
+    const score = hexScoresRef.current.get(hexId);
 
     source.setData({
       type: "Feature",
-      properties: { id: hexId },
+      properties: { id: hexId, ...(score !== undefined ? { score } : {}) },
       geometry: {
         type: "Polygon",
         coordinates: [cellToBoundary(hexId, true)],
       },
     });
 
+    map.flyTo({
+      center: [centerLng, centerLat],
+      zoom: SELECTION_ZOOM,
+      bearing: GRID_BEARING,
+      padding: { top: 0, bottom: 0, left: 0, right: 0 },
+    });
     onHexSelectRef.current?.(hexId);
   }, []);
 
@@ -85,11 +126,23 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
       container: mapContainer.current,
       accessToken: token,
       style: "mapbox://styles/mapbox/streets-v12",
+      projection: "mercator",
       center: [LVIV_LNG, LVIV_LAT],
       zoom: 12,
+      minZoom: 10,
+      maxBounds: navigationBounds,
+      bearing: GRID_BEARING,
+      // Preserve the small grid rotation when zoom gestures finish.
+      bearingSnap: 0,
+      pitch: 0,
+      maxPitch: 0,
+      dragRotate: false,
+      touchPitch: false,
     });
 
     mapRef.current = map;
+    map.touchZoomRotate.disableRotation();
+    map.keyboard.disableRotation();
 
     const canvas = map.getCanvas();
     canvas.style.cursor = "default";
@@ -104,45 +157,29 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
     map.on("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
 
-    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
 
     map.on("click", (e) => {
-      const hexId = latLngToCell(e.lngLat.lat, e.lngLat.lng, H3_RES);
-      console.log(hexId);
       selectHex(e.lngLat.lat, e.lngLat.lng);
     });
 
     map.on("load", () => {
       const hexes = lvivHexes();
+      hexScoresRef.current = new Map(hexes.features.map(({ properties }) => [properties.id, properties.score]));
 
       map.addSource("h3-hexes", {
         type: "geojson",
         data: hexes,
       });
 
-      const bounds = new mapboxgl.LngLatBounds();
-      for (const [lng, lat] of cityBoundary.coordinates[0]) {
-        bounds.extend([lng, lat]);
-      }
-      map.fitBounds(bounds, { padding: 24, duration: 0 });
+      map.fitBounds(cityBounds, { padding: 24, duration: 0, retainPadding: false, bearing: GRID_BEARING });
 
       map.addLayer({
         id: "h3-hexes-fill",
         type: "fill",
         source: "h3-hexes",
         paint: {
-          "fill-color": [
-            "interpolate",
-            ["linear"],
-            ["get", "score"],
-            0,
-            "#FF3B30",
-            50,
-            "#FFCC00",
-            100,
-            "#34C759",
-          ],
-          //побавитись з опасіті
+          "fill-color": SCORE_COLOR,
           "fill-opacity": 0.5,
         },
       });
@@ -152,26 +189,29 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
         type: "line",
         source: "h3-hexes",
         paint: {
-          "line-color": "#1C1C1E",
-          "line-width": 1,
-          "line-opacity": 0.4,
+          "line-color": "#8E8E93",
+          "line-width": 0.6,
+          "line-opacity": 0.35,
         },
       });
 
       // Separate GeoJSON source for the selected hexagon.
-      // It is independent of the mock score layer and also works outside the city boundary.
+      // Selection is restricted to cells in the city layer.
       map.addSource("h3-selected", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
 
       map.addLayer({
-        id: "h3-selected-fill",
-        type: "fill",
+        id: "h3-selected-glow",
+        type: "line",
         source: "h3-selected",
+        layout: { "line-join": "round" },
         paint: {
-          "fill-color": "#007AFF",
-          "fill-opacity": 0.3,
+          "line-color": "#007AFF",
+          "line-width": 8,
+          "line-blur": 8,
+          "line-opacity": 0.65,
         },
       });
 
@@ -181,7 +221,8 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
         source: "h3-selected",
         paint: {
           "line-color": "#007AFF",
-          "line-width": 3,
+          "line-width": 2,
+          "line-opacity": 0.85,
         },
       });
 
@@ -189,8 +230,6 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
 
     return () => {
       window.removeEventListener("mouseup", onMouseUp);
-      markerRef.current?.remove();
-      markerRef.current = null;
       map.remove();
       mapRef.current = null;
     };
@@ -198,35 +237,30 @@ export function MapboxMap({ searchedLocation, onHexSelect }: MapboxMapProps) {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !searchedLocation) return;
+    if (!map) return;
 
-    const { lng, lat } = searchedLocation;
+    const applySelection = () => {
+      if (searchedLocation) {
+        selectHex(searchedLocation.lat, searchedLocation.lng);
+      } else {
+        const source = map.getSource("h3-selected") as mapboxgl.GeoJSONSource | undefined;
+        source?.setData({ type: "FeatureCollection", features: [] });
+        // Stop an unfinished selection flight without moving the camera.
+        map.stop();
+        onHexSelectRef.current?.(null);
+      }
+    };
 
-    map.flyTo({
-      center: [lng, lat],
-      zoom: 15,
-      essential: true,
-    });
-
-    if (markerRef.current) {
-      markerRef.current.setLngLat([lng, lat]);
-    } else {
-      markerRef.current = new mapboxgl.Marker({ color: "#2563eb" })
-        .setLngLat([lng, lat])
-        .addTo(map);
-    }
-
-    // Sources are only available after the initial Mapbox style load.
     if (map.getSource("h3-selected")) {
-      selectHex(lat, lng);
+      applySelection();
     } else {
-      const onLoad = () => selectHex(lat, lng);
-      map.once("load", onLoad);
+      // Remove stale callbacks when the address changes before the style loads.
+      map.once("load", applySelection);
       return () => {
-        map.off("load", onLoad);
+        map.off("load", applySelection);
       };
     }
-  }, [searchedLocation, selectHex]);
+  }, [searchedLocation, selectHex, clearSelectionKey]);
 
   if (!token) {
     return <p>Mapbox token is missing.</p>;

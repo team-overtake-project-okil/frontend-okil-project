@@ -15,15 +15,21 @@ import { useRoutes } from "./lib/routes";
 
 function App() {
   const [selectedAddress, setSelectedAddress] = useState<AddressSuggestion | null>(null);
+  const [clearSelectionKey, setClearSelectionKey] = useState(0);
+  const handleAddressChange = (address: AddressSuggestion | null) => {
+    setSelectedAddress(address);
+    // Clearing must also work when a hexagon was selected without an address.
+    if (!address) setClearSelectionKey((key) => key + 1);
+  };
   useRoutes();
   return (
     <>
       <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
         <Header />
         <div className="mx-auto flex w-full max-w-7xl flex-col">
-          <Hero selectedAddress={selectedAddress} onAddressChange={setSelectedAddress} />
+          <Hero selectedAddress={selectedAddress} onAddressChange={handleAddressChange} />
           <Info />
-          <Map searchedLocation={selectedAddress} onAddressChange={setSelectedAddress} />
+          <Map clearSelectionKey={clearSelectionKey} searchedLocation={selectedAddress} onAddressChange={handleAddressChange} />
         </div>
 
         <hr className="w-full" />
