@@ -1,9 +1,21 @@
+import { useId } from "react";
 import heroImage from "../assets/hero_part.png";
 import ArrowRight from "../icons/arrow-right";
-import SearchIcon from "../icons/search";
+import { AddressSearch } from "./AddressSearch";
+import type { AddressSuggestion } from "../services/geocoding";
 import { scrollToSection } from "../lib/scroll";
 
-export const Hero = () => {
+interface HeroProps {
+  selectedAddress: AddressSuggestion | null;
+  onAddressChange: (address: AddressSuggestion | null) => void;
+}
+
+export const Hero = ({ selectedAddress, onAddressChange }: HeroProps) => {
+  const searchFormId = useId();
+  const handleLocationChange = (address: AddressSuggestion | null) => {
+    onAddressChange(address);
+    if (address) scrollToSection("map");
+  };
   return (
     //h-screen!!!! after adding header
     <section id="hero" className="px-6 pt-24 pb-20">
@@ -34,27 +46,22 @@ export const Hero = () => {
             </div>
 
             <div className="flex flex-row gap-4 pt-2">
-              <div className="flex h-25 w-full max-w-92.5 flex-col items-start gap-3 rounded-[22px] bg-white p-4 shadow-sm">
-                <span className="text-xs font-medium text-gray-400">
-                  Знайти за вулицею
-                </span>
-                <div className="flex w-full items-center gap-2 rounded-xl bg-gray-100 px-3 py-2">
-                  <SearchIcon className="size-4 text-zinc-500" />
-                  <input
-                    type="text"
-                    placeholder="Введіть вулицю, наприклад Залізнична 7П"
-                    className="w-full bg-transparent text-sm font-medium text-black outline-none placeholder:text-gray-500"
-                  />
-                </div>
-              </div>
+              <AddressSearch
+                variant="hero"
+                formId={searchFormId}
+                onEmptySubmit={() => scrollToSection("map")}
+                selectedAddress={selectedAddress}
+                onLocationChange={handleLocationChange}
+              />
 
               <button
-                onClick={() => scrollToSection("map")}
+                type="submit"
+                form={searchFormId}
                 className="group flex h-25 w-61.75 flex-col items-start gap-4 rounded-[22px] bg-[#007AFF] p-4 text-left text-white shadow-sm transition-colors hover:bg-blue-600"
               >
                 <span className="text-xs opacity-80">Просто цікаво</span>
                 <span className="flex w-full items-center justify-between text-base font-medium">
-                  Помнєцкати гексагони
+                  Переглянути мапу
                   <ArrowRight
                     strokeWidth={2.5}
                     className="size-4 transition-transform group-hover:translate-x-1"
