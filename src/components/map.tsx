@@ -22,6 +22,18 @@ export type Hexagon = {
   security: number;
 };
 
+//треба передивитись це взагалі повністю
+type HexagonAssessment = {
+  overall_rating: number;
+  health: number;
+  study: number;
+  daily: number;
+  mobility: number;
+  sport: number;
+  enjoyment: number;
+  security: number;
+};
+
 const togglerIds = ["01", "02", "03", "04", "05", "06", "07", "08"] as const;
 const lockedTogglerIds = new Set<string>(["08"]);
 
