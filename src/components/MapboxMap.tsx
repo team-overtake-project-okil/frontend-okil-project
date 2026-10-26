@@ -73,15 +73,18 @@ interface MapboxMapProps {
   searchedLocation?: { lat: number; lng: number } | null;
   onHexSelect?: (hexId: string | null) => void;
   clearSelectionKey?: number;
+  routesEnabled?: boolean;
 }
 
-export function MapboxMap({ searchedLocation, onHexSelect, clearSelectionKey }: MapboxMapProps) {
+
+export function MapboxMap({ searchedLocation, onHexSelect, clearSelectionKey, routesEnabled = true }: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const onHexSelectRef = useRef(onHexSelect);
   const hexScoresRef = useRef(new Map<string, number>());
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
-  const routesQuery = useRoutesByHex(selectedHexId);
+  // No hexagon is passed to the hook while routes are switched off, so no request is sent.
+  const routesQuery = useRoutesByHex(routesEnabled ? selectedHexId : null);
   const routes = routesQuery.data;
 
   // Keep the latest callback without recreating the Mapbox map.
@@ -328,7 +331,7 @@ export function MapboxMap({ searchedLocation, onHexSelect, clearSelectionKey }: 
   }
 
   const routesCount = routes?.features.length ?? 0;
-  const routesStatus = !selectedHexId
+  const routesStatus = !routesEnabled || !selectedHexId
     ? null
     : routesQuery.isFetching
       ? "Loading routes…"
