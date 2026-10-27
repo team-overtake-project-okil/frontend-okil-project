@@ -68,19 +68,7 @@ const navigationBounds: [[number, number], [number, number]] = [
 const lvivCellIds = polygonToCells(cityBoundary.coordinates, H3_RES, true);
 
 function overallScore(hex: Hexagon) {
-  const values = [
-    hex.health,
-    hex.study,
-    hex.daily,
-    hex.mobility,
-    hex.sport,
-    hex.enjoyment,
-    hex.food,
-    hex.security,
-  ];
-  return Math.round(
-    values.reduce((sum, value) => sum + value, 0) / values.length,
-  );
+  return hex.overall_rating;
 }
 
 function lvivHexes(hexagons: Hexagon[]) {
@@ -112,7 +100,6 @@ interface MapboxMapProps {
   clearSelectionKey?: number;
   routesEnabled?: boolean;
 }
-
 
 export function MapboxMap({
   hexagons,
@@ -311,7 +298,6 @@ export function MapboxMap({
         },
       });
 
-
       // Routes of the selected hexagon. The source starts empty and is filled
       // after the backend request finishes.
       map.addSource("routes", {
@@ -358,7 +344,8 @@ export function MapboxMap({
 
     const data = routes ?? { type: "FeatureCollection" as const, features: [] };
     const apply = () => {
-      const source = map.getSource("routes") as mapboxgl.GeoJSONSource | undefined;
+      const source = map.getSource("routes") as
+        mapboxgl.GeoJSONSource | undefined;
       source?.setData(data);
     };
 
@@ -419,15 +406,16 @@ export function MapboxMap({
   }
 
   const routesCount = routes?.features.length ?? 0;
-  const routesStatus = !routesEnabled || !selectedHexId
-    ? null
-    : routesQuery.isFetching
-      ? "Loading routes…"
-      : routesQuery.isError
-        ? "Couldn't load routes"
-        : routesCount === 0
-          ? "No routes with a stop in this hexagon"
-          : `Routes in this hexagon: ${routesCount}`;
+  const routesStatus =
+    !routesEnabled || !selectedHexId
+      ? null
+      : routesQuery.isFetching
+        ? "Loading routes…"
+        : routesQuery.isError
+          ? "Couldn't load routes"
+          : routesCount === 0
+            ? "No routes with a stop in this hexagon"
+            : `Routes in this hexagon: ${routesCount}`;
 
   return (
     <div className="relative h-125 w-full">
@@ -438,7 +426,7 @@ export function MapboxMap({
       {routesStatus && (
         <div
           role="status"
-          className="absolute left-3 top-3 flex items-center gap-3 rounded-lg bg-white/90 px-3 py-2 text-sm shadow"
+          className="absolute top-3 left-3 flex items-center gap-3 rounded-lg bg-white/90 px-3 py-2 text-sm shadow"
         >
           <span>{routesStatus}</span>
           {routesQuery.isError && !routesQuery.isFetching && (
