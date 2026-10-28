@@ -34,7 +34,8 @@ const lockedTogglerIds = new Set<string>(["08"]);
 
 type TogglerState = { value: number; on: boolean };
 type TogglerStates = Record<string, TogglerState>;
-const DEFAULT_TOGGLER: TogglerState = { value: 0, on: true };
+// Slider 20 is backend weight 1 (sent as value / 20).
+const DEFAULT_TOGGLER: TogglerState = { value: 20, on: true };
 const defaultTogglers = (): TogglerStates =>
   Object.fromEntries(togglerIds.map((id) => [id, DEFAULT_TOGGLER]));
 
