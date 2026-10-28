@@ -5,33 +5,28 @@ import { MapboxMap } from "./MapboxMap";
 import { CharacCard } from "./CharacCard";
 import { Skeleton } from "./ui/skeleton";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { fetcher } from "../lib/fetcher";
 import { AddressSearch } from "./AddressSearch";
 import type { AddressSuggestion } from "../services/geocoding";
 
 export type Hexagon = {
   h3_id: string;
-  health: number;
-  study: number;
-  daily: number;
-  mobility: number;
-  sport: number;
-  enjoyment: number;
-  food: number;
-  security: number;
+  overall_rating: number;
 };
 
-//треба передивитись це взагалі повністю
+type CategoryRating = {
+  category: string;
+  score: number;
+  enabled: boolean;
+  weight: number;
+  adjusted_score: number | null;
+};
+
 type HexagonAssessment = {
+  h3_id: string;
   overall_rating: number;
-  health: number;
-  study: number;
-  daily: number;
-  mobility: number;
-  sport: number;
-  enjoyment: number;
-  security: number;
+  categories: CategoryRating[];
 };
 
 const togglerIds = ["01", "02", "03", "04", "05", "06", "07", "08"] as const;
@@ -39,11 +34,23 @@ const lockedTogglerIds = new Set<string>(["08"]);
 
 type TogglerState = { value: number; on: boolean };
 type TogglerStates = Record<string, TogglerState>;
-const DEFAULT_TOGGLER: TogglerState = { value: 0, on: true };
+// Slider 20 is backend weight 1 (sent as value / 20).
+const DEFAULT_TOGGLER: TogglerState = { value: 20, on: true };
 const defaultTogglers = (): TogglerStates =>
   Object.fromEntries(togglerIds.map((id) => [id, DEFAULT_TOGGLER]));
 
-function buildAssessmentWeights(togglers: TogglerStates) {
+type AssessmentWeights = {
+  weight_health: number;
+  weight_study: number;
+  weight_daily: number;
+  weight_mobility: number;
+  weight_sport: number;
+  weight_enjoyment: number;
+  weight_food: number;
+  weight_security: number;
+};
+
+function buildAssessmentWeights(togglers: TogglerStates): AssessmentWeights {
   const weight = (id: string) =>
     togglers[id].on ? togglers[id].value / 20 : 0;
 
@@ -53,10 +60,47 @@ function buildAssessmentWeights(togglers: TogglerStates) {
     weight_daily: weight("02"),
     weight_mobility: weight("01"),
     weight_sport: weight("06"),
-    // Food is a temporary standalone control; fold it into enjoyment for now.
-    weight_enjoyment: Math.max(weight("05"), weight("07")),
+    weight_enjoyment: weight("05"),
+    weight_food: weight("07"),
     weight_security: weight("08"),
   };
+}
+
+function sameWeights(a: AssessmentWeights | null, b: AssessmentWeights | null) {
+  if (a === null || b === null) return a === b;
+  return (Object.keys(a) as (keyof AssessmentWeights)[]).every(
+    (key) => a[key] === b[key],
+  );
+}
+
+// No query string keeps the backend defaults (every weight is 1).
+function weightsSearch(weights: AssessmentWeights | null) {
+  if (weights === null) return "";
+  const query = new URLSearchParams(
+    Object.entries(weights).map(([key, value]) => [key, String(value)]),
+  ).toString();
+  return query ? `?${query}` : "";
+}
+
+const categoryLabels = [
+  ["mobility", "Мобільність"],
+  ["daily", "Побут"],
+  ["health", "Здоров'я"],
+  ["study", "Освіта"],
+  ["enjoyment", "Дозвілля"],
+  ["sport", "Спорт"],
+  ["food", "Їжа"],
+  ["security", "Безпека"],
+] as const;
+
+function categoryCards(assessment: HexagonAssessment) {
+  return categoryLabels.flatMap(([category, title]) => {
+    const item = assessment.categories.find(
+      (entry) => entry.category === category,
+    );
+    if (!item) return [];
+    return [{ title, score: item.score }];
+  });
 }
 
 const mapTabs = [
@@ -94,6 +138,17 @@ export const Map = ({
   onAddressChange,
   clearSelectionKey,
 }: MapProps) => {
+  const [togglers, setTogglers] = useState(defaultTogglers);
+  // null means the user has not applied weights yet, so the API defaults stay.
+  const [appliedTogglers, setAppliedTogglers] = useState<TogglerStates | null>(
+    null,
+  );
+  const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
+  const assessmentWeights = useMemo(
+    () =>
+      appliedTogglers === null ? null : buildAssessmentWeights(appliedTogglers),
+    [appliedTogglers],
+  );
   const {
     data: hexagonsData = [],
     isLoading: isHexagonsLoading,
@@ -101,39 +156,42 @@ export const Map = ({
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["hexagons"],
-    queryFn: () => fetcher("/hexagons") as Promise<Hexagon[]>,
+    queryKey: ["hexagons", assessmentWeights],
+    placeholderData: keepPreviousData,
+    queryFn: ({ queryKey }) => {
+      const weights = queryKey[1] as AssessmentWeights | null;
+      return fetcher(`/hexagons${weightsSearch(weights)}`) as Promise<
+        Hexagon[]
+      >;
+    },
   });
 
   const showSkeleton = isHexagonsLoading || (isHexagonsError && isFetching);
-  const [togglers, setTogglers] = useState(defaultTogglers);
-  const [appliedTogglers, setAppliedTogglers] = useState(defaultTogglers);
-  const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
-  const assessmentWeights = useMemo(
-    () => buildAssessmentWeights(appliedTogglers),
-    [appliedTogglers],
-  );
-  const assessment = useQuery({
+  const {
+    data: assessmentData,
+    isLoading: isAssessmentLoading,
+    isError: isAssessmentError,
+    isFetching: isAssessmentFetching,
+    refetch: refetchAssessment,
+  } = useQuery({
     queryKey: ["hexagon-assessment", selectedHexId, assessmentWeights],
     enabled: selectedHexId !== null,
-    queryFn: () => {
-      if (selectedHexId === null) {
+    queryFn: ({ queryKey }) => {
+      const hexId = queryKey[1] as string | null;
+      const weights = queryKey[2] as AssessmentWeights | null;
+      if (hexId === null) {
         throw new Error(
           "A hexagon must be selected to request its assessment.",
         );
       }
 
-      const params = new URLSearchParams(
-        Object.entries(assessmentWeights).map(([key, value]) => [
-          key,
-          String(value),
-        ]),
-      );
       return fetcher(
-        `/hexagons/${encodeURIComponent(selectedHexId)}?${params.toString()}`,
+        `/hexagons/${encodeURIComponent(hexId)}${weightsSearch(weights)}`,
       ) as Promise<HexagonAssessment>;
     },
   });
+  const showAssessmentSkeleton =
+    isAssessmentLoading || (isAssessmentError && isAssessmentFetching);
 
   const tabsWrapRef = useRef<HTMLDivElement>(null);
 
@@ -170,18 +228,12 @@ export const Map = ({
   const handleApply = () => {
     const nextAppliedTogglers = { ...togglers };
     const nextWeights = buildAssessmentWeights(nextAppliedTogglers);
-    const weightsUnchanged =
-      nextWeights.weight_health === assessmentWeights.weight_health &&
-      nextWeights.weight_study === assessmentWeights.weight_study &&
-      nextWeights.weight_daily === assessmentWeights.weight_daily &&
-      nextWeights.weight_mobility === assessmentWeights.weight_mobility &&
-      nextWeights.weight_sport === assessmentWeights.weight_sport &&
-      nextWeights.weight_enjoyment === assessmentWeights.weight_enjoyment &&
-      nextWeights.weight_security === assessmentWeights.weight_security;
+    const weightsUnchanged = sameWeights(assessmentWeights, nextWeights);
 
     setAppliedTogglers(nextAppliedTogglers);
-    if (selectedHexId && weightsUnchanged) {
-      void assessment.refetch();
+    if (weightsUnchanged) {
+      void refetch();
+      if (selectedHexId) void refetchAssessment();
     }
   };
 
@@ -397,68 +449,90 @@ export const Map = ({
           </div>
         </div>
 
-        <div data-characteristics>
+        <div data-characteristics className="grow">
           <div className="text-[13px] text-[#8E8E93]">
             Обраний H3: {selectedHexId ?? "знайдіть адресу"}
           </div>
 
-          <div data-rate-number className="flex items-baseline-last gap-4">
-            <div className="text-7xl font-bold">
-              {assessment.data?.overall_rating ?? "—"}
-            </div>
-
-            <div className="flex flex-col">
-              <div className="text-sm font-medium">
-                {assessment.data ? "Оцінка" : "загальна"}
+          {!selectedHexId ? (
+            <>
+              <div data-rate-number className="flex items-baseline-last gap-4">
+                <div className="text-7xl font-bold">—</div>
+                <div className="flex flex-col">
+                  <div className="text-sm font-medium">загальна</div>
+                  <div className="text-xs text-[#8E8E93]">з 100</div>
+                </div>
               </div>
-
-              <div className="text-xs text-[#8E8E93]">з 100</div>
-            </div>
-          </div>
-
-          {assessment.isFetching && selectedHexId && (
-            <p className="pt-2 text-xs text-[#8E8E93]" role="status">
-              Завантаження оцінки…
-            </p>
-          )}
-
-          {assessment.isError && (
-            <div className="pt-2 text-xs text-red-600" role="alert">
-              <p>
-                Не вдалося завантажити оцінку гексагона:{" "}
-                {assessment.error instanceof Error
-                  ? assessment.error.message
-                  : "невідома помилка"}
+              <p className="pt-2 text-xs font-light text-[#8E8E93]">
+                Оберіть гексагон на карті, щоб побачити його оцінку.
               </p>
+            </>
+          ) : showAssessmentSkeleton ? (
+            <div
+              role="status"
+              aria-busy="true"
+              aria-label="Завантаження оцінки"
+            >
+              <div className="flex items-end gap-4">
+                <Skeleton className="h-16 w-24 rounded-2xl bg-[#767680]/12" />
+                <div className="flex flex-col gap-2 pb-1">
+                  <Skeleton className="h-3.5 w-16 bg-[#767680]/12" />
+                  <Skeleton className="h-3 w-10 bg-[#767680]/12" />
+                </div>
+              </div>
+              <div className="pt-4">
+                {Array.from({ length: 7 }, (_, index) => (
+                  <div key={index} className="flex flex-col gap-1.5 py-1.5">
+                    <div className="flex justify-between">
+                      <Skeleton className="h-3 w-24 bg-[#767680]/12" />
+                      <Skeleton className="h-3 w-6 bg-[#767680]/12" />
+                    </div>
+                    <Skeleton className="h-1.5 w-full rounded-full bg-[#767680]/12" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : isAssessmentError ? (
+            <div className="flex flex-col gap-2 pt-4" role="alert">
+              <div className="text-sm font-medium">
+                Не вдалося завантажити оцінку
+              </div>
+              <div className="text-[13px] text-[#8E8E93]">
+                Перевірте з'єднання і спробуйте ще раз.
+              </div>
               <button
                 type="button"
-                className="mt-1 underline"
-                onClick={() => void assessment.refetch()}
+                onClick={() => void refetchAssessment()}
+                className="mt-1 w-fit text-[15px] text-[#007AFF] transition-opacity hover:opacity-70"
               >
-                Спробувати ще раз
+                Спробувати знову
               </button>
             </div>
-          )}
+          ) : (
+            <>
+              <div data-rate-number className="flex items-baseline-last gap-4">
+                <div className="text-7xl font-bold">
+                  {assessmentData?.overall_rating ?? "—"}
+                </div>
 
-          {!selectedHexId && (
-            <p className="pt-2 text-xs font-light text-[#8E8E93]">
-              Оберіть гексагон на карті, щоб побачити його оцінку.
-            </p>
-          )}
+                <div className="flex flex-col">
+                  <div className="text-sm font-medium">Оцінка</div>
+                  <div className="text-xs text-[#8E8E93]">з 100</div>
+                </div>
+              </div>
 
-          {assessment.data && (
-            <div data-characteristics-list className="pt-4">
-              <CharacCard
-                title="Мобільність"
-                value={assessment.data.mobility}
-              />
-              <CharacCard title="Побут" value={assessment.data.daily} />
-              <CharacCard title="Здоров'я" value={assessment.data.health} />
-              <CharacCard title="Освіта" value={assessment.data.study} />
-              <CharacCard title="Дозвілля" value={assessment.data.enjoyment} />
-              <CharacCard title="Спорт" value={assessment.data.sport} />
-              <CharacCard title="Безпека" value={assessment.data.security} />
-            </div>
+              {assessmentData && (
+                <div data-characteristics-list className="pt-4">
+                  {categoryCards(assessmentData).map((card) => (
+                    <CharacCard
+                      key={card.title}
+                      title={card.title}
+                      value={card.score}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
