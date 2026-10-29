@@ -187,14 +187,14 @@ export function AddressSearch({ onLocationChange, selectedAddress, variant = "ma
       : "flex flex-col gap-2 pb-3"}>
       <label htmlFor={inputId} className="text-[13px] text-[#8E8E93]">Повна назва вулиці та номер будинку</label>
       <div className={variant === "hero" ? "relative w-full" : "relative w-full max-w-100"}>
-        <div className={`flex w-full items-center gap-2 rounded-xl bg-[#767680]/12 px-3 py-2 ${isLoading || value.trim().length <= 2 ? "ring-2 ring-zinc-400" : isInvalid ? "ring-2 ring-red-600" : "focus-within:ring-2 focus-within:ring-blue-500"}`}>
+        <div className={`flex w-full items-center gap-2 rounded-xl bg-[#767680]/12 px-3 py-2 ${isLoading || value.trim().length <= 2 ? "focus-within:ring-2 focus-within:ring-zinc-400" : isInvalid ? "ring-2 ring-red-600" : "focus-within:ring-2 focus-within:ring-blue-500"}`}>
           <SearchIcon className="size-4 shrink-0 text-zinc-500" />
           <input ref={inputRef} id={inputId} type="text" autoComplete="off"
             role="combobox" aria-autocomplete="list" aria-expanded={isOpen}
             aria-controls={isOpen ? `${inputId}-list` : undefined}
             aria-activedescendant={isOpen && activeIndex >= 0 ? `${inputId}-option-${activeIndex}` : undefined}
             aria-describedby={validation ? `${inputId}-error` : undefined} aria-invalid={isInvalid}
-            placeholder="Залізнична 7П"
+            placeholder="Залізнична, 7П"
             className="w-full min-w-0 bg-transparent text-sm text-black outline-none placeholder:text-[#8E8E93]"
             value={value} onChange={(event) => changeValue(event.target.value)}
             onBlur={() => { focused.current = false; setIsOpen(false); }}
