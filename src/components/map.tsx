@@ -197,13 +197,21 @@ export const Map = ({
       </div>
       <div className="map-workspace">
         <div className="map-canvas">
-          {showSkeleton ? (
-            <div className="map-message" role="status">
-              Завантажуємо карту Львова…
+          <MapboxMap
+            hexagons={hexagonsData}
+            clearSelectionKey={clearSelectionKey}
+            searchedLocation={searchedLocation}
+            onHexSelect={setSelectedHexId}
+            routesEnabled={routesEnabled}
+          />
+          {showSkeleton && (
+            <div className="map-data-status" role="status">
+              Завантажуємо оцінки…
             </div>
-          ) : isHexagonsError ? (
-            <div className="map-message" role="alert">
-              <p>Не вдалося завантажити оцінки.</p>
+          )}
+          {isHexagonsError && !isFetching && (
+            <div className="map-data-status" role="alert">
+              <p>Не вдалося завантажити оцінки. Карта доступна без них.</p>
               <button
                 className="secondary-button"
                 onClick={() => void refetch()}
@@ -211,14 +219,6 @@ export const Map = ({
                 Спробувати знову
               </button>
             </div>
-          ) : (
-            <MapboxMap
-              hexagons={hexagonsData}
-              clearSelectionKey={clearSelectionKey}
-              searchedLocation={searchedLocation}
-              onHexSelect={setSelectedHexId}
-              routesEnabled={routesEnabled}
-            />
           )}
         </div>
         {panelOpen && (
