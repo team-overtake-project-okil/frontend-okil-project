@@ -16,8 +16,8 @@ type TogglerCardProps = {
 
 const LEVELS: Record<number, string> = {
   0: "не важливо",
-  20: "так собі",
-  40: "нормально",
+  20: "базово",
+  40: "важливіше",
   60: "важливо",
   80: "дуже важливо",
   100: "критично",
@@ -47,7 +47,7 @@ function LevelLabel({ label }: { label: string }) {
   return (
     <span className="grid">
       {previous !== null && (
-        <span className="col-start-1 row-start-1 animate-out fade-out fill-mode-forwards duration-200">
+        <span className="animate-out fade-out fill-mode-forwards col-start-1 row-start-1 duration-200">
           {previous}
         </span>
       )}
@@ -85,7 +85,7 @@ export const TogglerCard = ({
       1,
       Math.max(0, (e.clientX - rect.left - THUMB / 2) / (rect.width - THUMB)),
     );
-    onValueChange(Math.round(ratio * 5) * 20);
+    onValueChange(Math.max(locked ? 20 : 0, Math.round(ratio * 5) * 20));
   };
 
   return (
@@ -104,9 +104,13 @@ export const TogglerCard = ({
 
         <div>
           {locked ? (
-            <Switch checked disabled />
+            <span className="locked-label">Постійно</span>
           ) : (
-            <Switch checked={on} onCheckedChange={onOnChange} />
+            <Switch
+              aria-label={title}
+              checked={on}
+              onCheckedChange={onOnChange}
+            />
           )}
         </div>
       </div>
@@ -124,7 +128,8 @@ export const TogglerCard = ({
             }}
             max={100}
             step={20}
-            min={0}
+            min={locked ? 20 : 0}
+            aria-label={`Важливість: ${title}`}
             disabled={disabled}
           />
         </div>

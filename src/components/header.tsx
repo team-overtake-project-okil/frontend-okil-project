@@ -4,7 +4,7 @@ import headerLogo from "../assets/header_logo.png";
 import { scrollToSection } from "../lib/scroll";
 
 const HEADER_OFFSET = 64;
-const sectionIds = ["hero", "info", "map", "footer"] as const;
+const sectionIds = ["hero", "map", "info", "footer"] as const;
 
 export const Header = () => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -43,13 +43,15 @@ export const Header = () => {
   return (
     <div className="sticky top-0 z-50 w-full border-b border-[#3c3c4324] bg-white/72 backdrop-blur-[22px] backdrop-saturate-180">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-8">
-        <img
-          src={headerLogo}
-          className="h-auto w-20 cursor-pointer object-contain"
-          onClick={() => scrollToSection("hero")}
-        />
+        <button aria-label="На початок" onClick={() => scrollToSection("hero")}>
+          <img
+            alt="OKIL — на початок"
+            src={headerLogo}
+            className="h-auto w-20 cursor-pointer object-contain"
+          />
+        </button>
 
-        <div data-buttons>
+        <div data-buttons className="desktop-nav">
           <div className="flex items-center gap-7">
             <div>
               <button

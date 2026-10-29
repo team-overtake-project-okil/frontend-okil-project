@@ -25,22 +25,22 @@ function App() {
     <>
       <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
         <Header />
-        <div className="mx-auto flex w-full max-w-7xl flex-col">
+        <div className="mx-auto flex w-full max-w-none flex-col">
           <Hero
             selectedAddress={selectedAddress}
             onAddressChange={handleAddressChange}
           />
-          <Info />
           <Map
             clearSelectionKey={clearSelectionKey}
             searchedLocation={selectedAddress}
             onAddressChange={handleAddressChange}
           />
+          <Info />
         </div>
 
         <hr className="w-full" />
 
-        <div className="mx-auto flex w-full max-w-7xl flex-col">
+        <div className="mx-auto flex w-full max-w-none flex-col">
           <Footer />
         </div>
       </div>

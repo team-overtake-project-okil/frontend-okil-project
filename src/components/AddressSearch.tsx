@@ -110,7 +110,7 @@ export function AddressSearch({ onLocationChange, selectedAddress, variant = "ma
       <label htmlFor={inputId} className="text-[13px] text-[#8E8E93]">
         {variant === "hero" ? "Знайти за адресою" : "Пошук за адресою"}
       </label>
-      <div className={variant === "hero" ? "relative w-full" : "relative w-80"}>
+      <div className={variant === "hero" ? "relative w-full" : "relative w-full"}>
         <div className="flex w-full items-center gap-2 rounded-xl bg-[#767680]/12 px-3 py-2">
           <SearchIcon className="size-4 text-zinc-500" />
           <input

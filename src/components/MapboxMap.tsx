@@ -17,11 +17,11 @@ const SELECTION_ZOOM = 13.5;
 //   ["linear"],
 //   ["get", "score"],
 //   0,
-//   "#FF3B30",
+//   "#c17b61",
 //   50,
-//   "#FFCC00",
+//   "#ddd4a2",
 //   100,
-//   "#34C759",
+//   "#36877c",
 // ];
 
 // Align a vertex of the central H3 cell with the vertical screen axis.
@@ -184,6 +184,9 @@ export function MapboxMap({
     });
 
     mapRef.current = map;
+    const resize = new ResizeObserver(() => map.resize());
+    resize.observe(mapContainer.current);
+    map.addControl(new mapboxgl.FullscreenControl(), "top-right");
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
 
@@ -243,11 +246,11 @@ export function MapboxMap({
               ["linear"],
               ["get", "score"],
               0,
-              "#FF3B30",
+              "#c17b61",
               50,
-              "#FFCC00",
+              "#ddd4a2",
               100,
-              "#34C759",
+              "#36877c",
             ],
             "#D1D1D6",
           ],
@@ -332,6 +335,7 @@ export function MapboxMap({
     });
     return () => {
       window.removeEventListener("mouseup", onMouseUp);
+      resize.disconnect();
       map.remove();
       mapRef.current = null;
     };
@@ -342,7 +346,10 @@ export function MapboxMap({
     const map = mapRef.current;
     if (!map) return;
 
-    const data = routes ?? { type: "FeatureCollection" as const, features: [] };
+    const data = (routesEnabled ? routes : undefined) ?? {
+      type: "FeatureCollection" as const,
+      features: [],
+    };
     const apply = () => {
       const source = map.getSource("routes") as
         mapboxgl.GeoJSONSource | undefined;
@@ -357,7 +364,7 @@ export function MapboxMap({
         map.off("load", apply);
       };
     }
-  }, [routes]);
+  }, [routes, routesEnabled]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -366,11 +373,23 @@ export function MapboxMap({
     const apply = () => {
       const source = map.getSource("h3-hexes") as
         mapboxgl.GeoJSONSource | undefined;
-      source?.setData(lvivHexes(hexagons));
+      const hexes = lvivHexes(hexagons);
+      source?.setData(hexes);
+      hexScoresRef.current = new Map(
+        hexes.features.map((feature) => [
+          feature.properties.id,
+          "score" in feature.properties ? feature.properties.score : undefined,
+        ]),
+      );
     };
 
     if (map.getSource("h3-hexes")) apply();
-    else map.once("load", apply);
+    else {
+      map.once("load", apply);
+      return () => {
+        map.off("load", apply);
+      };
+    }
   }, [hexagons]);
 
   useEffect(() => {
@@ -402,7 +421,12 @@ export function MapboxMap({
   }, [searchedLocation, selectHex, clearSelectionKey]);
 
   if (!token) {
-    return <p>Mapbox token is missing.</p>;
+    return (
+      <p className="map-message" role="alert">
+        Карта тимчасово недоступна: не налаштовано доступ до картографічного
+        сервісу.
+      </p>
+    );
   }
 
   const routesCount = routes?.features.length ?? 0;
@@ -410,15 +434,15 @@ export function MapboxMap({
     !routesEnabled || !selectedHexId
       ? null
       : routesQuery.isFetching
-        ? "Loading routes…"
+        ? "Завантажуємо маршрути…"
         : routesQuery.isError
-          ? "Couldn't load routes"
+          ? "Не вдалося завантажити маршрути"
           : routesCount === 0
-            ? "No routes with a stop in this hexagon"
-            : `Routes in this hexagon: ${routesCount}`;
+            ? "У цій ділянці немає зупинок маршрутів"
+            : `Маршрутів із зупинкою тут: ${routesCount}`;
 
   return (
-    <div className="relative h-125 w-full">
+    <div className="mapbox-frame">
       <div
         ref={mapContainer}
         className="h-full w-full overflow-hidden rounded-2xl"
@@ -435,7 +459,7 @@ export function MapboxMap({
               className="rounded border px-2 py-0.5"
               onClick={() => routesQuery.refetch()}
             >
-              Retry
+              Повторити
             </button>
           )}
         </div>

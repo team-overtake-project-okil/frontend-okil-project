@@ -5,6 +5,6 @@ export const scrollToSection = (sectionId: string) => {
   if (!element) return;
 
   const yCoordinate = element.getBoundingClientRect().top + window.scrollY;
-  const yOffset = sectionId === "map" ? -(HEADER_OFFSET - 70) : -HEADER_OFFSET;
-  window.scrollTo({ top: yCoordinate + yOffset, behavior: "smooth" });
+  const yOffset = -HEADER_OFFSET;
+  window.scrollTo({ top: yCoordinate + yOffset, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 };
