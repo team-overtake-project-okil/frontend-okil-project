@@ -1,3 +1,4 @@
+import { Expand, Minimize2 } from "lucide-react";
 import {
   togglerIds,
   lockedTogglerIds,
@@ -112,6 +113,56 @@ export const Map = ({
   const showAssessmentSkeleton =
     isAssessmentLoading || (isAssessmentError && isAssessmentFetching);
 
+  const [expanded, setExpanded] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const expandRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    const previous = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    const siblings: { element: HTMLElement; inert: boolean }[] = [];
+    let node: HTMLElement | null = sectionRef.current;
+    while (node?.parentElement) {
+      for (const sibling of node.parentElement.children) {
+        if (sibling !== node && sibling instanceof HTMLElement) {
+          siblings.push({ element: sibling, inert: sibling.inert });
+          sibling.inert = true;
+        }
+      }
+      node = node.parentElement;
+    }
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setExpanded(false);
+        setPanelOpen(false);
+      }
+      if (event.key === "Tab") {
+        const elements = [
+          ...sectionRef.current!.querySelectorAll<HTMLElement>(
+            'button,input,summary,a[href],[tabindex="0"]',
+          ),
+        ].filter(
+          (e) => e.getClientRects().length && !e.hasAttribute("disabled"),
+        );
+        const first = elements[0],
+          last = elements.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", key);
+    return () => {
+      document.documentElement.style.overflow = previous;
+      siblings.forEach(({ element, inert }) => (element.inert = inert));
+      window.removeEventListener("keydown", key);
+      expandRef.current?.focus();
+    };
+  }, [expanded]);
   const [panelOpen, setPanelOpen] = useState(false);
   const [routesEnabled, setRoutesEnabled] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
@@ -120,14 +171,14 @@ export const Map = ({
     if (!panelOpen) return;
     panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
     const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !expanded) {
         setPanelOpen(false);
         toggleRef.current?.focus();
       }
     };
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
-  }, [panelOpen]);
+  }, [panelOpen, expanded]);
   const dirty = !sameWeights(
     buildAssessmentWeights(togglers),
     assessmentWeights ?? buildAssessmentWeights(defaultTogglers()),
@@ -163,39 +214,72 @@ export const Map = ({
     toggleRef.current?.focus();
   };
   return (
-    <section id="map" className="map-section" aria-labelledby="map-heading">
+    <section
+      ref={sectionRef}
+      id="map"
+      className={`map-section ${expanded ? "map-expanded" : ""} ${panelOpen ? "panel-open" : ""}`}
+      role={expanded ? "dialog" : undefined}
+      aria-modal={expanded ? true : undefined}
+      aria-labelledby="map-heading"
+    >
       <div className="map-heading">
         <div>
           <p className="eyebrow">ДОСЛІДЖУЙТЕ МІСТО</p>
-          <h2 id="map-heading">Ваш Львів. Ваші пріоритети.</h2>
+          <h2 id="map-heading">
+            Львів у гексагонах:
+            <br />
+            подивіться самі
+          </h2>
         </div>
-        <p>Знайдіть адресу або виберіть ділянку на карті.</p>
-      </div>
-      <div className="map-toolbar">
-        <AddressSearch
-          selectedAddress={searchedLocation}
-          onLocationChange={onAddressChange}
-        />
-        <button
-          ref={toggleRef}
-          className="secondary-button"
-          aria-expanded={panelOpen}
-          aria-controls="weights-panel"
-          onClick={() => setPanelOpen(!panelOpen)}
-        >
-          Налаштувати пріоритети{" "}
-          {dirty && <span aria-label="Є незастосовані зміни">•</span>}
-        </button>
-        <label className="route-toggle">
-          <input
-            type="checkbox"
-            checked={routesEnabled}
-            onChange={(e) => setRoutesEnabled(e.target.checked)}
-          />{" "}
-          Маршрути транспорту
-        </label>
+        <p>
+          Оберіть ділянку, щоб побачити оцінку. Розгорніть карту, щоб знайти
+          адресу й налаштувати пріоритети.
+        </p>
       </div>
       <div className="map-workspace">
+        <div className="map-toolbar">
+          {!expanded && (
+            <div className="inline-map-info">
+              <strong>Індекс комфорту, Львів</strong>
+              <span>Оберіть комірку, щоб побачити деталі</span>
+            </div>
+          )}
+          <AddressSearch
+            selectedAddress={searchedLocation}
+            onLocationChange={onAddressChange}
+          />
+          <button
+            ref={toggleRef}
+            className="secondary-button"
+            aria-expanded={panelOpen}
+            aria-controls="weights-panel"
+            onClick={() => setPanelOpen(!panelOpen)}
+          >
+            Налаштувати пріоритети{" "}
+            {dirty && <span aria-label="Є незастосовані зміни">•</span>}
+          </button>
+          <label className="route-toggle">
+            <input
+              type="checkbox"
+              checked={routesEnabled}
+              onChange={(e) => setRoutesEnabled(e.target.checked)}
+            />{" "}
+            Маршрути транспорту
+          </label>
+          <button
+            ref={expandRef}
+            className="expand-map-button"
+            aria-expanded={expanded}
+            onClick={() => {
+              setExpanded(!expanded);
+              setPanelOpen(!expanded);
+            }}
+          >
+            {expanded ? <Minimize2 size={17} /> : <Expand size={17} />}{" "}
+            {expanded ? "До сторінки" : "Розгорнути карту"}
+            {expanded && <kbd>Esc</kbd>}
+          </button>
+        </div>
         <div className="map-canvas">
           <MapboxMap
             hexagons={hexagonsData}

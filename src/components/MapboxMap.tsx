@@ -17,11 +17,11 @@ const SELECTION_ZOOM = 13.5;
 //   ["linear"],
 //   ["get", "score"],
 //   0,
-//   "#c17b61",
+//   "#ef4444",
 //   50,
-//   "#ddd4a2",
+//   "#eab308",
 //   100,
-//   "#36877c",
+//   "#22c55e",
 // ];
 
 // Align a vertex of the central H3 cell with the vertical screen axis.
@@ -186,7 +186,7 @@ export function MapboxMap({
     mapRef.current = map;
     const resize = new ResizeObserver(() => map.resize());
     resize.observe(mapContainer.current);
-    map.addControl(new mapboxgl.FullscreenControl(), "top-right");
+
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
 
@@ -246,16 +246,16 @@ export function MapboxMap({
               ["linear"],
               ["get", "score"],
               0,
-              "#c17b61",
+              "#ef4444",
               50,
-              "#ddd4a2",
+              "#eab308",
               100,
-              "#36877c",
+              "#22c55e",
             ],
             "#D1D1D6",
           ],
           //є score - опасіті 0.5, немає - 0.28
-          "fill-opacity": ["case", ["has", "score"], 0.5, 0.28],
+          "fill-opacity": ["case", ["has", "score"], 0.43, 0.18],
         },
       });
 
@@ -450,7 +450,7 @@ export function MapboxMap({
       {routesStatus && (
         <div
           role="status"
-          className="absolute top-3 left-3 flex items-center gap-3 rounded-lg bg-white/90 px-3 py-2 text-sm shadow"
+          className="route-status absolute top-3 left-3 flex items-center gap-3 rounded-lg bg-white/90 px-3 py-2 text-sm shadow"
         >
           <span>{routesStatus}</span>
           {routesQuery.isError && !routesQuery.isFetching && (

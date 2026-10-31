@@ -26,10 +26,7 @@ function App() {
       <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
         <Header />
         <div className="mx-auto flex w-full max-w-none flex-col">
-          <Hero
-            selectedAddress={selectedAddress}
-            onAddressChange={handleAddressChange}
-          />
+          <Hero />
           <Map
             clearSelectionKey={clearSelectionKey}
             searchedLocation={selectedAddress}
