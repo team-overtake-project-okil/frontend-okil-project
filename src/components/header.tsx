@@ -41,9 +41,26 @@ export const Header = () => {
     );
 
   return (
-    <div className="sticky top-0 z-50 w-full border-b border-[#3c3c4324] bg-white/72 backdrop-blur-[22px] backdrop-saturate-180">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-8">
-        <button aria-label="На початок" onClick={() => scrollToSection("hero")}>
+    <div className="site-header sticky top-0 z-50 w-full border-b border-[#3c3c4324] bg-white/72 backdrop-blur-[22px] backdrop-saturate-180">
+      <svg
+        width="0"
+        height="0"
+        aria-hidden="true"
+        style={{ position: "absolute" }}
+      >
+        <defs>
+          <filter id="brand-logo-ink" colorInterpolationFilters="sRGB">
+            <feFlood floodColor="#343638" result="ink" />
+            <feComposite in="ink" in2="SourceAlpha" operator="in" />
+          </filter>
+        </defs>
+      </svg>
+      <div className="header-inner mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-8">
+        <button
+          className="brand-logo"
+          aria-label="На початок"
+          onClick={() => scrollToSection("hero")}
+        >
           <img
             alt="OKIL — на початок"
             src={headerLogo}
@@ -82,7 +99,7 @@ export const Header = () => {
 
         <button
           onClick={() => scrollToSection("map")}
-          className="inline-flex cursor-pointer items-center justify-center rounded-full bg-[#007AFF] px-4 py-2 text-sm leading-4 font-semibold text-white transition-colors hover:bg-[#0066D6] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
+          className="header-map-button inline-flex cursor-pointer items-center justify-center rounded-full bg-[#007AFF] px-4 py-2 text-sm leading-4 font-semibold text-white transition-colors hover:bg-[#0066D6] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
         >
           Відкрити карту
         </button>

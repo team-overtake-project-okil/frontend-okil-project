@@ -113,11 +113,13 @@ export const Map = ({
   const showAssessmentSkeleton =
     isAssessmentLoading || (isAssessmentError && isAssessmentFetching);
 
+  const [panelOpen, setPanelOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const expandRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!expanded) return;
+    const returnFocus = expandRef.current;
     const previous = document.documentElement.style.overflow;
     document.documentElement.style.overflow = "hidden";
     const siblings: { element: HTMLElement; inert: boolean }[] = [];
@@ -160,10 +162,9 @@ export const Map = ({
       document.documentElement.style.overflow = previous;
       siblings.forEach(({ element, inert }) => (element.inert = inert));
       window.removeEventListener("keydown", key);
-      expandRef.current?.focus();
+      returnFocus?.focus();
     };
   }, [expanded]);
-  const [panelOpen, setPanelOpen] = useState(false);
   const [routesEnabled, setRoutesEnabled] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);

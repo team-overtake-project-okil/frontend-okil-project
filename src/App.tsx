@@ -23,10 +23,13 @@ function App() {
   };
   return (
     <>
-      <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
+      <div className="app-shell flex min-h-svh w-full flex-col">
         <Header />
         <div className="mx-auto flex w-full max-w-none flex-col">
-          <Hero />
+          <Hero
+            selectedAddress={selectedAddress}
+            onAddressChange={handleAddressChange}
+          />
           <Map
             clearSelectionKey={clearSelectionKey}
             searchedLocation={selectedAddress}

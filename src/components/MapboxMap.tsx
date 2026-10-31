@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cellToBoundary, polygonToCells, cellToLatLng } from "h3-js";
+import { comfortPalette } from "../lib/palette";
 import cityBoundary from "../data/lviv-city.json";
 import type { Hexagon } from "./map";
 import { H3_RES, coordsToH3 } from "../lib/h3";
@@ -12,18 +13,6 @@ const token = import.meta.env.VITE_MAPBOX_TOKEN;
 const LVIV_LAT = 49.8429;
 const LVIV_LNG = 24.0316;
 const SELECTION_ZOOM = 13.5;
-// const SCORE_COLOR: mapboxgl.ExpressionSpecification = [
-//   "interpolate",
-//   ["linear"],
-//   ["get", "score"],
-//   0,
-//   "#bfdcff",
-//   50,
-//   "#1679ed",
-//   100,
-//   "#174fba",
-// ];
-
 // Align a vertex of the central H3 cell with the vertical screen axis.
 const referenceHex = coordsToH3(LVIV_LAT, LVIV_LNG);
 const [referenceLat, referenceLng] = cellToLatLng(referenceHex);
@@ -168,7 +157,7 @@ export function MapboxMap({
     const map = new mapboxgl.Map({
       container: mapContainer.current,
       accessToken: token,
-      style: "mapbox://styles/mapbox/streets-v12",
+      style: "mapbox://styles/mapbox/light-v11",
       projection: "mercator",
       center: [LVIV_LNG, LVIV_LAT],
       zoom: 12,
@@ -213,7 +202,7 @@ export function MapboxMap({
     });
 
     map.on("load", () => {
-      const hexes = lvivHexes(hexagons);
+      const hexes = lvivHexes([]);
       hexScoresRef.current = new Map(
         hexes.features.map((feature) => [
           feature.properties.id,
@@ -246,16 +235,20 @@ export function MapboxMap({
               ["linear"],
               ["get", "score"],
               0,
-              "#bfdcff",
+              comfortPalette[0],
+              25,
+              comfortPalette[1],
               50,
-              "#1679ed",
+              comfortPalette[2],
+              75,
+              comfortPalette[3],
               100,
-              "#174fba",
+              comfortPalette[4],
             ],
             "#D1D1D6",
           ],
           //є score - опасіті 0.5, немає - 0.28
-          "fill-opacity": ["case", ["has", "score"], 0.43, 0.18],
+          "fill-opacity": ["case", ["has", "score"], 0.62, 0.18],
         },
       });
 
@@ -264,7 +257,7 @@ export function MapboxMap({
         type: "line",
         source: "h3-hexes",
         paint: {
-          "line-color": "#8E8E93",
+          "line-color": "#8e9690",
           "line-width": 0.6,
           "line-opacity": 0.35,
         },
@@ -327,7 +320,7 @@ export function MapboxMap({
         source: "routes",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#5B21B6",
+          "line-color": "#526e78",
           "line-opacity": 0.9,
           "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 16, 4],
         },
