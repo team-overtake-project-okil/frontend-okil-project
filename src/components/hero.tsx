@@ -1,7 +1,33 @@
 import { CityIllustration } from "./CityIllustration";
 import { scrollToSection } from "../lib/scroll";
+const backgroundHexes = [
+  [24, 78, 42],
+  [470, 30, 30],
+  [1125, 55, 55],
+  [1220, 360, 40],
+  [45, 465, 35],
+  [600, 565, 30],
+  [1020, 580, 44],
+];
 export const Hero = () => (
   <section id="hero" className="hero-section">
+    <svg
+      className="hero-backdrop"
+      viewBox="0 0 1240 620"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {backgroundHexes.map(([x, y, r], i) => (
+        <polygon
+          key={i}
+          points={Array.from({ length: 6 }, (_, k) => {
+            const a = ((60 * k - 30) * Math.PI) / 180;
+            return `${x + r * Math.cos(a)},${y + r * Math.sin(a)}`;
+          }).join(" ")}
+        />
+      ))}
+    </svg>
     <div className="hero-copy">
       <h1>
         Знайдіть своє

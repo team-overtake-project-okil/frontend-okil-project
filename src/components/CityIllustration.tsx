@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 // Hexagon centers fitted to the actual Lviv boundary; colors are illustrative.
 const centers: number[][] = [
   [167.66, 52.8],
@@ -547,11 +547,23 @@ const centers: number[][] = [
   [289.6, 448.8],
 ];
 const palette = [
-  [239, 68, 68],
-  [245, 158, 11],
-  [234, 179, 8],
-  [34, 197, 94],
+  [191, 220, 255],
+  [116, 182, 255],
+  [22, 121, 237],
+  [23, 79, 186],
 ];
+function initialValue(x: number, y: number) {
+  return Math.max(
+    0.12,
+    Math.min(
+      0.9,
+      0.2 +
+        (x / 520) * 0.45 +
+        Math.sin(y * 0.02) * 0.15 +
+        Math.sin(x * 2.17 + y * 3.41) * 0.1,
+    ),
+  );
+}
 function color(value: number) {
   const t = Math.min(0.99999, Math.max(0, value)) * 3,
     i = Math.floor(t),
@@ -568,56 +580,35 @@ const cells = centers.map(([x, y]) => ({
 }));
 export function CityIllustration() {
   const svgRef = useRef<SVGSVGElement>(null);
-  const elapsed = useRef(0);
-  const [paused, setPaused] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
-  useEffect(() => {
-    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const change = () => setPaused(preference.matches);
-    preference.addEventListener("change", change);
-    return () => preference.removeEventListener("change", change);
-  }, []);
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
     const polygons = svg.querySelectorAll("polygon");
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
     let visible = true,
-      last: number | null = null;
+      cursor = 53;
     const observer = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
-      last = null;
     });
     observer.observe(svg);
+    // Only one cell changes at a time; neighboring cells stay still.
     const timer = window.setInterval(() => {
-      if (paused || !visible || document.hidden) {
-        last = null;
-        return;
-      }
-      const now = performance.now();
-      if (last !== null) elapsed.current += (now - last) / 1000;
-      last = now;
-      cells.forEach(({ x, y }, i) =>
-        polygons[i].setAttribute(
-          "fill",
-          color(
-            0.5 +
-              0.5 *
-                Math.sin(
-                  x * 0.013 +
-                    y * 0.009 -
-                    elapsed.current * 0.25 +
-                    Math.sin(y * 0.018) * 0.5,
-                ),
-          ),
-        ),
-      );
-    }, 60);
+      if (preference.matches || !visible || document.hidden) return;
+      cursor = (cursor + 137) % cells.length;
+      const cell = cells[cursor];
+      const current = polygons[cursor].getAttribute("data-tone");
+      const base =
+        current === null ? initialValue(cell.x, cell.y) : Number(current);
+      const next =
+        base > 0.55 ? Math.max(0.12, base - 0.28) : Math.min(0.9, base + 0.28);
+      polygons[cursor].setAttribute("fill", color(next));
+      polygons[cursor].setAttribute("data-tone", String(next));
+    }, 2800);
     return () => {
       clearInterval(timer);
       observer.disconnect();
     };
-  }, [paused]);
+  }, []);
   return (
     <figure className="city-illustration">
       <svg
@@ -627,28 +618,12 @@ export function CityIllustration() {
         aria-label="Силует Львова з гексагонів. Кольори ілюстративні."
       >
         {cells.map(({ x, y, points }, i) => (
-          <polygon
-            key={i}
-            points={points}
-            fill={color(
-              0.5 +
-                0.5 *
-                  Math.sin(x * 0.013 + y * 0.009 + Math.sin(y * 0.018) * 0.5),
-            )}
-          />
+          <polygon key={i} points={points} fill={color(initialValue(x, y))} />
         ))}
       </svg>
       <figcaption>
         <span>ЛЬВІВ — 49.84° N · 24.03° E</span>
         <small>Демонстрація індексу</small>
-        <button
-          className="motion-toggle"
-          aria-pressed={paused}
-          aria-label={paused ? "Відновити анімацію" : "Призупинити анімацію"}
-          onClick={() => setPaused(!paused)}
-        >
-          {paused ? "▷" : "Ⅱ"}
-        </button>
       </figcaption>
     </figure>
   );

@@ -1018,7 +1018,7 @@ body {
   box-shadow: 0 4px 24px #0002;
 }
 .legend-ramp {
-  background: linear-gradient(90deg, #ef4444, #f59e0b, #eab308, #22c55e);
+  background: linear-gradient(90deg, #bfdcff, #74b6ff, #1679ed, #174fba);
 }
 .map-expanded {
   position: fixed;
@@ -1302,5 +1302,51 @@ body {
   }
   .info-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Restrained blue palette and scattered background outlines. */
+.hero-section {
+  position: relative;
+  isolation: isolate;
+}
+.hero-copy,
+.city-illustration {
+  position: relative;
+  z-index: 1;
+}
+.hero-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hero-backdrop polygon {
+  fill: none;
+  stroke: #568ee0;
+  stroke-width: 1;
+  opacity: 0.075;
+  vector-effect: non-scaling-stroke;
+}
+.hero-backdrop polygon:nth-child(2n) {
+  opacity: 0.045;
+}
+.city-illustration polygon {
+  transition: fill 2200ms ease-in-out;
+}
+.city-illustration figcaption small {
+  margin-left: auto;
+}
+@media (max-width: 700px) {
+  .hero-backdrop {
+    opacity: 0.65;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .city-illustration polygon {
+    transition: none;
   }
 }
