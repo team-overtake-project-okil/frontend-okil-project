@@ -39,20 +39,6 @@ const cityBounds = new mapboxgl.LngLatBounds();
 for (const [lng, lat] of cityBoundary.coordinates[0]) {
   cityBounds.extend([lng, lat]);
 }
-// Convert the 5 km margin to degrees at Lviv's latitude.
-const latitudeMargin = 5 / 111.32;
-const longitudeMargin = latitudeMargin / Math.cos((LVIV_LAT * Math.PI) / 180);
-const navigationBounds: [[number, number], [number, number]] = [
-  [
-    cityBounds.getWest() - longitudeMargin,
-    cityBounds.getSouth() - latitudeMargin,
-  ],
-  [
-    cityBounds.getEast() + longitudeMargin,
-    cityBounds.getNorth() + latitudeMargin,
-  ],
-];
-
 // Administrative boundary of the city of Lviv (OSM relation 2032280).
 const lvivCellIds = polygonToCells(cityBoundary.coordinates, H3_RES, true);
 
@@ -165,8 +151,7 @@ export function MapboxMap({
       projection: "mercator",
       center: [LVIV_LNG, LVIV_LAT],
       zoom: 12,
-      minZoom: 10,
-      maxBounds: navigationBounds,
+      minZoom: 7,
       bearing: GRID_BEARING,
       // Preserve the small grid rotation when zoom gestures finish.
       bearingSnap: 0,
@@ -226,46 +211,67 @@ export function MapboxMap({
         bearing: GRID_BEARING,
       });
 
-      map.addLayer({
-        id: "h3-hexes-fill",
-        type: "fill",
-        source: "h3-hexes",
-        paint: {
-          "fill-color": [
-            "case",
-            ["has", "score"],
-            [
-              "interpolate",
-              ["linear"],
-              ["get", "score"],
-              0,
-              comfortPalette[0],
-              25,
-              comfortPalette[1],
-              50,
-              comfortPalette[2],
-              75,
-              comfortPalette[3],
-              100,
-              comfortPalette[4],
+      // Keep roads and labels above the assessment overlay, so the pastel
+      // cells never wash out street names or the road network.
+      const baseLayers = map.getStyle().layers;
+      const roadAnchor =
+        baseLayers.find(
+          (layer) =>
+            layer.type === "line" && /road|bridge|tunnel/.test(layer.id),
+        )?.id ?? baseLayers.find((layer) => layer.type === "symbol")?.id;
+      for (const layer of baseLayers) {
+        if (layer.type === "symbol" && /road|street/.test(layer.id)) {
+          map.setPaintProperty(layer.id, "text-color", "#515b56");
+          map.setPaintProperty(layer.id, "text-halo-color", "#ffffff");
+          map.setPaintProperty(layer.id, "text-halo-width", 1.3);
+        }
+      }
+      map.addLayer(
+        {
+          id: "h3-hexes-fill",
+          type: "fill",
+          source: "h3-hexes",
+          paint: {
+            "fill-color": [
+              "case",
+              ["has", "score"],
+              [
+                "interpolate",
+                ["linear"],
+                ["get", "score"],
+                0,
+                comfortPalette[0],
+                25,
+                comfortPalette[1],
+                50,
+                comfortPalette[2],
+                75,
+                comfortPalette[3],
+                100,
+                comfortPalette[4],
+              ],
+              "#D1D1D6",
             ],
-            "#D1D1D6",
-          ],
-          //є score - опасіті 0.5, немає - 0.28
-          "fill-opacity": ["case", ["has", "score"], 0.62, 0.18],
+            //є score - опасіті 0.5, немає - 0.28
+            "fill-opacity": ["case", ["has", "score"], 0.48, 0.14],
+          },
         },
-      });
+        roadAnchor,
+      );
 
-      map.addLayer({
-        id: "h3-hexes-line",
-        type: "line",
-        source: "h3-hexes",
-        paint: {
-          "line-color": "#8e9690",
-          "line-width": 0.6,
-          "line-opacity": 0.35,
+      map.addLayer(
+        {
+          id: "h3-hexes-line",
+          type: "line",
+          source: "h3-hexes",
+          paint: {
+            "line-color": "#8e9690",
+            "line-width": 0.6,
+            "line-opacity": 0.35,
+          },
         },
-      });
+        roadAnchor,
+      );
 
       // Separate GeoJSON source for the selected hexagon.
       // Selection is restricted to cells in the city layer.
