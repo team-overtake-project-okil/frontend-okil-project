@@ -169,6 +169,10 @@ export function MapboxMap({
       container: mapContainer.current,
       accessToken: token,
       style: "mapbox://styles/mapbox/streets-v12",
+      customAttribution: [
+        '<a href="https://api.visicom.ua/" target="_blank" rel="noopener noreferrer">© Visicom</a>',
+        'Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Geoapify</a>',
+      ],
       projection: "mercator",
       center: [LVIV_LNG, LVIV_LAT],
       zoom: 12,
