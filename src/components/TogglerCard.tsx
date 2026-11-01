@@ -45,22 +45,25 @@ function LevelLabel({ label }: { label: string }) {
   }, [label]);
 
   return (
-    <span className="grid">
+    <div className="inline-text grid">
       {previous !== null && (
-        <span className="animate-out fade-out fill-mode-forwards col-start-1 row-start-1 duration-200">
+        <div className="inline-text animate-out fade-out fill-mode-forwards col-start-1 row-start-1 duration-200">
           {previous}
-        </span>
+        </div>
       )}
-      <span
+      <div
         key={current}
-        className={cn(
-          "col-start-1 row-start-1",
-          previous !== null && "animate-in fade-in duration-200",
-        )}
+        className={
+          "inline-text " +
+          cn(
+            "col-start-1 row-start-1",
+            previous !== null && "animate-in fade-in duration-200",
+          )
+        }
       >
         {current}
-      </span>
-    </span>
+      </div>
+    </div>
   );
 }
 
@@ -104,7 +107,7 @@ export const TogglerCard = ({
 
         <div>
           {locked ? (
-            <span className="locked-label">Постійно</span>
+            <div className="inline-text locked-label">Постійно</div>
           ) : (
             <Switch
               aria-label={title}

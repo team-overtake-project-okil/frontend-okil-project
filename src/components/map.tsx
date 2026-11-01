@@ -1,6 +1,9 @@
 import type { CSSProperties } from "react";
 import { comfortColor } from "../lib/palette";
-import { BusFront, Expand, Minimize2, SlidersHorizontal } from "lucide-react";
+import BusFront from "../icons/truck";
+import Expand from "../icons/arrows-pointing-out";
+import Minimize2 from "../icons/arrows-pointing-in";
+import SlidersHorizontal from "../icons/adjustments-horizontal";
 import {
   togglerIds,
   lockedTogglerIds,
@@ -229,20 +232,29 @@ export const Map = ({
     >
       <div className="map-heading">
         <div>
-          <p className="eyebrow">ДОСЛІДЖУЙТЕ МІСТО</p>
-          <h2 id="map-heading">Знайдіть місце за своїми пріоритетами.</h2>
+          <div className="text-block eyebrow">ДОСЛІДЖУЙТЕ МІСТО</div>
+          <div
+            role="heading"
+            aria-level={2}
+            className="heading-2"
+            id="map-heading"
+          >
+            Знайдіть місце за своїми пріоритетами.
+          </div>
         </div>
-        <p>
+        <div className="text-block">
           Досліджуйте окіл: від щоденних потреб до транспорту й відпочинку.
           Натисніть на ділянку, щоб побачити оцінку
-        </p>
+        </div>
       </div>
       <div className="map-workspace">
         <div className="map-toolbar">
           {!expanded && (
             <div className="inline-map-info">
               <strong>Індекс комфорту, Львів</strong>
-              <span>Оберіть комірку, щоб побачити деталі</span>
+              <div className="inline-text">
+                Оберіть комірку, щоб побачити деталі
+              </div>
             </div>
           )}
           <AddressSearch
@@ -256,8 +268,13 @@ export const Map = ({
             aria-controls="weights-panel"
             onClick={() => setPanelOpen(!panelOpen)}
           >
-            <SlidersHorizontal size={16} aria-hidden="true" /> Пріоритети{" "}
-            {dirty && <span aria-label="Є незастосовані зміни">•</span>}
+            <SlidersHorizontal width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" />{" "}
+            Пріоритети{" "}
+            {dirty && (
+              <div className="inline-text" aria-label="Є незастосовані зміни">
+                •
+              </div>
+            )}
           </button>
           <label className="route-toggle">
             <input
@@ -265,7 +282,8 @@ export const Map = ({
               checked={routesEnabled}
               onChange={(e) => setRoutesEnabled(e.target.checked)}
             />{" "}
-            <BusFront size={16} aria-hidden="true" /> Маршрути транспорту
+            <BusFront width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" /> Маршрути
+            транспорту
           </label>
           <button
             ref={expandRef}
@@ -280,7 +298,11 @@ export const Map = ({
               setPanelOpen(!expanded);
             }}
           >
-            {expanded ? <Minimize2 size={17} /> : <Expand size={17} />}{" "}
+            {expanded ? (
+              <Minimize2 width={17} height={17} style={{ width: 17, height: 17 }} />
+            ) : (
+              <Expand width={17} height={17} style={{ width: 17, height: 17 }} />
+            )}{" "}
             {!expanded && "Розгорнути карту"}
           </button>
         </div>
@@ -299,7 +321,9 @@ export const Map = ({
           )}
           {isHexagonsError && !isFetching && (
             <div className="map-data-status" role="alert">
-              <p>Не вдалося завантажити оцінки. Карта доступна без них.</p>
+              <div className="text-block">
+                Не вдалося завантажити оцінки. Карта доступна без них.
+              </div>
               <button
                 className="secondary-button"
                 onClick={() => void refetch()}
@@ -318,16 +342,18 @@ export const Map = ({
           >
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">ПЕРСОНАЛЬНА ОЦІНКА</p>
-                <h3>Що для вас важливо</h3>
+                <div className="text-block eyebrow">ПЕРСОНАЛЬНА ОЦІНКА</div>
+                <div role="heading" aria-level={3} className="heading-3">
+                  Що для вас важливо
+                </div>
               </div>
               <button aria-label="Закрити налаштування" onClick={closePanel}>
                 ✕
               </button>
             </div>
-            <p className="panel-intro">
+            <div className="text-block panel-intro">
               Змініть важливість категорій. Карта оновиться після застосування.
-            </p>
+            </div>
             <div className="weights-list">
               {categoryLabels.map(([, title], i) => (
                 <TogglerCard
@@ -349,9 +375,9 @@ export const Map = ({
               ))}
             </div>
             <div className="panel-actions">
-              <p role="status">
+              <div className="text-block" role="status">
                 {dirty ? "Є незастосовані зміни" : "Пріоритети застосовано"}
-              </p>
+              </div>
               <div>
                 <button className="secondary-button" onClick={handleReset}>
                   Скинути
@@ -366,7 +392,7 @@ export const Map = ({
         {selectedHexId && (
           <aside className="assessment-card" aria-label="Оцінка ділянки">
             <div className="panel-heading">
-              <p className="eyebrow">ВИБРАНА ДІЛЯНКА · ЛЬВІВ</p>
+              <div className="text-block eyebrow">ВИБРАНА ДІЛЯНКА · ЛЬВІВ</div>
               <button
                 aria-label="Скасувати вибір"
                 onClick={() => onAddressChange(null)}
@@ -375,10 +401,12 @@ export const Map = ({
               </button>
             </div>
             {showAssessmentSkeleton ? (
-              <p role="status">Розраховуємо оцінку…</p>
+              <div className="text-block" role="status">
+                Розраховуємо оцінку…
+              </div>
             ) : isAssessmentError ? (
               <div role="alert">
-                <p>Оцінка недоступна.</p>
+                <div className="text-block">Оцінка недоступна.</div>
                 <button onClick={() => void refetchAssessment()}>
                   Спробувати знову
                 </button>
@@ -387,10 +415,10 @@ export const Map = ({
               <>
                 <div className="score">
                   <strong>{assessmentData?.overall_rating ?? "—"}</strong>
-                  <span>
+                  <div className="inline-text">
                     Оцінка комфорту
                     <br />з 100
-                  </span>
+                  </div>
                 </div>
                 {expanded ? (
                   <details
@@ -410,7 +438,7 @@ export const Map = ({
                           <details className="category-score" key={key}>
                             <summary aria-label={`Пояснення: ${title}`}>
                               <div>
-                                <span>{title}</span>
+                                <div className="inline-text">{title}</div>
                                 <strong>
                                   {!item
                                     ? "Немає даних"
@@ -433,10 +461,10 @@ export const Map = ({
                                 }
                               />
                             </summary>
-                            <p className="category-description">
+                            <div className="text-block category-description">
                               {item?.description ||
                                 "Пояснення оцінки ще не додано."}
-                            </p>
+                            </div>
                           </details>
                         );
                       })}
@@ -452,7 +480,7 @@ export const Map = ({
                     }}
                   >
                     Докладніше про оцінку{" "}
-                    <Expand size={14} aria-hidden="true" />
+                    <Expand width={14} height={14} style={{ width: 14, height: 14 }} aria-hidden="true" />
                   </button>
                 )}
               </>
@@ -460,18 +488,18 @@ export const Map = ({
           </aside>
         )}
         <div className="map-legend">
-          <span>Оцінка комфорту</span>
+          <div className="inline-text">Оцінка комфорту</div>
           <div className="legend-ramp" />
           <div>
-            <span>0</span>
-            <span>50</span>
-            <span>100</span>
+            <div className="inline-text">0</div>
+            <div className="inline-text">50</div>
+            <div className="inline-text">100</div>
           </div>
         </div>
         {isFetching && !showSkeleton && (
-          <p className="map-updating" role="status">
+          <div className="text-block map-updating" role="status">
             Оновлюємо оцінки…
-          </p>
+          </div>
         )}
       </div>
     </section>

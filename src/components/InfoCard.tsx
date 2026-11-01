@@ -7,9 +7,11 @@ type InfoCardProps = {
 export const InfoCard = ({ id, title, description }: InfoCardProps) => {
   return (
     <div className="h-full rounded-[22px] bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-blue-500">{id}</p>
+      <div className="text-block text-sm font-semibold text-blue-500">{id}</div>
       <div className="pt-3 text-xl font-semibold text-black">{title}</div>
-      <p className="pt-2 text-sm leading-6 text-gray-400">{description}</p>
+      <div className="text-block pt-2 text-sm leading-6 text-gray-400">
+        {description}
+      </div>
     </div>
   );
 };

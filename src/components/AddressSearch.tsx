@@ -1,6 +1,6 @@
 import { useAddressHint } from "../lib/useAddressHint";
 import { useEffect, useId, useRef, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import ArrowRight from "../icons/arrow-right";
 import SearchIcon from "../icons/search";
 import ClearInput from "../icons/clear-input";
 import {
@@ -320,7 +320,7 @@ export function AddressSearch({
           )}
           {variant === "hero" && (
             <button type="submit" className="address-submit">
-              Знайти <ArrowRight size={17} aria-hidden="true" />
+              Знайти <ArrowRight width={17} height={17} style={{ width: 17, height: 17 }} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -345,28 +345,37 @@ export function AddressSearch({
                   >
                     {item.address}
                     {!item.isComplete && (
-                      <span className="mt-1 block text-xs text-zinc-500">
+                      <div className="inline-text mt-1 block text-xs text-zinc-500">
                         Додайте номер будинку
-                      </span>
+                      </div>
                     )}
                   </li>
                 ))}
             </ul>
             {isLoading ? (
-              <p role="status" className="px-4 py-2.5 text-sm text-zinc-500">
+              <div
+                role="status"
+                className="text-block px-4 py-2.5 text-sm text-zinc-500"
+              >
                 Пошук адрес…
-              </p>
+              </div>
             ) : error ? (
-              <p role="alert" className="px-4 py-2.5 text-sm text-red-600">
+              <div
+                role="alert"
+                className="text-block px-4 py-2.5 text-sm text-red-600"
+              >
                 {error}
-              </p>
+              </div>
             ) : (
               suggestions.length === 0 && (
-                <p role="status" className="px-4 py-2.5 text-sm text-zinc-500">
+                <div
+                  role="status"
+                  className="text-block px-4 py-2.5 text-sm text-zinc-500"
+                >
                   {hasHouse
                     ? "Адресу не знайдено. Уточніть назву вулиці та номер."
                     : "Введіть повну назву вулиці та номер будинку"}
-                </p>
+                </div>
               )
             )}
             {variant === "hero" &&
@@ -381,13 +390,13 @@ export function AddressSearch({
         )}
       </div>
       {validation && (
-        <p
+        <div
           id={`${inputId}-error`}
           role="alert"
-          className="text-xs text-red-600"
+          className="text-block text-xs text-red-600"
         >
           {validation}
-        </p>
+        </div>
       )}
     </form>
   );

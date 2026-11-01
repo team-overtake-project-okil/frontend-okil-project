@@ -622,7 +622,7 @@ export function CityIllustration() {
         ))}
       </svg>
       <figcaption>
-        <span>ЛЬВІВ — 49.84° N · 24.03° E</span>
+        <div className="inline-text">ЛЬВІВ — 49.84° N · 24.03° E</div>
         <small>Демонстрація індексу</small>
       </figcaption>
     </figure>

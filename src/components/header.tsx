@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ArrowUpRight, MapPinned } from "lucide-react";
+import ArrowUpRight from "../icons/arrow-up-right";
+import MapPinned from "../icons/map-pin";
 import headerLogo from "../assets/header_logo.png";
 import { scrollToSection } from "../lib/scroll";
 
@@ -83,8 +84,8 @@ export const Header = () => {
           onClick={() => scrollToSection("map")}
           className="header-map-button inline-flex cursor-pointer items-center justify-center rounded-full bg-[#007AFF] px-4 py-2 text-sm leading-4 font-semibold text-white transition-colors hover:bg-[#0066D6] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
         >
-          <MapPinned size={16} aria-hidden="true" /> До карти{" "}
-          <ArrowUpRight size={15} aria-hidden="true" />
+          <MapPinned width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" /> До карти{" "}
+          <ArrowUpRight width={15} height={15} style={{ width: 15, height: 15 }} aria-hidden="true" />
         </button>
       </div>
     </div>

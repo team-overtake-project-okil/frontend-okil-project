@@ -1,14 +1,14 @@
-import {
-  Search,
-  SlidersHorizontal,
-  ChartNoAxesCombined,
-  ArrowUpRight,
-} from "lucide-react";
+import Search from "../icons/magnifying-glass";
+import SlidersHorizontal from "../icons/adjustments-horizontal";
+import ChartNoAxesCombined from "../icons/chart-bar";
+import ArrowUpRight from "../icons/arrow-up-right";
 import { scrollToSection } from "../lib/scroll";
 export const Info = () => (
   <section id="info" className="info-section">
-    <p className="eyebrow">ЯК ЦЕ ПРАЦЮЄ</p>
-    <h2>Місто в деталях, рішення — за вами.</h2>
+    <div className="text-block eyebrow">ЯК ЦЕ ПРАЦЮЄ</div>
+    <div role="heading" aria-level={2} className="heading-2">
+      Місто в деталях, рішення — за вами.
+    </div>
     <div className="journey">
       <ol className="journey-steps">
         {[
@@ -30,32 +30,42 @@ export const Info = () => (
         ].map(({ title, text, Icon }, index) => (
           <li className="journey-step" key={title}>
             <div className="journey-top">
-              <span className="journey-icon">
-                <Icon size={23} strokeWidth={1.5} aria-hidden="true" />
-              </span>
-              <span className="journey-number">0{index + 1}</span>
+              <div className="inline-text journey-icon">
+                <Icon
+                  width={23}
+                  height={23} style={{ width: 23, height: 23 }}
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="inline-text journey-number">0{index + 1}</div>
             </div>
-            <h3>{title}</h3>
-            <p>{text}</p>
+            <div role="heading" aria-level={3} className="heading-3">
+              {title}
+            </div>
+            <div className="text-block">{text}</div>
           </li>
         ))}
       </ol>
       <div className="journey-bottom">
-        <span>Від адреси до розуміння району.</span>
+        <div className="inline-text">Від адреси до розуміння району.</div>
         <button type="button" onClick={() => scrollToSection("map")}>
-          Дослідити карту <ArrowUpRight size={16} aria-hidden="true" />
+          Дослідити карту{" "}
+          <ArrowUpRight width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" />
         </button>
       </div>
     </div>
     <div className="info-explainer">
       <div>
-        <p className="eyebrow">ВІД ДАНИХ ДО РІШЕННЯ</p>
-        <h3>Одна карта. Ваші власні критерії.</h3>
-        <p>
+        <div className="text-block eyebrow">ВІД ДАНИХ ДО РІШЕННЯ</div>
+        <div role="heading" aria-level={3} className="heading-3">
+          Одна карта. Ваші власні критерії.
+        </div>
+        <div className="text-block">
           Гексагони — це ділянки міста, для яких сервіс об’єднує оцінки
           інфраструктури. Виберіть адресу, змініть важливість категорій і
           подивіться, як зміниться загальна оцінка.
-        </p>
+        </div>
       </div>
       <div className="info-faq">
         {[
@@ -78,14 +88,14 @@ export const Info = () => (
         ].map(([question, answer]) => (
           <details key={question}>
             <summary>{question}</summary>
-            <p>{answer}</p>
+            <div className="text-block">{answer}</div>
           </details>
         ))}
       </div>
     </div>
-    <p className="method-note">
+    <div className="text-block method-note">
       В основі — відкриті дані та сітка H3. Індекс від 0 до 100 допомагає
       оцінити інфраструктуру, але не замінює знайомство з районом.
-    </p>
+    </div>
   </section>
 );

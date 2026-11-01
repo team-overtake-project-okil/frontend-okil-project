@@ -440,10 +440,10 @@ export function MapboxMap({
 
   if (!token) {
     return (
-      <p className="map-message" role="alert">
+      <div className="text-block map-message" role="alert">
         Карта тимчасово недоступна: не налаштовано доступ до картографічного
         сервісу.
-      </p>
+      </div>
     );
   }
 
@@ -470,7 +470,7 @@ export function MapboxMap({
           role="status"
           className="route-status absolute top-3 left-3 flex items-center gap-3 rounded-lg bg-white/90 px-3 py-2 text-sm shadow"
         >
-          <span>{routesStatus}</span>
+          <div className="inline-text">{routesStatus}</div>
           {routesQuery.isError && !routesQuery.isFetching && (
             <button
               type="button"

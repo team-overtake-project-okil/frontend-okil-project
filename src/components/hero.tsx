@@ -17,10 +17,10 @@ export function Hero({ selectedAddress, onAddressChange }: HeroProps) {
           <br />
           Ваш окіл
         </h1>
-        <p className="hero-description">
+        <div className="text-block hero-description">
           Дізнайтеся, що поруч. Обирайте місце для життя за своїми пріоритетами
           — від транспорту до відпочинку.
-        </p>
+        </div>
         <AddressSearch
           variant="hero"
           selectedAddress={selectedAddress}
