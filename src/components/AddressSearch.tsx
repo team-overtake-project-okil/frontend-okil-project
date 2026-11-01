@@ -1,3 +1,4 @@
+import { useAddressHint } from "../lib/useAddressHint";
 import { useEffect, useId, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import SearchIcon from "../icons/search";
@@ -44,6 +45,8 @@ export function AddressSearch({
   );
   const hasHouse = Boolean(getAddressParts(value).houseNumber);
   const isInvalid = Boolean(validation) || addressInvalid;
+
+  useAddressHint(inputRef, variant === "hero" && !value);
 
   const cancelSearch = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -322,7 +325,7 @@ export function AddressSearch({
           )}
         </div>
         {isOpen && (
-          <div className="absolute top-full left-0 z-50 mt-1 w-full overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
+          <div className="address-results absolute top-full left-0 z-50 mt-2 w-full overflow-hidden">
             <ul
               id={`${inputId}-list`}
               role="listbox"

@@ -13,9 +13,9 @@ export function Hero({ selectedAddress, onAddressChange }: HeroProps) {
       <HeroHexField />
       <div className="hero-copy">
         <h1>
-          Ваш ритм.
+          Ваш ритм
           <br />
-          Ваш окіл.
+          Ваш окіл
         </h1>
         <p className="hero-description">
           Дізнайтеся, що поруч. Обирайте місце для життя за своїми пріоритетами

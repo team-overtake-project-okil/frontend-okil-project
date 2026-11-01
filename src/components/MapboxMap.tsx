@@ -162,7 +162,18 @@ export function MapboxMap({
     });
 
     mapRef.current = map;
-    const resize = new ResizeObserver(() => map.resize());
+    const overviewPadding = { top: 76, bottom: 44, left: 40, right: 40 };
+    const limitOverview = () => {
+      const camera = map.cameraForBounds(cityBounds, {
+        padding: overviewPadding,
+        bearing: GRID_BEARING,
+      });
+      if (camera?.zoom !== undefined) map.setMinZoom(camera.zoom);
+    };
+    const resize = new ResizeObserver(() => {
+      map.resize();
+      limitOverview();
+    });
     resize.observe(mapContainer.current);
 
     map.touchZoomRotate.disableRotation();
@@ -183,7 +194,7 @@ export function MapboxMap({
 
     map.addControl(
       new mapboxgl.NavigationControl({ showCompass: false }),
-      "top-right",
+      "bottom-right",
     );
 
     map.on("click", (e) => {
@@ -205,12 +216,13 @@ export function MapboxMap({
       });
 
       map.fitBounds(cityBounds, {
-        padding: 24,
+        padding: overviewPadding,
         duration: 0,
         retainPadding: false,
         bearing: GRID_BEARING,
       });
 
+      limitOverview();
       // Keep roads and labels above the assessment overlay, so the pastel
       // cells never wash out street names or the road network.
       const baseLayers = map.getStyle().layers;
@@ -286,10 +298,10 @@ export function MapboxMap({
         source: "h3-selected",
         layout: { "line-join": "round" },
         paint: {
-          "line-color": "#007AFF",
-          "line-width": 8,
-          "line-blur": 8,
-          "line-opacity": 0.65,
+          "line-color": "#405c4a",
+          "line-width": 6,
+          "line-blur": 1.5,
+          "line-opacity": 0.28,
         },
       });
 
@@ -298,7 +310,7 @@ export function MapboxMap({
         type: "line",
         source: "h3-selected",
         paint: {
-          "line-color": "#007AFF",
+          "line-color": "#405c4a",
           "line-width": 2,
           "line-opacity": 0.85,
         },
@@ -330,11 +342,14 @@ export function MapboxMap({
         source: "routes",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#526e78",
-          "line-opacity": 0.9,
+          "line-color": "#718679",
+          "line-opacity": 0.85,
           "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 16, 4],
         },
       });
+      // Selection stays legible even where transit lines cross its boundary.
+      map.moveLayer("h3-selected-glow");
+      map.moveLayer("h3-hexes-selected");
     });
     return () => {
       window.removeEventListener("mouseup", onMouseUp);

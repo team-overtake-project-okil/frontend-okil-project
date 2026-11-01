@@ -30,12 +30,12 @@ function App() {
             selectedAddress={selectedAddress}
             onAddressChange={handleAddressChange}
           />
+          <Info />
           <Map
             clearSelectionKey={clearSelectionKey}
             searchedLocation={selectedAddress}
             onAddressChange={handleAddressChange}
           />
-          <Info />
         </div>
 
         <hr className="w-full" />

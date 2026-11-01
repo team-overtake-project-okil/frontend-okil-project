@@ -1,4 +1,6 @@
-import { Expand, Minimize2 } from "lucide-react";
+import type { CSSProperties } from "react";
+import { comfortColor } from "../lib/palette";
+import { BusFront, Expand, Minimize2, SlidersHorizontal } from "lucide-react";
 import {
   togglerIds,
   lockedTogglerIds,
@@ -29,6 +31,7 @@ type CategoryRating = {
   enabled: boolean;
   weight: number;
   adjusted_score: number | null;
+  description?: string | null;
 };
 
 type HexagonAssessment = {
@@ -63,6 +66,7 @@ export const Map = ({
   const [appliedTogglers, setAppliedTogglers] = useState<TogglerStates | null>(
     null,
   );
+  const [assessmentExpanded, setAssessmentExpanded] = useState(false);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
   const assessmentWeights = useMemo(
     () =>
@@ -226,15 +230,11 @@ export const Map = ({
       <div className="map-heading">
         <div>
           <p className="eyebrow">ДОСЛІДЖУЙТЕ МІСТО</p>
-          <h2 id="map-heading">
-            Львів у гексагонах:
-            <br />
-            подивіться самі
-          </h2>
+          <h2 id="map-heading">Знайдіть місце за своїми пріоритетами.</h2>
         </div>
         <p>
-          Оберіть ділянку, щоб побачити оцінку. Розгорніть карту, щоб знайти
-          адресу й налаштувати пріоритети.
+          Досліджуйте окіл: від щоденних потреб до транспорту й відпочинку.
+          Натисніть на ділянку, щоб побачити оцінку
         </p>
       </div>
       <div className="map-workspace">
@@ -256,7 +256,7 @@ export const Map = ({
             aria-controls="weights-panel"
             onClick={() => setPanelOpen(!panelOpen)}
           >
-            Налаштувати пріоритети{" "}
+            <SlidersHorizontal size={16} aria-hidden="true" /> Пріоритети{" "}
             {dirty && <span aria-label="Є незастосовані зміни">•</span>}
           </button>
           <label className="route-toggle">
@@ -265,11 +265,15 @@ export const Map = ({
               checked={routesEnabled}
               onChange={(e) => setRoutesEnabled(e.target.checked)}
             />{" "}
-            Маршрути транспорту
+            <BusFront size={16} aria-hidden="true" /> Маршрути транспорту
           </label>
           <button
             ref={expandRef}
-            className="expand-map-button"
+            className={`expand-map-button ${expanded ? "map-exit" : ""}`}
+            aria-label={
+              expanded ? "Повернутися до сторінки" : "Розгорнути карту"
+            }
+            title={expanded ? "Повернутися до сторінки" : "Розгорнути карту"}
             aria-expanded={expanded}
             onClick={() => {
               setExpanded(!expanded);
@@ -277,8 +281,7 @@ export const Map = ({
             }}
           >
             {expanded ? <Minimize2 size={17} /> : <Expand size={17} />}{" "}
-            {expanded ? "До сторінки" : "Розгорнути карту"}
-            {expanded && <kbd>Esc</kbd>}
+            {!expanded && "Розгорнути карту"}
           </button>
         </div>
         <div className="map-canvas">
@@ -389,46 +392,69 @@ export const Map = ({
                     <br />з 100
                   </span>
                 </div>
-                <details key={selectedHexId}>
-                  <summary>Докладніше про оцінку</summary>
-                  <div className="assessment-details">
-                    {categoryLabels.map(([key, title]) => {
-                      const item = assessmentData?.categories.find(
-                        (c) => c.category === key,
-                      );
-                      return (
-                        <div className="category-score" key={key}>
-                          <div>
-                            <span>{title}</span>
-                            <strong>
-                              {!item
-                                ? "Немає даних"
-                                : !item.enabled
-                                  ? "Вимкнено"
-                                  : item.score}
-                            </strong>
-                          </div>
-                          <meter
-                            min="0"
-                            max="100"
-                            value={item?.enabled ? item.score : 0}
-                            aria-label={title}
-                          />
-                          {item?.enabled && (
-                            <small>
-                              Частка в оцінці: {Math.round(item.weight * 100)}%
-                            </small>
-                          )}
-                        </div>
-                      );
-                    })}
-                    <p className="data-note">
-                      Нуль — значення, повернене сервісом. Сервіс також
-                      прирівнює відсутні дані до нуля.
-                    </p>
-                    <small>H3: {selectedHexId}</small>
-                  </div>
-                </details>
+                {expanded ? (
+                  <details
+                    open={assessmentExpanded}
+                    onToggle={(event) => {
+                      if (event.target === event.currentTarget)
+                        setAssessmentExpanded(event.currentTarget.open);
+                    }}
+                  >
+                    <summary>Докладніше про оцінку</summary>
+                    <div className="assessment-details">
+                      {categoryLabels.map(([key, title]) => {
+                        const item = assessmentData?.categories.find(
+                          (c) => c.category === key,
+                        );
+                        return (
+                          <details className="category-score" key={key}>
+                            <summary aria-label={`Пояснення: ${title}`}>
+                              <div>
+                                <span>{title}</span>
+                                <strong>
+                                  {!item
+                                    ? "Немає даних"
+                                    : !item.enabled
+                                      ? "Вимкнено"
+                                      : item.score}
+                                </strong>
+                              </div>
+                              <meter
+                                min="0"
+                                max="100"
+                                value={item?.enabled ? item.score : 0}
+                                aria-label={title}
+                                style={
+                                  {
+                                    "--score-color": comfortColor(
+                                      item?.score ?? 0,
+                                    ),
+                                  } as CSSProperties
+                                }
+                              />
+                            </summary>
+                            <p className="category-description">
+                              {item?.description ||
+                                "Пояснення оцінки ще не додано."}
+                            </p>
+                          </details>
+                        );
+                      })}
+                    </div>
+                  </details>
+                ) : (
+                  <button
+                    className="inline-assessment-details"
+                    onClick={() => {
+                      setAssessmentExpanded(true);
+                      setExpanded(true);
+                      setPanelOpen(false);
+                    }}
+                  >
+                    Докладніше про оцінку{" "}
+                    <Expand size={14} aria-hidden="true" />
+                  </button>
+                )}
               </>
             )}
           </aside>
@@ -441,7 +467,6 @@ export const Map = ({
             <span>50</span>
             <span>100</span>
           </div>
-          <small>Сірий — немає оцінки</small>
         </div>
         {isFetching && !showSkeleton && (
           <p className="map-updating" role="status">
