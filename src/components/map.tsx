@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { comfortColor } from "../lib/palette";
-import BusFront from "../icons/truck";
+import BusIcon from "../icons/bus";
 import Expand from "../icons/arrows-pointing-out";
 import Minimize2 from "../icons/arrows-pointing-in";
 import SlidersHorizontal from "../icons/adjustments-horizontal";
@@ -269,7 +269,12 @@ export const Map = ({
             aria-controls="weights-panel"
             onClick={() => setPanelOpen(!panelOpen)}
           >
-            <SlidersHorizontal width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" />{" "}
+            <SlidersHorizontal
+              width={16}
+              height={16}
+              style={{ width: 16, height: 16 }}
+              aria-hidden="true"
+            />{" "}
             Пріоритети{" "}
             {dirty && (
               <div className="inline-text" aria-label="Є незастосовані зміни">
@@ -283,7 +288,7 @@ export const Map = ({
               checked={routesEnabled}
               onChange={(e) => setRoutesEnabled(e.target.checked)}
             />{" "}
-            <BusFront width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" /> Маршрути
+            <BusIcon className="size-4" aria-hidden="true" /> Маршрути
             транспорту
           </label>
           <button
@@ -300,9 +305,17 @@ export const Map = ({
             }}
           >
             {expanded ? (
-              <Minimize2 width={17} height={17} style={{ width: 17, height: 17 }} />
+              <Minimize2
+                width={17}
+                height={17}
+                style={{ width: 17, height: 17 }}
+              />
             ) : (
-              <Expand width={17} height={17} style={{ width: 17, height: 17 }} />
+              <Expand
+                width={17}
+                height={17}
+                style={{ width: 17, height: 17 }}
+              />
             )}{" "}
             {!expanded && "Розгорнути карту"}
           </button>
@@ -482,7 +495,12 @@ export const Map = ({
                     }}
                   >
                     Докладніше про оцінку{" "}
-                    <Expand width={14} height={14} style={{ width: 14, height: 14 }} aria-hidden="true" />
+                    <Expand
+                      width={14}
+                      height={14}
+                      style={{ width: 14, height: 14 }}
+                      aria-hidden="true"
+                    />
                   </button>
                 )}
               </>

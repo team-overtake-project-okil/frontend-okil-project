@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cellToBoundary, polygonToCells, cellToLatLng } from "h3-js";
@@ -7,12 +7,19 @@ import cityBoundary from "../data/lviv-city.json";
 import type { Hexagon } from "./map";
 import { H3_RES, coordsToH3 } from "../lib/h3";
 import { useRoutesByHex } from "../lib/useRoutesByHex";
+import {
+  emptyStopsGeoJSON,
+  stopsInsideHex,
+  useStopsByHex,
+  type HexStopProperties,
+} from "../lib/useStopsByHex";
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN;
 
 const LVIV_LAT = 49.8429;
 const LVIV_LNG = 24.0316;
 const SELECTION_ZOOM = 13.5;
+const STOP_COLOR = "#111111";
 // Align a vertex of the central H3 cell with the vertical screen axis.
 const referenceHex = coordsToH3(LVIV_LAT, LVIV_LNG);
 const [referenceLat, referenceLng] = cellToLatLng(referenceHex);
@@ -68,6 +75,123 @@ function lvivHexes(hexagons: Hexagon[]) {
   };
 }
 
+function stopPinImage(): ImageData {
+  const pixelRatio = 2;
+  const size = 44;
+  const canvas = document.createElement("canvas");
+  canvas.width = size * pixelRatio;
+  canvas.height = size * pixelRatio;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Stop pin canvas is unavailable.");
+  ctx.scale(pixelRatio, pixelRatio);
+
+  const cx = 22;
+  const cy = 20;
+
+  ctx.beginPath();
+  ctx.ellipse(cx, 40, 7, 2, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.lineWidth = 2.25;
+  ctx.strokeStyle = STOP_COLOR;
+  ctx.stroke();
+
+  const busX = cx - 11;
+  const busY = cy - 5.2;
+  ctx.fillStyle = STOP_COLOR;
+  ctx.beginPath();
+  ctx.roundRect(busX, busY, 22, 10, 2.6);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.roundRect(busX + 1.6, busY + 1.6, 4.6, 3.4, 0.9);
+  ctx.roundRect(busX + 7.4, busY + 1.6, 4.2, 3.4, 0.9);
+  ctx.roundRect(busX + 12.8, busY + 1.6, 4.2, 3.4, 0.9);
+  ctx.fill();
+
+  ctx.fillStyle = STOP_COLOR;
+  ctx.beginPath();
+  ctx.arc(busX + 5.2, busY + 10, 1.85, 0, Math.PI * 2);
+  ctx.arc(busX + 16.6, busY + 10, 1.85, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(busX + 5.2, busY + 10, 0.7, 0, Math.PI * 2);
+  ctx.arc(busX + 16.6, busY + 10, 0.7, 0, Math.PI * 2);
+  ctx.fill();
+
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+function stopPopupNode(properties: HexStopProperties) {
+  const root = document.createElement("div");
+  root.className = "stop-popup-card";
+
+  const title = document.createElement("div");
+  title.className = "stop-popup-title";
+  title.textContent = properties.name?.trim() || "Зупинка";
+  root.append(title);
+
+  const seen = new Set<string>();
+  const numbers = properties.routes
+    .map((route) => route.number)
+    .filter((number) => {
+      if (seen.has(number)) return false;
+      seen.add(number);
+      return true;
+    })
+    .sort((a, b) => a.localeCompare(b, "uk", { numeric: true }));
+
+  if (numbers.length === 0) return root;
+
+  const routes = document.createElement("div");
+  routes.className = "stop-popup-routes";
+  let previousPrefix = "";
+  for (const number of numbers) {
+    const prefix = number.replace(/\d.*$/, "");
+    if (previousPrefix && prefix !== previousPrefix) {
+      const lineBreak = document.createElement("span");
+      lineBreak.className = "stop-popup-break";
+      routes.append(lineBreak);
+    }
+    previousPrefix = prefix;
+    const plate = document.createElement("span");
+    plate.className =
+      prefix === "Т" ? "stop-popup-route is-tram" : "stop-popup-route";
+    plate.textContent = number;
+    routes.append(plate);
+  }
+  root.append(routes);
+  return root;
+}
+
+function stopNameTagNode(name: string | null) {
+  const label = document.createElement("div");
+  label.className = "stop-nametag-label";
+  label.textContent = name?.trim() || "Зупинка";
+  return label;
+}
+
+type StopHit = {
+  properties?: { id?: number | string } | null;
+  geometry: { type: string; coordinates?: number[] };
+};
+
+function pointCoordinates(
+  geometry: StopHit["geometry"],
+): [number, number] | null {
+  if (geometry.type !== "Point" || !geometry.coordinates) return null;
+  const [lng, lat] = geometry.coordinates;
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+  return [lng, lat];
+}
+
 interface MapboxMapProps {
   hexagons: Hexagon[];
   searchedLocation?: { lat: number; lng: number } | null;
@@ -92,6 +216,14 @@ export function MapboxMap({
   // Fetch routes only when enabled and a hexagon is selected.
   const routesQuery = useRoutesByHex(routesEnabled ? selectedHexId : null);
   const routes = routesQuery.data;
+  const stopsQuery = useStopsByHex(routesEnabled ? selectedHexId : null);
+  const stops = useMemo(
+    () => stopsInsideHex(stopsQuery.data),
+    [stopsQuery.data],
+  );
+  const stopsByIdRef = useRef(new Map<number, HexStopProperties>());
+  const stopPopupRef = useRef<mapboxgl.Popup | null>(null);
+  const stopNameTagRef = useRef<mapboxgl.Popup | null>(null);
 
   // Keep the latest callback without recreating the Mapbox map.
   // It also remembers the selected hexagon (null when the selection is cleared)
@@ -198,6 +330,106 @@ export function MapboxMap({
     );
 
     map.on("click", (e) => {
+      if (map.getLayer("stops-pin")) {
+        const hits = map.queryRenderedFeatures(
+          [
+            [e.point.x - 8, e.point.y - 8],
+            [e.point.x + 8, e.point.y + 8],
+          ],
+          { layers: ["stops-pin"] },
+        ) as unknown as StopHit[];
+        const hit = hits.find((feature) => feature.geometry.type === "Point");
+        const stopId = Number(hit?.properties?.id);
+        const stop = stopsByIdRef.current.get(stopId);
+        const coordinates = hit ? pointCoordinates(hit.geometry) : null;
+        if (hit && stop && coordinates) {
+          stopNameTagRef.current?.remove();
+          stopNameTagRef.current = null;
+          stopPopupRef.current?.remove();
+          const canvasRect = map.getCanvas().getBoundingClientRect();
+          const obstacles = [
+            ...document.querySelectorAll(
+              ".map-toolbar, .assessment-card, .map-legend, .route-status",
+            ),
+          ].flatMap((el) => {
+            const style = getComputedStyle(el);
+            if (
+              style.display === "none" ||
+              style.visibility === "hidden" ||
+              Number(style.opacity) === 0
+            ) {
+              return [];
+            }
+            const rect = el.getBoundingClientRect();
+            return rect.width < 8 || rect.height < 8 ? [] : [rect];
+          });
+          const placements = [
+            { anchor: "top-right" as const, offset: [10, 12] as [number, number] },
+            { anchor: "top-left" as const, offset: [10, 12] as [number, number] },
+            { anchor: "bottom-right" as const, offset: [10, -12] as [number, number] },
+            { anchor: "bottom-left" as const, offset: [10, -12] as [number, number] },
+            { anchor: "right" as const, offset: [-12, 0] as [number, number] },
+            { anchor: "left" as const, offset: [12, 0] as [number, number] },
+          ];
+          const overlapArea = (popupEl: HTMLElement) => {
+            const rect = popupEl.getBoundingClientRect();
+            let area = 0;
+            area += Math.max(0, canvasRect.left + 6 - rect.left) * rect.height;
+            area += Math.max(0, rect.right - (canvasRect.right - 6)) * rect.height;
+            area += Math.max(0, canvasRect.top + 6 - rect.top) * rect.width;
+            area += Math.max(0, rect.bottom - (canvasRect.bottom - 6)) * rect.width;
+            for (const obstacle of obstacles) {
+              const width =
+                Math.min(rect.right, obstacle.right) - Math.max(rect.left, obstacle.left);
+              const height =
+                Math.min(rect.bottom, obstacle.bottom) - Math.max(rect.top, obstacle.top);
+              if (width > 0 && height > 0) area += width * height;
+            }
+            return area;
+          };
+          let best = placements[0];
+          let bestArea = Number.POSITIVE_INFINITY;
+          for (const placement of placements) {
+            const trial = new mapboxgl.Popup({
+              className: "stop-popup",
+              closeButton: false,
+              closeOnClick: false,
+              anchor: placement.anchor,
+              offset: placement.offset,
+              maxWidth: "204px",
+            })
+              .setLngLat(coordinates)
+              .setDOMContent(stopPopupNode(stop))
+              .addTo(map);
+            const trialEl = trial.getElement();
+            const area = trialEl ? overlapArea(trialEl) : Number.POSITIVE_INFINITY;
+            trial.remove();
+            if (area < bestArea) {
+              best = placement;
+              bestArea = area;
+            }
+            if (area === 0) break;
+          }
+          const popup = new mapboxgl.Popup({
+            className: "stop-popup",
+            closeButton: false,
+            closeOnClick: false,
+            anchor: best.anchor,
+            offset: best.offset,
+            maxWidth: "204px",
+          })
+            .setLngLat(coordinates)
+            .setDOMContent(stopPopupNode(stop))
+            .addTo(map);
+          stopPopupRef.current = popup;
+          popup.on("close", () => {
+            if (stopPopupRef.current === popup) stopPopupRef.current = null;
+          });
+          return;
+        }
+      }
+
+      stopPopupRef.current?.remove();
       selectHex(e.lngLat.lat, e.lngLat.lng);
     });
 
@@ -350,6 +582,71 @@ export function MapboxMap({
       // Selection stays legible even where transit lines cross its boundary.
       map.moveLayer("h3-selected-glow");
       map.moveLayer("h3-hexes-selected");
+
+      // Stops inside the selected hexagon. The request also returns the rest of each route.
+      map.addSource("stops", {
+        type: "geojson",
+        data: emptyStopsGeoJSON(),
+      });
+
+      map.addImage("stop-pin", stopPinImage(), { pixelRatio: 2 });
+
+      map.addLayer({
+        id: "stops-pin",
+        type: "symbol",
+        source: "stops",
+        layout: {
+          "icon-image": "stop-pin",
+          "icon-anchor": "center",
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "icon-size": [
+            "interpolate",
+            ["exponential", 1.5],
+            ["zoom"],
+            10, 0.16,
+            12, 0.24,
+            13.5, 0.4,
+            16, 0.68,
+            18, 0.9,
+          ],
+        },
+      });
+
+      let hoveredStopId: number | null = null;
+      const hideNameTag = () => {
+        stopNameTagRef.current?.remove();
+        stopNameTagRef.current = null;
+        hoveredStopId = null;
+      };
+
+      map.on("mousemove", "stops-pin", (event) => {
+        canvas.style.cursor = "pointer";
+        if (stopPopupRef.current) return;
+        const feature = event.features?.[0] as unknown as StopHit | undefined;
+        const stopId = Number(feature?.properties?.id);
+        const stop = stopsByIdRef.current.get(stopId);
+        const coordinates = feature ? pointCoordinates(feature.geometry) : null;
+        if (!feature || !stop || !coordinates || hoveredStopId === stopId) return;
+        hideNameTag();
+        hoveredStopId = stopId;
+        const nameTag = new mapboxgl.Popup({
+          className: "stop-nametag",
+          closeButton: false,
+          closeOnClick: false,
+          anchor: "bottom",
+          offset: [0, -14],
+          maxWidth: "180px",
+        })
+          .setLngLat(coordinates)
+          .setDOMContent(stopNameTagNode(stop.name))
+          .addTo(map);
+        stopNameTagRef.current = nameTag;
+      });
+      map.on("mouseleave", "stops-pin", () => {
+        canvas.style.cursor = "default";
+        hideNameTag();
+      });
     });
     return () => {
       window.removeEventListener("mouseup", onMouseUp);
@@ -383,6 +680,42 @@ export function MapboxMap({
       };
     }
   }, [routes, routesEnabled]);
+
+  useEffect(() => {
+    const next = new Map<number, HexStopProperties>();
+    for (const feature of stops.features) {
+      next.set(feature.properties.id, feature.properties);
+    }
+    stopsByIdRef.current = next;
+  }, [stops]);
+
+  useEffect(() => {
+    stopPopupRef.current?.remove();
+    stopPopupRef.current = null;
+    stopNameTagRef.current?.remove();
+    stopNameTagRef.current = null;
+  }, [selectedHexId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const data = stops;
+    const apply = () => {
+      const source = map.getSource("stops") as
+        mapboxgl.GeoJSONSource | undefined;
+      source?.setData(data);
+    };
+
+    if (map.getSource("stops")) {
+      apply();
+    } else {
+      map.once("load", apply);
+      return () => {
+        map.off("load", apply);
+      };
+    }
+  }, [stops]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -478,6 +811,15 @@ export function MapboxMap({
               onClick={() => routesQuery.refetch()}
             >
               Повторити
+            </button>
+          )}
+          {stopsQuery.isError && !stopsQuery.isFetching && (
+            <button
+              type="button"
+              className="rounded border px-2 py-0.5"
+              onClick={() => stopsQuery.refetch()}
+            >
+              Повторити зупинки
             </button>
           )}
         </div>
