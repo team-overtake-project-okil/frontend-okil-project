@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cellToBoundary, polygonToCells, cellToLatLng } from "h3-js";
@@ -6,6 +6,12 @@ import cityBoundary from "../data/lviv-city.json";
 import type { Hexagon } from "./map";
 import { H3_RES, coordsToH3 } from "../lib/h3";
 import { useRoutesByHex } from "../lib/useRoutesByHex";
+import {
+  emptyStopsGeoJSON,
+  stopsInsideHex,
+  useStopsByHex,
+  type HexStopProperties,
+} from "../lib/useStopsByHex";
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -93,6 +99,43 @@ function lvivHexes(hexagons: Hexagon[]) {
   };
 }
 
+function stopPopupNode(properties: HexStopProperties) {
+  const root = document.createElement("div");
+  root.className = "flex max-w-56 flex-col gap-1.5";
+
+  const title = document.createElement("div");
+  title.className = "text-sm font-medium text-black";
+  title.textContent = properties.name?.trim() || "Зупинка";
+  root.append(title);
+
+  const seen = new Set<string>();
+  const routes = document.createElement("div");
+  routes.className = "flex flex-wrap gap-1";
+  for (const route of properties.routes) {
+    if (seen.has(route.number)) continue;
+    seen.add(route.number);
+    const chip = document.createElement("span");
+    chip.className =
+      "rounded-full bg-[#5B21B6]/10 px-2 py-0.5 text-[12px] leading-none font-medium text-[#5B21B6]";
+    chip.textContent = route.number;
+    routes.append(chip);
+  }
+  if (routes.childNodes.length > 0) root.append(routes);
+  return root;
+}
+
+type StopHit = {
+  properties?: { id?: number | string } | null;
+  geometry: { type: string; coordinates?: number[] };
+};
+
+function pointCoordinates(geometry: StopHit["geometry"]): [number, number] | null {
+  if (geometry.type !== "Point" || !geometry.coordinates) return null;
+  const [lng, lat] = geometry.coordinates;
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+  return [lng, lat];
+}
+
 interface MapboxMapProps {
   hexagons: Hexagon[];
   searchedLocation?: { lat: number; lng: number } | null;
@@ -117,6 +160,13 @@ export function MapboxMap({
   // Fetch routes only when enabled and a hexagon is selected.
   const routesQuery = useRoutesByHex(routesEnabled ? selectedHexId : null);
   const routes = routesQuery.data;
+  const stopsQuery = useStopsByHex(routesEnabled ? selectedHexId : null);
+  const stops = useMemo(
+    () => stopsInsideHex(stopsQuery.data),
+    [stopsQuery.data],
+  );
+  const stopsByIdRef = useRef(new Map<number, HexStopProperties>());
+  const stopPopupRef = useRef<mapboxgl.Popup | null>(null);
 
   // Keep the latest callback without recreating the Mapbox map.
   // It also remembers the selected hexagon (null when the selection is cleared)
@@ -210,6 +260,39 @@ export function MapboxMap({
     );
 
     map.on("click", (e) => {
+      if (map.getLayer("stops-circle")) {
+        const hits = map.queryRenderedFeatures(
+          [
+            [e.point.x - 6, e.point.y - 6],
+            [e.point.x + 6, e.point.y + 6],
+          ],
+          { layers: ["stops-circle"] },
+        ) as unknown as StopHit[];
+        const hit = hits.find((feature) => feature.geometry.type === "Point");
+        const stopId = Number(hit?.properties?.id);
+        const stop = stopsByIdRef.current.get(stopId);
+        const coordinates = hit ? pointCoordinates(hit.geometry) : null;
+        if (hit && stop && coordinates) {
+          stopPopupRef.current?.remove();
+          const popup = new mapboxgl.Popup({
+            className: "stop-popup",
+            closeButton: false,
+            closeOnClick: false,
+            offset: 8,
+            maxWidth: "240px",
+          })
+            .setLngLat(coordinates)
+            .setDOMContent(stopPopupNode(stop))
+            .addTo(map);
+          stopPopupRef.current = popup;
+          popup.on("close", () => {
+            if (stopPopupRef.current === popup) stopPopupRef.current = null;
+          });
+          return;
+        }
+      }
+
+      stopPopupRef.current?.remove();
       selectHex(e.lngLat.lat, e.lngLat.lng);
     });
 
@@ -333,6 +416,83 @@ export function MapboxMap({
           "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 16, 4],
         },
       });
+
+      // Only stops inside the selected hexagon. The request also returns the rest of each route.
+      map.addSource("stops", {
+        type: "geojson",
+        data: emptyStopsGeoJSON(),
+      });
+
+      map.addLayer({
+        id: "stops-circle",
+        type: "circle",
+        source: "stops",
+        layout: {
+          "circle-sort-key": ["case", ["==", ["get", "in_hex"], true], 1, 0],
+        },
+        paint: {
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            2,
+            14,
+            3.25,
+            16,
+            4.5,
+          ],
+          "circle-color": [
+            "case",
+            ["==", ["get", "in_hex"], true],
+            "#007AFF",
+            "#FFFFFF",
+          ],
+          "circle-stroke-color": [
+            "case",
+            ["==", ["get", "in_hex"], true],
+            "#FFFFFF",
+            "#5B21B6",
+          ],
+          "circle-stroke-width": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            1,
+            16,
+            1.5,
+          ],
+        },
+      });
+
+      map.addLayer({
+        id: "stops-label",
+        type: "symbol",
+        source: "stops",
+        minzoom: 14,
+        layout: {
+          "text-field": ["coalesce", ["get", "name"], ""],
+          "text-size": 11,
+          "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+          "text-offset": [0, 0.9],
+          "text-anchor": "top",
+          "text-max-width": 12,
+          "text-optional": true,
+        },
+        paint: {
+          "text-color": "#1C1C1E",
+          "text-halo-color": "#FFFFFF",
+          "text-halo-width": 1.25,
+        },
+      });
+
+      map.on("mouseenter", "stops-circle", () => {
+        canvas.style.cursor = "pointer";
+      });
+      map.on("mouseleave", "stops-circle", () => {
+        canvas.style.cursor = "default";
+      });
     });
     return () => {
       window.removeEventListener("mouseup", onMouseUp);
@@ -362,6 +522,41 @@ export function MapboxMap({
       };
     }
   }, [routes]);
+
+  useEffect(() => {
+    const next = new Map<number, HexStopProperties>();
+    for (const feature of stops?.features ?? []) {
+      next.set(feature.properties.id, feature.properties);
+    }
+    stopsByIdRef.current = next;
+  }, [stops]);
+
+  useEffect(() => {
+    stopPopupRef.current?.remove();
+    stopPopupRef.current = null;
+  }, [selectedHexId]);
+
+  // Stops follow the same selection as the route lines.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const data = stops ?? emptyStopsGeoJSON();
+    const apply = () => {
+      const source = map.getSource("stops") as
+        mapboxgl.GeoJSONSource | undefined;
+      source?.setData(data);
+    };
+
+    if (map.getSource("stops")) {
+      apply();
+    } else {
+      map.once("load", apply);
+      return () => {
+        map.off("load", apply);
+      };
+    }
+  }, [stops]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -440,6 +635,15 @@ export function MapboxMap({
               onClick={() => routesQuery.refetch()}
             >
               Retry
+            </button>
+          )}
+          {stopsQuery.isError && !stopsQuery.isFetching && (
+            <button
+              type="button"
+              className="text-[#007AFF]"
+              onClick={() => stopsQuery.refetch()}
+            >
+              Зупинки не завантажились
             </button>
           )}
         </div>
