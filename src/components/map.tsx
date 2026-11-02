@@ -481,7 +481,7 @@ export const Map = ({
                 </div>
               </div>
               <div className="pt-4">
-                {Array.from({ length: 7 }, (_, index) => (
+                {Array.from({ length: categoryLabels.length }, (_, index) => (
                   <div key={index} className="flex flex-col gap-1.5 py-1.5">
                     <div className="flex justify-between">
                       <Skeleton className="h-3 w-24 bg-[#767680]/12" />
