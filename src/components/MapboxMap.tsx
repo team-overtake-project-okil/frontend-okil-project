@@ -694,7 +694,7 @@ export function MapboxMap({
     stopPopupRef.current = null;
     stopNameTagRef.current?.remove();
     stopNameTagRef.current = null;
-  }, [selectedHexId]);
+  }, [selectedHexId, routesEnabled]);
 
   useEffect(() => {
     const map = mapRef.current;
