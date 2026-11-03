@@ -7,6 +7,7 @@ import cityBoundary from "../data/lviv-city.json";
 import type { Hexagon } from "./map";
 import { H3_RES, coordsToH3 } from "../lib/h3";
 import { useRoutesByHex } from "../lib/useRoutesByHex";
+import { groupStopRoutes } from "../lib/stopRoutes";
 import {
   emptyStopsGeoJSON,
   stopsInsideHex,
@@ -129,35 +130,6 @@ function stopPinImage(): ImageData {
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
-type RouteKind = "bus" | "trolley" | "tram" | "other";
-
-const routeKindLabel: Record<RouteKind, string> = {
-  bus: "Автобус",
-  trolley: "Тролейбус",
-  tram: "Трамвай",
-  other: "Маршрут",
-};
-
-function routeKind(prefix: string): RouteKind {
-  const key = prefix.toLocaleUpperCase("uk");
-  if (key === "А" || key === "A") return "bus";
-  // "Тр" before "Т", otherwise a trolleybus collapses into the tram group.
-  if (key === "ТР" || key === "TR") return "trolley";
-  if (key === "Т" || key === "T") return "tram";
-  return "other";
-}
-
-function routePlate(number: string): { kind: RouteKind; plate: string } {
-  const prefix = number.replace(/\d.*$/, "");
-  const rest = number.slice(prefix.length);
-  // "А08а" and "Тр23" drop the mode letters; a letter after the digits stays.
-  const body = rest || number;
-  return {
-    kind: routeKind(prefix),
-    plate: body.replace(/^0+(?=\d)/, "") || body,
-  };
-}
-
 function stopPopupNode(properties: HexStopProperties) {
   const root = document.createElement("div");
   root.className = "stop-popup-card";
@@ -177,46 +149,29 @@ function stopPopupNode(properties: HexStopProperties) {
   head.append(title, close);
   root.append(head);
 
-  const seen = new Set<string>();
-  const numbers = properties.routes
-    .map((route) => route.number)
-    .filter((number) => {
-      if (seen.has(number)) return false;
-      seen.add(number);
-      return true;
-    })
-    .sort((a, b) => a.localeCompare(b, "uk", { numeric: true }));
+  const groups = groupStopRoutes(properties.routes);
+  if (groups.length === 0) return root;
 
-  if (numbers.length === 0) return root;
-
-  const grouped = new Map<RouteKind, string[]>();
-  for (const number of numbers) {
-    const { kind } = routePlate(number);
-    const list = grouped.get(kind) ?? [];
-    list.push(number);
-    grouped.set(kind, list);
-  }
-
+  const showLabels = groups.length > 1 || groups[0].kind !== "other";
   const routes = document.createElement("div");
   routes.className = "stop-popup-routes";
-  for (const kind of ["bus", "trolley", "tram", "other"] as const) {
-    const list = grouped.get(kind);
-    if (!list?.length) continue;
-    if (grouped.size > 1 || kind !== "other") {
+  for (const group of groups) {
+    if (showLabels) {
       const label = document.createElement("div");
       label.className = "stop-popup-kind";
       const name = document.createElement("span");
-      name.textContent = routeKindLabel[kind];
+      name.textContent = group.label;
       const count = document.createElement("span");
-      count.textContent = String(list.length);
+      count.textContent = String(group.plates.length);
       label.append(name, count);
       routes.append(label);
     }
-    for (const number of list) {
-      const { plate } = routePlate(number);
+    for (const plate of group.plates) {
       const chip = document.createElement("span");
       chip.className =
-        kind === "other" ? "stop-popup-route" : `stop-popup-route is-${kind}`;
+        group.kind === "other"
+          ? "stop-popup-route"
+          : `stop-popup-route is-${group.kind}`;
       chip.textContent = plate;
       routes.append(chip);
     }
@@ -252,6 +207,10 @@ interface MapboxMapProps {
   onHexSelect?: (hexId: string | null) => void;
   clearSelectionKey?: number;
   routesEnabled?: boolean;
+  // Returns true when the open priorities panel takes the stop, so the map
+  // card stays closed and the route list replaces the sliders.
+  onStopInPanel?: (stop: HexStopProperties) => boolean;
+  onStopPanelDismiss?: () => void;
 }
 
 export function MapboxMap({
@@ -260,10 +219,14 @@ export function MapboxMap({
   onHexSelect,
   clearSelectionKey,
   routesEnabled = true,
+  onStopInPanel,
+  onStopPanelDismiss,
 }: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const onHexSelectRef = useRef(onHexSelect);
+  const onStopInPanelRef = useRef(onStopInPanel);
+  const onStopPanelDismissRef = useRef(onStopPanelDismiss);
   const hexScoresRef = useRef(new Map<string, number | undefined>());
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
 
@@ -288,6 +251,11 @@ export function MapboxMap({
       onHexSelect?.(hexId);
     };
   }, [onHexSelect]);
+
+  useEffect(() => {
+    onStopInPanelRef.current = onStopInPanel;
+    onStopPanelDismissRef.current = onStopPanelDismiss;
+  }, [onStopInPanel, onStopPanelDismiss]);
 
   // Use the same selection and camera behavior for addresses and map clicks.
   const selectHex = useCallback((lat: number, lng: number) => {
@@ -399,6 +367,10 @@ export function MapboxMap({
         if (hit && stop && coordinates) {
           stopNameTagRef.current?.remove();
           stopNameTagRef.current = null;
+          if (onStopInPanelRef.current?.(stop)) {
+            stopPopupRef.current?.remove();
+            return;
+          }
           stopPopupRef.current?.remove();
           const canvasRect = map.getCanvas().getBoundingClientRect();
           const obstacles = [
@@ -481,13 +453,15 @@ export function MapboxMap({
             ?.addEventListener("click", () => popup.remove());
           stopPopupRef.current = popup;
           popup.on("close", () => {
-            if (stopPopupRef.current === popup) stopPopupRef.current = null;
+            if (stopPopupRef.current !== popup) return;
+            stopPopupRef.current = null;
           });
           return;
         }
       }
 
       stopPopupRef.current?.remove();
+      onStopPanelDismissRef.current?.();
       selectHex(e.lngLat.lat, e.lngLat.lng);
     });
 
@@ -752,6 +726,7 @@ export function MapboxMap({
     stopPopupRef.current = null;
     stopNameTagRef.current?.remove();
     stopNameTagRef.current = null;
+    onStopPanelDismissRef.current?.();
   }, [selectedHexId, routesEnabled]);
 
   useEffect(() => {
