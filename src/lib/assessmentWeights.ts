@@ -1,4 +1,13 @@
-export const togglerIds = ["01", "02", "03", "04", "05", "06", "08"] as const;
+export const togglerIds = [
+  "01",
+  "02",
+  "03",
+  "04",
+  "05",
+  "06",
+  "07",
+  "08",
+] as const;
 export const lockedTogglerIds = new Set<string>(["08"]);
 
 export type TogglerState = { value: number; on: boolean };
@@ -15,6 +24,7 @@ export type AssessmentWeights = {
   weight_mobility: number;
   weight_sport: number;
   weight_enjoyment: number;
+  weight_food: number;
   weight_security: number;
 };
 
@@ -31,6 +41,7 @@ export function buildAssessmentWeights(
     weight_mobility: weight("01"),
     weight_sport: weight("06"),
     weight_enjoyment: weight("05"),
+    weight_food: weight("07"),
     weight_security: weight("08"),
   };
 }

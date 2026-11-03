@@ -6,11 +6,38 @@ import {
   weightsSearch,
 } from "./assessmentWeights";
 describe("backend weight contract", () => {
-  it("uses seven scored categories and weight one by default", () => {
+  it("uses all eight scored categories and weight one by default", () => {
     const weights = buildAssessmentWeights(defaultTogglers());
-    expect(Object.keys(weights)).toHaveLength(7);
-    expect(Object.values(weights)).toEqual([1, 1, 1, 1, 1, 1, 1]);
-    expect(weights).not.toHaveProperty("weight_food");
+    expect(Object.keys(weights).sort()).toEqual([
+      "weight_daily",
+      "weight_enjoyment",
+      "weight_food",
+      "weight_health",
+      "weight_mobility",
+      "weight_security",
+      "weight_sport",
+      "weight_study",
+    ]);
+    expect(Object.values(weights)).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
+  });
+  it("applies food priority, detects changes and serializes disabled food", () => {
+    const defaults = buildAssessmentWeights(defaultTogglers());
+    const draft = defaultTogglers();
+    draft["07"] = { value: 100, on: true };
+    const increased = buildAssessmentWeights(draft);
+    expect(increased.weight_food).toBe(5);
+    expect(increased.weight_security).toBe(1);
+    expect(sameWeights(defaults, increased)).toBe(false);
+    expect(
+      new URLSearchParams(weightsSearch(increased).slice(1)).get("weight_food"),
+    ).toBe("5");
+    draft["07"] = { value: 100, on: false };
+    const disabled = buildAssessmentWeights(draft);
+    expect(disabled.weight_food).toBe(0);
+    expect(
+      new URLSearchParams(weightsSearch(disabled).slice(1)).get("weight_food"),
+    ).toBe("0");
+    expect(buildAssessmentWeights(defaultTogglers()).weight_food).toBe(1);
   });
   it("maps disabled categories to zero and maximum importance to five", () => {
     const draft = defaultTogglers();
