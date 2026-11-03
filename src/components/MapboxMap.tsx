@@ -129,14 +129,53 @@ function stopPinImage(): ImageData {
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
+type RouteKind = "bus" | "trolley" | "tram" | "other";
+
+const routeKindLabel: Record<RouteKind, string> = {
+  bus: "Автобус",
+  trolley: "Тролейбус",
+  tram: "Трамвай",
+  other: "Маршрут",
+};
+
+function routeKind(prefix: string): RouteKind {
+  const key = prefix.toLocaleUpperCase("uk");
+  if (key === "А" || key === "A") return "bus";
+  // "Тр" before "Т", otherwise a trolleybus collapses into the tram group.
+  if (key === "ТР" || key === "TR") return "trolley";
+  if (key === "Т" || key === "T") return "tram";
+  return "other";
+}
+
+function routePlate(number: string): { kind: RouteKind; plate: string } {
+  const prefix = number.replace(/\d.*$/, "");
+  const rest = number.slice(prefix.length);
+  // "А08а" and "Тр23" drop the mode letters; a letter after the digits stays.
+  const body = rest || number;
+  return {
+    kind: routeKind(prefix),
+    plate: body.replace(/^0+(?=\d)/, "") || body,
+  };
+}
+
 function stopPopupNode(properties: HexStopProperties) {
   const root = document.createElement("div");
   root.className = "stop-popup-card";
 
+  const head = document.createElement("div");
+  head.className = "stop-popup-head";
+
   const title = document.createElement("div");
   title.className = "stop-popup-title";
   title.textContent = properties.name?.trim() || "Зупинка";
-  root.append(title);
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "stop-popup-close";
+  close.setAttribute("aria-label", "Закрити");
+  close.textContent = "✕";
+  head.append(title, close);
+  root.append(head);
 
   const seen = new Set<string>();
   const numbers = properties.routes
@@ -150,22 +189,37 @@ function stopPopupNode(properties: HexStopProperties) {
 
   if (numbers.length === 0) return root;
 
+  const grouped = new Map<RouteKind, string[]>();
+  for (const number of numbers) {
+    const { kind } = routePlate(number);
+    const list = grouped.get(kind) ?? [];
+    list.push(number);
+    grouped.set(kind, list);
+  }
+
   const routes = document.createElement("div");
   routes.className = "stop-popup-routes";
-  let previousPrefix = "";
-  for (const number of numbers) {
-    const prefix = number.replace(/\d.*$/, "");
-    if (previousPrefix && prefix !== previousPrefix) {
-      const lineBreak = document.createElement("span");
-      lineBreak.className = "stop-popup-break";
-      routes.append(lineBreak);
+  for (const kind of ["bus", "trolley", "tram", "other"] as const) {
+    const list = grouped.get(kind);
+    if (!list?.length) continue;
+    if (grouped.size > 1 || kind !== "other") {
+      const label = document.createElement("div");
+      label.className = "stop-popup-kind";
+      const name = document.createElement("span");
+      name.textContent = routeKindLabel[kind];
+      const count = document.createElement("span");
+      count.textContent = String(list.length);
+      label.append(name, count);
+      routes.append(label);
     }
-    previousPrefix = prefix;
-    const plate = document.createElement("span");
-    plate.className =
-      prefix === "Т" ? "stop-popup-route is-tram" : "stop-popup-route";
-    plate.textContent = number;
-    routes.append(plate);
+    for (const number of list) {
+      const { plate } = routePlate(number);
+      const chip = document.createElement("span");
+      chip.className =
+        kind === "other" ? "stop-popup-route" : `stop-popup-route is-${kind}`;
+      chip.textContent = plate;
+      routes.append(chip);
+    }
   }
   root.append(routes);
   return root;
@@ -396,7 +450,7 @@ export function MapboxMap({
               closeOnClick: false,
               anchor: placement.anchor,
               offset: placement.offset,
-              maxWidth: "204px",
+              maxWidth: "228px",
             })
               .setLngLat(coordinates)
               .setDOMContent(stopPopupNode(stop))
@@ -410,17 +464,21 @@ export function MapboxMap({
             }
             if (area === 0) break;
           }
+          const content = stopPopupNode(stop);
           const popup = new mapboxgl.Popup({
             className: "stop-popup",
             closeButton: false,
             closeOnClick: false,
             anchor: best.anchor,
             offset: best.offset,
-            maxWidth: "204px",
+            maxWidth: "228px",
           })
             .setLngLat(coordinates)
-            .setDOMContent(stopPopupNode(stop))
+            .setDOMContent(content)
             .addTo(map);
+          content
+            .querySelector(".stop-popup-close")
+            ?.addEventListener("click", () => popup.remove());
           stopPopupRef.current = popup;
           popup.on("close", () => {
             if (stopPopupRef.current === popup) stopPopupRef.current = null;
