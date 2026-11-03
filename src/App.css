@@ -230,7 +230,7 @@ button:disabled {
 [data-search-small] input::placeholder {
   color: #65747a;
 }
-[data-search-small] > div > div:first-child {
+:where([data-search-small] > div > div:first-child) {
   min-height: 44px;
   background: white;
   border: 1px solid #d6dfe1;
@@ -1065,7 +1065,7 @@ body {
 .map-expanded .map-toolbar > form > label {
   display: none;
 }
-.map-expanded .map-toolbar > form > div > div:first-child {
+:where(.map-expanded .map-toolbar > form > div > div:first-child) {
   background: #ffffffe0;
   border: 1px solid #ffffff99;
   border-radius: 16px;
@@ -1531,14 +1531,14 @@ input:focus-visible {
 [data-search-small] input::placeholder {
   color: #91959b;
 }
-[data-search-small] > div > div:first-child {
+:where([data-search-small] > div > div:first-child) {
   border-radius: 100px;
   background: #fbfcfce8;
   border: 1px solid #d5d9d7;
   min-height: 46px;
   box-shadow: none;
 }
-[data-search-small] > div > div:first-child:focus-within {
+:where([data-search-small] > div > div:first-child:focus-within) {
   border-color: #9ca99e;
   box-shadow: 0 0 0 3px #a7aaa011;
 }
@@ -1557,7 +1557,7 @@ input:focus-visible {
   box-shadow: none;
   text-align: left;
 }
-[data-search-variant="hero"] > div > div:first-child {
+:where([data-search-variant="hero"] > div > div:first-child) {
   min-height: 64px;
   padding: 8px 9px 8px 22px;
   gap: 14px;
@@ -1759,11 +1759,11 @@ input:focus-visible {
   height: 7px;
   background: linear-gradient(
     90deg,
-    #eab2ae,
-    #edc6ae,
-    #eee0ae,
-    #cadcb8,
-    #afd4bd
+    #fba49e,
+    #ffc29c,
+    #ffe99d,
+    #cae7ad,
+    #a4dfbb
   );
 }
 .route-toggle input {
@@ -1840,7 +1840,7 @@ input:focus-visible {
 .map-expanded.panel-open .map-toolbar {
   left: 356px;
 }
-.map-expanded .map-toolbar > form > div > div:first-child {
+:where(.map-expanded .map-toolbar > form > div > div:first-child) {
   border-radius: 100px;
   background: #fbfcfcee;
   border: 1px solid #d5dcd7;
@@ -1919,7 +1919,7 @@ input:focus-visible {
   .hero-copy:before {
     inset: -40px -22px;
   }
-  [data-search-variant="hero"] > div > div:first-child {
+  :where([data-search-variant="hero"] > div > div:first-child) {
     padding-left: 16px;
     gap: 9px;
   }
@@ -3418,5 +3418,96 @@ input:focus-visible {
 @layer base {
   .inline-text {
     display: inline;
+  }
+}
+
+/* Keep the search field and suggestions in one continuous surface. */
+[data-search-small] .address-search-panel {
+  border-radius: 24px;
+  background: #fff;
+  filter: drop-shadow(0 3px 10px #25392d20);
+}
+[data-search-small] .address-search-field {
+  min-height: 48px;
+  background: #fff;
+  border: 0;
+  border-radius: 24px;
+  backdrop-filter: none;
+  box-shadow: none;
+  gap: 12px;
+  padding: 8px 16px;
+}
+[data-search-small] .address-search-field:focus-within {
+  box-shadow: none;
+}
+[data-search-small] .address-search-field input {
+  font-size: 16px;
+  line-height: 24px;
+}
+[data-search-variant="hero"] .address-search-field {
+  min-height: 56px;
+  padding: 6px 7px 6px 20px;
+}
+[data-search-variant="hero"] .address-search-field input {
+  font-size: 17px;
+}
+[data-search-small] .address-search-panel.is-open {
+  z-index: 60;
+}
+[data-search-small] .is-open .address-search-field {
+  border-radius: 24px 24px 0 0;
+}
+[data-search-small] .address-results {
+  top: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0 0 24px 24px;
+  background: #fff;
+  box-shadow: none;
+  padding: 0 8px 6px;
+  max-height: min(320px, 45dvh);
+}
+[data-search-small] .address-results::before {
+  content: "";
+  display: block;
+  height: 1px;
+  margin: 0 8px 4px;
+  background: #e9ece9;
+}
+[data-search-small] .address-results [role="option"] {
+  font-size: 16px;
+  line-height: 1.4;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin: 0;
+}
+[data-search-small] .address-results [role="option"] .inline-text {
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+[data-search-small] .address-results [role="status"],
+[data-search-small] .address-results [role="alert"] {
+  font-size: 15px;
+  line-height: 1.4;
+  padding: 7px 12px;
+}
+[data-search-variant="hero"] .address-submit {
+  min-height: 42px;
+  padding: 10px 18px;
+  font-size: 15px;
+  line-height: 22px;
+}
+[data-search-small] .address-search-field:has(input[aria-invalid="true"]) {
+  outline: 1px solid #c75650;
+  outline-offset: -1px;
+}
+@media (max-width: 700px) {
+  [data-search-variant="hero"] .address-search-field {
+    padding-left: 16px;
+    gap: 9px;
+  }
+  [data-search-variant="hero"] .address-search-field input {
+    font-size: 16px;
   }
 }

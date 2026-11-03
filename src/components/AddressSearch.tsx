@@ -243,12 +243,10 @@ export function AddressSearch({
         Повна назва вулиці та номер будинку
       </label>
       <div
-        className={
-          variant === "hero" ? "relative w-full" : "relative w-full max-w-100"
-        }
+        className={`address-search-panel relative w-full ${variant === "map" ? "max-w-100" : ""} ${isOpen ? "is-open" : ""}`}
       >
         <div
-          className={`flex w-full items-center gap-2 rounded-xl bg-[#767680]/12 px-3 py-2 ${isLoading || value.trim().length <= 2 ? "focus-within:ring-2 focus-within:ring-zinc-400" : isInvalid ? "ring-2 ring-red-600" : "focus-within:ring-2 focus-within:ring-blue-500"}`}
+          className="address-search-field flex w-full items-center gap-2 px-3 py-2"
         >
           <SearchIcon className="size-4 shrink-0 text-zinc-500" />
           <input
@@ -325,7 +323,7 @@ export function AddressSearch({
           )}
         </div>
         {isOpen && (
-          <div className="address-results absolute top-full left-0 z-50 mt-2 w-full overflow-hidden">
+          <div className="address-results absolute top-full left-0 z-50 w-full overflow-hidden">
             <ul
               id={`${inputId}-list`}
               role="listbox"

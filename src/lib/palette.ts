@@ -1,9 +1,9 @@
 export const comfortPalette = [
-  "#eab2ae",
-  "#edc6ae",
-  "#eee0ae",
-  "#cadcb8",
-  "#afd4bd",
+  "#fba49e",
+  "#ffc29c",
+  "#ffe99d",
+  "#cae7ad",
+  "#a4dfbb",
 ] as const;
 
 export function comfortColor(score: number): string {
