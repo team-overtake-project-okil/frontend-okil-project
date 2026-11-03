@@ -1,7 +1,13 @@
+import { useAddressHint } from "../lib/useAddressHint";
 import { useEffect, useId, useRef, useState } from "react";
+import ArrowRight from "../icons/arrow-right";
 import SearchIcon from "../icons/search";
 import ClearInput from "../icons/clear-input";
-import { searchAddresses, geocodeAddressSuggestion, type AddressSuggestion } from "../services/geocoding";
+import {
+  searchAddresses,
+  geocodeAddressSuggestion,
+  type AddressSuggestion,
+} from "../services/geocoding";
 import { getAddressParts } from "../services/addressValidation";
 
 interface AddressSearchProps {
@@ -12,7 +18,13 @@ interface AddressSearchProps {
   onEmptySubmit?: () => void;
 }
 
-export function AddressSearch({ onLocationChange, selectedAddress, variant = "map", formId, onEmptySubmit }: AddressSearchProps) {
+export function AddressSearch({
+  onLocationChange,
+  selectedAddress,
+  variant = "map",
+  formId,
+  onEmptySubmit,
+}: AddressSearchProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(selectedAddress?.address ?? "");
@@ -28,9 +40,13 @@ export function AddressSearch({ onLocationChange, selectedAddress, variant = "ma
   const preserveDraft = useRef(false);
   const pendingQuery = useRef<string | null>(null);
   const focused = useRef(false);
-  const cache = useRef<{ query: string; results: AddressSuggestion[] } | null>(null);
+  const cache = useRef<{ query: string; results: AddressSuggestion[] } | null>(
+    null,
+  );
   const hasHouse = Boolean(getAddressParts(value).houseNumber);
   const isInvalid = Boolean(validation) || addressInvalid;
+
+  useAddressHint(inputRef, variant === "hero" && !value);
 
   const cancelSearch = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -39,10 +55,13 @@ export function AddressSearch({ onLocationChange, selectedAddress, variant = "ma
     controller.current?.abort();
   };
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-    controller.current?.abort();
-  }, []);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+      controller.current?.abort();
+    },
+    [],
+  );
 
   useEffect(() => {
     // Editing clears shared coordinates without erasing this field's draft.
@@ -53,6 +72,7 @@ export function AddressSearch({ onLocationChange, selectedAddress, variant = "ma
     preserveDraft.current = false;
     if (timer.current) clearTimeout(timer.current);
     controller.current?.abort();
+    // Synchronize the other search field after an explicit map/address selection.
     setValue(selectedAddress?.address ?? "");
     setSuggestions([]);
     setError(null);
@@ -64,7 +84,11 @@ export function AddressSearch({ onLocationChange, selectedAddress, variant = "ma
   }, [selectedAddress]);
 
   const runSearch = async (query: string) => {
-    if (pendingQuery.current === query.trim() && !controller.current?.signal.aborted) return;
+    if (
+      pendingQuery.current === query.trim() &&
+      !controller.current?.signal.aborted
+    )
+      return;
     cancelSearch();
     setError(null);
     setAddressInvalid(false);
@@ -94,7 +118,8 @@ export function AddressSearch({ onLocationChange, selectedAddress, variant = "ma
       setSuggestions(results);
       setAddressInvalid(results.length === 0);
     } catch {
-      if (!active.signal.aborted) setError("Не вдалося виконати пошук. Спробуйте ще раз.");
+      if (!active.signal.aborted)
+        setError("Не вдалося виконати пошук. Спробуйте ще раз.");
     } finally {
       if (controller.current === active) pendingQuery.current = null;
       if (!active.signal.aborted) setIsLoading(false);
@@ -156,49 +181,102 @@ export function AddressSearch({ onLocationChange, selectedAddress, variant = "ma
   };
 
   const attribution = (
-    <div className="flex self-end gap-2 text-[10px] text-zinc-500">
-        <a href="https://api.visicom.ua/" target="_blank" rel="noopener noreferrer" className="hover:underline">© Visicom</a>
-        <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer" className="hover:underline">Geoapify</a>
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="hover:underline">© OpenStreetMap</a>
-      </div>
+    <div className="flex gap-2 self-end text-[10px] text-zinc-500">
+      <a
+        href="https://api.visicom.ua/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hover:underline"
+      >
+        © Visicom
+      </a>
+      <a
+        href="https://www.geoapify.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hover:underline"
+      >
+        Geoapify
+      </a>
+      <a
+        href="https://www.openstreetmap.org/copyright"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hover:underline"
+      >
+        © OpenStreetMap
+      </a>
+    </div>
   );
 
   return (
-    <form id={formId} onSubmit={(event) => {
-      event.preventDefault();
-      if (!value.trim() && onEmptySubmit) {
-        onEmptySubmit();
-        return;
-      }
-      if (isOpen && activeIndex >= 0 && suggestions[activeIndex]) {
-        void selectSuggestion(suggestions[activeIndex]);
-        return;
-      }
-      inputRef.current?.focus();
-      if (!hasHouse) {
-        setValidation("Додайте номер будинку, щоб знайти точну адресу");
+    <form
+      id={formId}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!value.trim() && onEmptySubmit) {
+          onEmptySubmit();
+          return;
+        }
+        if (isOpen && activeIndex >= 0 && suggestions[activeIndex]) {
+          void selectSuggestion(suggestions[activeIndex]);
+          return;
+        }
         inputRef.current?.focus();
-        return;
+        if (!hasHouse) {
+          setValidation("Додайте номер будинку, щоб знайти точну адресу");
+          inputRef.current?.focus();
+          return;
+        }
+        // Enter opens suggestions; only an explicit choice confirms coordinates.
+        if (!isLoading) void runSearch(value);
+      }}
+      data-search-small
+      data-search-variant={variant}
+      className={
+        variant === "hero"
+          ? "flex min-h-25 w-full max-w-92.5 min-w-0 flex-col items-start gap-3 rounded-[22px] bg-white p-4 shadow-sm"
+          : "flex flex-col gap-2 pb-3"
       }
-      // Enter opens suggestions; only an explicit choice confirms coordinates.
-      if (!isLoading) void runSearch(value);
-    }} data-search-small className={variant === "hero"
-      ? "flex min-h-25 w-full max-w-92.5 min-w-0 flex-col items-start gap-3 rounded-[22px] bg-white p-4 shadow-sm"
-      : "flex flex-col gap-2 pb-3"}>
-      <label htmlFor={inputId} className="text-[13px] text-[#8E8E93]">Повна назва вулиці та номер будинку</label>
-      <div className={variant === "hero" ? "relative w-full" : "relative w-full max-w-100"}>
-        <div className={`flex w-full items-center gap-2 rounded-xl bg-[#767680]/12 px-3 py-2 ${isLoading || value.trim().length <= 2 ? "focus-within:ring-2 focus-within:ring-zinc-400" : isInvalid ? "ring-2 ring-red-600" : "focus-within:ring-2 focus-within:ring-blue-500"}`}>
+    >
+      <label htmlFor={inputId} className="text-[13px] text-[#8E8E93]">
+        Повна назва вулиці та номер будинку
+      </label>
+      <div
+        className={`address-search-panel relative w-full ${variant === "map" ? "max-w-100" : ""} ${isOpen ? "is-open" : ""}`}
+      >
+        <div
+          className="address-search-field flex w-full items-center gap-2 px-3 py-2"
+        >
           <SearchIcon className="size-4 shrink-0 text-zinc-500" />
-          <input ref={inputRef} id={inputId} type="text" autoComplete="off"
-            role="combobox" aria-autocomplete="list" aria-expanded={isOpen}
+          <input
+            ref={inputRef}
+            id={inputId}
+            type="text"
+            autoComplete="off"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={isOpen}
             aria-controls={isOpen ? `${inputId}-list` : undefined}
-            aria-activedescendant={isOpen && activeIndex >= 0 ? `${inputId}-option-${activeIndex}` : undefined}
-            aria-describedby={validation ? `${inputId}-error` : undefined} aria-invalid={isInvalid}
-            placeholder="Залізнична, 7П"
+            aria-activedescendant={
+              isOpen && activeIndex >= 0
+                ? `${inputId}-option-${activeIndex}`
+                : undefined
+            }
+            aria-describedby={validation ? `${inputId}-error` : undefined}
+            aria-invalid={isInvalid}
+            placeholder="Введіть вулицю або адресу"
             className="w-full min-w-0 bg-transparent text-sm text-black outline-none placeholder:text-[#8E8E93]"
-            value={value} onChange={(event) => changeValue(event.target.value)}
-            onBlur={() => { focused.current = false; setIsOpen(false); }}
-            onFocus={() => { focused.current = true; if (suggestions.length || error || isLoading) setIsOpen(true); }}
+            value={value}
+            onChange={(event) => changeValue(event.target.value)}
+            onBlur={() => {
+              focused.current = false;
+              setIsOpen(false);
+            }}
+            onFocus={() => {
+              focused.current = true;
+              if (suggestions.length || error || isLoading) setIsOpen(true);
+            }}
             onKeyDown={(event) => {
               if (event.nativeEvent.isComposing) {
                 if (event.key === "Enter") event.preventDefault();
@@ -207,9 +285,14 @@ export function AddressSearch({ onLocationChange, selectedAddress, variant = "ma
               if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                 event.preventDefault();
                 setIsOpen(true);
-                if (suggestions.length) setActiveIndex((index) => event.key === "ArrowDown"
-                  ? (index + 1) % suggestions.length
-                  : (index <= 0 ? suggestions.length - 1 : index - 1));
+                if (suggestions.length)
+                  setActiveIndex((index) =>
+                    event.key === "ArrowDown"
+                      ? (index + 1) % suggestions.length
+                      : index <= 0
+                        ? suggestions.length - 1
+                        : index - 1,
+                  );
               }
               if (event.key === "Escape") {
                 cancelSearch();
@@ -217,35 +300,102 @@ export function AddressSearch({ onLocationChange, selectedAddress, variant = "ma
                 setIsOpen(false);
                 setActiveIndex(-1);
               }
-            }} />
-          {value && <button type="button" onClick={() => {
-            changeValue("");
-            if (!selectedAddress) onLocationChange(null);
-            inputRef.current?.focus();
-          }} aria-label="Очистити адресу" className="shrink-0 text-[#8E8E93] transition-opacity hover:opacity-70"><ClearInput className="size-4" /></button>}
-        </div>
-        {isOpen && <div className="absolute top-full left-0 z-50 mt-1 w-full overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
-          <ul id={`${inputId}-list`} role="listbox" aria-label="Знайдені адреси">
-            {!isLoading && !error && suggestions.map((item, index) => (
-              <li key={item.id} id={`${inputId}-option-${index}`} role="option" aria-selected={activeIndex === index}
-                onMouseDown={(event) => event.preventDefault()} onClick={() => void selectSuggestion(item)}
-                className={`cursor-pointer border-b border-gray-50 px-4 py-2.5 text-left text-sm hover:bg-gray-50 ${activeIndex === index ? "bg-blue-50 text-blue-700" : "text-black"}`}>
-                {item.address}
-                {!item.isComplete && <span className="mt-1 block text-xs text-zinc-500">Додайте номер будинку</span>}
-              </li>
-            ))}
-          </ul>
-          {isLoading ? <p role="status" className="px-4 py-2.5 text-sm text-zinc-500">Пошук адрес…</p>
-            : error ? <p role="alert" className="px-4 py-2.5 text-sm text-red-600">{error}</p>
-            : suggestions.length === 0 && <p role="status" className="px-4 py-2.5 text-sm text-zinc-500">{hasHouse
-              ? "Адресу не знайдено. Уточніть назву вулиці та номер."
-              : "Введіть повну назву вулиці та номер будинку"}</p>}
-          {variant === "hero" && !isLoading && !error && suggestions.length > 0 && (
-            <div className="border-t border-gray-100 px-4 py-2">{attribution}</div>
+            }}
+          />
+          {value && (
+            <button
+              type="button"
+              onClick={() => {
+                changeValue("");
+                if (!selectedAddress) onLocationChange(null);
+                inputRef.current?.focus();
+              }}
+              aria-label="Очистити адресу"
+              className="shrink-0 text-[#8E8E93] transition-opacity hover:opacity-70"
+            >
+              <ClearInput className="size-4" />
+            </button>
           )}
-        </div>}
+          {variant === "hero" && (
+            <button type="submit" className="address-submit">
+              Знайти <ArrowRight width={17} height={17} style={{ width: 17, height: 17 }} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        {isOpen && (
+          <div className="address-results absolute top-full left-0 z-50 w-full overflow-hidden">
+            <ul
+              id={`${inputId}-list`}
+              role="listbox"
+              aria-label="Знайдені адреси"
+            >
+              {!isLoading &&
+                !error &&
+                suggestions.map((item, index) => (
+                  <li
+                    key={item.id}
+                    id={`${inputId}-option-${index}`}
+                    role="option"
+                    aria-selected={activeIndex === index}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => void selectSuggestion(item)}
+                    className={`cursor-pointer border-b border-gray-50 px-4 py-2.5 text-left text-sm hover:bg-gray-50 ${activeIndex === index ? "bg-blue-50 text-blue-700" : "text-black"}`}
+                  >
+                    {item.address}
+                    {!item.isComplete && (
+                      <div className="inline-text mt-1 block text-xs text-zinc-500">
+                        Додайте номер будинку
+                      </div>
+                    )}
+                  </li>
+                ))}
+            </ul>
+            {isLoading ? (
+              <div
+                role="status"
+                className="text-block px-4 py-2.5 text-sm text-zinc-500"
+              >
+                Пошук адрес…
+              </div>
+            ) : error ? (
+              <div
+                role="alert"
+                className="text-block px-4 py-2.5 text-sm text-red-600"
+              >
+                {error}
+              </div>
+            ) : (
+              suggestions.length === 0 && (
+                <div
+                  role="status"
+                  className="text-block px-4 py-2.5 text-sm text-zinc-500"
+                >
+                  {hasHouse
+                    ? "Адресу не знайдено. Уточніть назву вулиці та номер."
+                    : "Введіть повну назву вулиці та номер будинку"}
+                </div>
+              )
+            )}
+            {variant === "hero" &&
+              !isLoading &&
+              !error &&
+              suggestions.length > 0 && (
+                <div className="border-t border-gray-100 px-4 py-2">
+                  {attribution}
+                </div>
+              )}
+          </div>
+        )}
       </div>
-      {validation && <p id={`${inputId}-error`} role="alert" className="text-xs text-red-600">{validation}</p>}
+      {validation && (
+        <div
+          id={`${inputId}-error`}
+          role="alert"
+          className="text-block text-xs text-red-600"
+        >
+          {validation}
+        </div>
+      )}
     </form>
   );
 }

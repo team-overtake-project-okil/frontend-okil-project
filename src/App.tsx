@@ -23,9 +23,9 @@ function App() {
   };
   return (
     <>
-      <div className="flex min-h-svh w-full flex-col bg-[#F2F2F7]">
+      <div className="app-shell flex min-h-svh w-full flex-col">
         <Header />
-        <div className="mx-auto flex w-full max-w-7xl flex-col">
+        <div className="mx-auto flex w-full max-w-none flex-col">
           <Hero
             selectedAddress={selectedAddress}
             onAddressChange={handleAddressChange}
@@ -40,7 +40,7 @@ function App() {
 
         <hr className="w-full" />
 
-        <div className="mx-auto flex w-full max-w-7xl flex-col">
+        <div className="mx-auto flex w-full max-w-none flex-col">
           <Footer />
         </div>
       </div>

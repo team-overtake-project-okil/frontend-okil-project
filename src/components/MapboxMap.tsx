@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cellToBoundary, polygonToCells, cellToLatLng } from "h3-js";
+import { comfortPalette } from "../lib/palette";
 import cityBoundary from "../data/lviv-city.json";
 import type { Hexagon } from "./map";
 import { H3_RES, coordsToH3 } from "../lib/h3";
@@ -12,18 +13,6 @@ const token = import.meta.env.VITE_MAPBOX_TOKEN;
 const LVIV_LAT = 49.8429;
 const LVIV_LNG = 24.0316;
 const SELECTION_ZOOM = 13.5;
-// const SCORE_COLOR: mapboxgl.ExpressionSpecification = [
-//   "interpolate",
-//   ["linear"],
-//   ["get", "score"],
-//   0,
-//   "#FF3B30",
-//   50,
-//   "#FFCC00",
-//   100,
-//   "#34C759",
-// ];
-
 // Align a vertex of the central H3 cell with the vertical screen axis.
 const referenceHex = coordsToH3(LVIV_LAT, LVIV_LNG);
 const [referenceLat, referenceLng] = cellToLatLng(referenceHex);
@@ -50,20 +39,6 @@ const cityBounds = new mapboxgl.LngLatBounds();
 for (const [lng, lat] of cityBoundary.coordinates[0]) {
   cityBounds.extend([lng, lat]);
 }
-// Convert the 5 km margin to degrees at Lviv's latitude.
-const latitudeMargin = 5 / 111.32;
-const longitudeMargin = latitudeMargin / Math.cos((LVIV_LAT * Math.PI) / 180);
-const navigationBounds: [[number, number], [number, number]] = [
-  [
-    cityBounds.getWest() - longitudeMargin,
-    cityBounds.getSouth() - latitudeMargin,
-  ],
-  [
-    cityBounds.getEast() + longitudeMargin,
-    cityBounds.getNorth() + latitudeMargin,
-  ],
-];
-
 // Administrative boundary of the city of Lviv (OSM relation 2032280).
 const lvivCellIds = polygonToCells(cityBoundary.coordinates, H3_RES, true);
 
@@ -168,7 +143,7 @@ export function MapboxMap({
     const map = new mapboxgl.Map({
       container: mapContainer.current,
       accessToken: token,
-      style: "mapbox://styles/mapbox/streets-v12",
+      style: "mapbox://styles/mapbox/light-v11",
       customAttribution: [
         '<a href="https://api.visicom.ua/" target="_blank" rel="noopener noreferrer">© Visicom</a>',
         'Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Geoapify</a>',
@@ -176,8 +151,7 @@ export function MapboxMap({
       projection: "mercator",
       center: [LVIV_LNG, LVIV_LAT],
       zoom: 12,
-      minZoom: 10,
-      maxBounds: navigationBounds,
+      minZoom: 7,
       bearing: GRID_BEARING,
       // Preserve the small grid rotation when zoom gestures finish.
       bearingSnap: 0,
@@ -188,6 +162,20 @@ export function MapboxMap({
     });
 
     mapRef.current = map;
+    const overviewPadding = { top: 76, bottom: 44, left: 40, right: 40 };
+    const limitOverview = () => {
+      const camera = map.cameraForBounds(cityBounds, {
+        padding: overviewPadding,
+        bearing: GRID_BEARING,
+      });
+      if (camera?.zoom !== undefined) map.setMinZoom(camera.zoom);
+    };
+    const resize = new ResizeObserver(() => {
+      map.resize();
+      limitOverview();
+    });
+    resize.observe(mapContainer.current);
+
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
 
@@ -206,7 +194,7 @@ export function MapboxMap({
 
     map.addControl(
       new mapboxgl.NavigationControl({ showCompass: false }),
-      "top-right",
+      "bottom-right",
     );
 
     map.on("click", (e) => {
@@ -214,7 +202,7 @@ export function MapboxMap({
     });
 
     map.on("load", () => {
-      const hexes = lvivHexes(hexagons);
+      const hexes = lvivHexes([]);
       hexScoresRef.current = new Map(
         hexes.features.map((feature) => [
           feature.properties.id,
@@ -228,48 +216,74 @@ export function MapboxMap({
       });
 
       map.fitBounds(cityBounds, {
-        padding: 24,
+        padding: overviewPadding,
         duration: 0,
         retainPadding: false,
         bearing: GRID_BEARING,
       });
 
-      map.addLayer({
-        id: "h3-hexes-fill",
-        type: "fill",
-        source: "h3-hexes",
-        paint: {
-          "fill-color": [
-            "case",
-            ["has", "score"],
-            [
-              "interpolate",
-              ["linear"],
-              ["get", "score"],
-              0,
-              "#FF3B30",
-              50,
-              "#FFCC00",
-              100,
-              "#34C759",
+      limitOverview();
+      // Keep roads and labels above the assessment overlay, so the pastel
+      // cells never wash out street names or the road network.
+      const baseLayers = map.getStyle().layers;
+      const roadAnchor =
+        baseLayers.find(
+          (layer) =>
+            layer.type === "line" && /road|bridge|tunnel/.test(layer.id),
+        )?.id ?? baseLayers.find((layer) => layer.type === "symbol")?.id;
+      for (const layer of baseLayers) {
+        if (layer.type === "symbol" && /road|street/.test(layer.id)) {
+          map.setPaintProperty(layer.id, "text-color", "#515b56");
+          map.setPaintProperty(layer.id, "text-halo-color", "#ffffff");
+          map.setPaintProperty(layer.id, "text-halo-width", 1.3);
+        }
+      }
+      map.addLayer(
+        {
+          id: "h3-hexes-fill",
+          type: "fill",
+          source: "h3-hexes",
+          paint: {
+            "fill-color": [
+              "case",
+              ["has", "score"],
+              [
+                "interpolate",
+                ["linear"],
+                ["get", "score"],
+                0,
+                comfortPalette[0],
+                25,
+                comfortPalette[1],
+                50,
+                comfortPalette[2],
+                75,
+                comfortPalette[3],
+                100,
+                comfortPalette[4],
+              ],
+              "#D1D1D6",
             ],
-            "#D1D1D6",
-          ],
-          //є score - опасіті 0.5, немає - 0.28
-          "fill-opacity": ["case", ["has", "score"], 0.5, 0.28],
+            //є score - опасіті 0.5, немає - 0.28
+            "fill-opacity": ["case", ["has", "score"], 0.48, 0.14],
+          },
         },
-      });
+        roadAnchor,
+      );
 
-      map.addLayer({
-        id: "h3-hexes-line",
-        type: "line",
-        source: "h3-hexes",
-        paint: {
-          "line-color": "#8E8E93",
-          "line-width": 0.6,
-          "line-opacity": 0.35,
+      map.addLayer(
+        {
+          id: "h3-hexes-line",
+          type: "line",
+          source: "h3-hexes",
+          paint: {
+            "line-color": "#8e9690",
+            "line-width": 0.6,
+            "line-opacity": 0.35,
+          },
         },
-      });
+        roadAnchor,
+      );
 
       // Separate GeoJSON source for the selected hexagon.
       // Selection is restricted to cells in the city layer.
@@ -284,10 +298,10 @@ export function MapboxMap({
         source: "h3-selected",
         layout: { "line-join": "round" },
         paint: {
-          "line-color": "#007AFF",
-          "line-width": 8,
-          "line-blur": 8,
-          "line-opacity": 0.65,
+          "line-color": "#405c4a",
+          "line-width": 6,
+          "line-blur": 1.5,
+          "line-opacity": 0.28,
         },
       });
 
@@ -296,7 +310,7 @@ export function MapboxMap({
         type: "line",
         source: "h3-selected",
         paint: {
-          "line-color": "#007AFF",
+          "line-color": "#405c4a",
           "line-width": 2,
           "line-opacity": 0.85,
         },
@@ -328,14 +342,18 @@ export function MapboxMap({
         source: "routes",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#5B21B6",
-          "line-opacity": 0.9,
+          "line-color": "#718679",
+          "line-opacity": 0.85,
           "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 16, 4],
         },
       });
+      // Selection stays legible even where transit lines cross its boundary.
+      map.moveLayer("h3-selected-glow");
+      map.moveLayer("h3-hexes-selected");
     });
     return () => {
       window.removeEventListener("mouseup", onMouseUp);
+      resize.disconnect();
       map.remove();
       mapRef.current = null;
     };
@@ -346,7 +364,10 @@ export function MapboxMap({
     const map = mapRef.current;
     if (!map) return;
 
-    const data = routes ?? { type: "FeatureCollection" as const, features: [] };
+    const data = (routesEnabled ? routes : undefined) ?? {
+      type: "FeatureCollection" as const,
+      features: [],
+    };
     const apply = () => {
       const source = map.getSource("routes") as
         mapboxgl.GeoJSONSource | undefined;
@@ -361,7 +382,7 @@ export function MapboxMap({
         map.off("load", apply);
       };
     }
-  }, [routes]);
+  }, [routes, routesEnabled]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -370,11 +391,23 @@ export function MapboxMap({
     const apply = () => {
       const source = map.getSource("h3-hexes") as
         mapboxgl.GeoJSONSource | undefined;
-      source?.setData(lvivHexes(hexagons));
+      const hexes = lvivHexes(hexagons);
+      source?.setData(hexes);
+      hexScoresRef.current = new Map(
+        hexes.features.map((feature) => [
+          feature.properties.id,
+          "score" in feature.properties ? feature.properties.score : undefined,
+        ]),
+      );
     };
 
     if (map.getSource("h3-hexes")) apply();
-    else map.once("load", apply);
+    else {
+      map.once("load", apply);
+      return () => {
+        map.off("load", apply);
+      };
+    }
   }, [hexagons]);
 
   useEffect(() => {
@@ -406,7 +439,12 @@ export function MapboxMap({
   }, [searchedLocation, selectHex, clearSelectionKey]);
 
   if (!token) {
-    return <p>Mapbox token is missing.</p>;
+    return (
+      <div className="text-block map-message" role="alert">
+        Карта тимчасово недоступна: не налаштовано доступ до картографічного
+        сервісу.
+      </div>
+    );
   }
 
   const routesCount = routes?.features.length ?? 0;
@@ -414,15 +452,15 @@ export function MapboxMap({
     !routesEnabled || !selectedHexId
       ? null
       : routesQuery.isFetching
-        ? "Loading routes…"
+        ? "Завантажуємо маршрути…"
         : routesQuery.isError
-          ? "Couldn't load routes"
+          ? "Не вдалося завантажити маршрути"
           : routesCount === 0
-            ? "No routes with a stop in this hexagon"
-            : `Routes in this hexagon: ${routesCount}`;
+            ? "У цій ділянці немає зупинок маршрутів"
+            : `Маршрутів із зупинкою тут: ${routesCount}`;
 
   return (
-    <div className="relative h-125 w-full">
+    <div className="mapbox-frame">
       <div
         ref={mapContainer}
         className="h-full w-full overflow-hidden rounded-2xl"
@@ -430,16 +468,16 @@ export function MapboxMap({
       {routesStatus && (
         <div
           role="status"
-          className="absolute top-3 left-3 flex items-center gap-3 rounded-lg bg-white/90 px-3 py-2 text-sm shadow"
+          className="route-status absolute top-3 left-3 flex items-center gap-3 rounded-lg bg-white/90 px-3 py-2 text-sm shadow"
         >
-          <span>{routesStatus}</span>
+          <div className="inline-text">{routesStatus}</div>
           {routesQuery.isError && !routesQuery.isFetching && (
             <button
               type="button"
               className="rounded border px-2 py-0.5"
               onClick={() => routesQuery.refetch()}
             >
-              Retry
+              Повторити
             </button>
           )}
         </div>

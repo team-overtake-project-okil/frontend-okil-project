@@ -26,14 +26,14 @@ export const CharacCard = ({ title, value }: CharacCardProps) => {
   return (
     <Collapsible className="flex flex-col py-1.5">
       <CollapsibleTrigger className="group flex w-full items-baseline justify-between hover:opacity-50">
-        <span className="flex items-center gap-1">
-          <span className="text-xs">{title}</span>
+        <div className="inline-text flex items-center gap-1">
+          <div className="inline-text text-xs">{title}</div>
           <ChevronRight
             strokeWidth={2.5}
             className="size-2 transition-transform duration-300 group-data-panel-open:rotate-90"
           />
-        </span>
-        <span className="text-xs">{value}</span>
+        </div>
+        <div className="inline-text text-xs">{value}</div>
       </CollapsibleTrigger>
 
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#767680]/12">

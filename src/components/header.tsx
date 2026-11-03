@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { cn } from "cn";
+import ArrowUpRight from "../icons/arrow-up-right";
+import MapPinned from "../icons/map-pin";
 import headerLogo from "../assets/header_logo.png";
 import { scrollToSection } from "../lib/scroll";
 
-const HEADER_OFFSET = 64;
 const sectionIds = ["hero", "info", "map", "footer"] as const;
 
 export const Header = () => {
@@ -11,7 +11,9 @@ export const Header = () => {
 
   useEffect(() => {
     const updateActiveSection = () => {
-      const marker = HEADER_OFFSET + 1;
+      const marker =
+        (document.querySelector(".site-header")?.getBoundingClientRect()
+          .height ?? 64) + 24;
       const atBottom =
         window.innerHeight + window.scrollY >=
         document.documentElement.scrollHeight - 2;
@@ -34,55 +36,56 @@ export const Header = () => {
     return () => window.removeEventListener("scroll", updateActiveSection);
   }, []);
 
-  const navButtonClass = (sectionId: string) =>
-    cn(
-      "cursor-pointer rounded-sm text-sm leading-5 transition-colors hover:text-[#1C1C1E] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]",
-      activeSection === sectionId ? "text-[#1C1C1E]" : "text-[#8E8E93]",
-    );
-
   return (
-    <div className="sticky top-0 z-50 w-full border-b border-[#3c3c4324] bg-white/72 backdrop-blur-[22px] backdrop-saturate-180">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-8">
-        <img
-          src={headerLogo}
-          className="h-auto w-20 cursor-pointer object-contain"
+    <div className="site-header sticky top-0 z-50 w-full border-b border-[#3c3c4324] bg-white/72 backdrop-blur-[22px] backdrop-saturate-180">
+      <svg
+        width="0"
+        height="0"
+        aria-hidden="true"
+        style={{ position: "absolute" }}
+      >
+        <defs>
+          <filter id="brand-logo-ink" colorInterpolationFilters="sRGB">
+            <feFlood floodColor="#343638" result="ink" />
+            <feComposite in="ink" in2="SourceAlpha" operator="in" />
+          </filter>
+        </defs>
+      </svg>
+      <div className="header-inner mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-8">
+        <button
+          className="brand-logo"
+          aria-label="На початок"
           onClick={() => scrollToSection("hero")}
-        />
+        >
+          <img
+            alt="OKIL — на початок"
+            src={headerLogo}
+            className="h-auto w-20 cursor-pointer object-contain"
+          />
+        </button>
 
-        <div data-buttons>
-          <div className="flex items-center gap-7">
-            <div>
-              <button
-                onClick={() => scrollToSection("info")}
-                className={navButtonClass("info")}
-              >
-                Як це працює
-              </button>
-            </div>
-            <div>
-              <button
-                onClick={() => scrollToSection("map")}
-                className={navButtonClass("map")}
-              >
-                Карта
-              </button>
-            </div>
-            <div>
-              <button
-                onClick={() => scrollToSection("footer")}
-                className={navButtonClass("footer")}
-              >
-                Про проєкт
-              </button>
-            </div>
-          </div>
-        </div>
+        <nav className="section-nav" aria-label="Розділи сторінки">
+          {[
+            ["info", "Як це працює"],
+            ["map", "Карта"],
+            ["footer", "Про проєкт"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              aria-current={activeSection === id ? "location" : undefined}
+              onClick={() => scrollToSection(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
 
         <button
           onClick={() => scrollToSection("map")}
-          className="inline-flex cursor-pointer items-center justify-center rounded-full bg-[#007AFF] px-4 py-2 text-sm leading-4 font-semibold text-white transition-colors hover:bg-[#0066D6] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
+          className="header-map-button inline-flex cursor-pointer items-center justify-center rounded-full bg-[#007AFF] px-4 py-2 text-sm leading-4 font-semibold text-white transition-colors hover:bg-[#0066D6] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
         >
-          Відкрити карту
+          <MapPinned width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" /> До карти{" "}
+          <ArrowUpRight width={15} height={15} style={{ width: 15, height: 15 }} aria-hidden="true" />
         </button>
       </div>
     </div>

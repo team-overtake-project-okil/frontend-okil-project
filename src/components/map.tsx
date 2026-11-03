@@ -1,9 +1,22 @@
-import { cn } from "cn";
+import type { CSSProperties } from "react";
+import { comfortColor } from "../lib/palette";
+import BusFront from "../icons/truck";
+import Expand from "../icons/arrows-pointing-out";
+import Minimize2 from "../icons/arrows-pointing-in";
+import SlidersHorizontal from "../icons/adjustments-horizontal";
+import {
+  togglerIds,
+  lockedTogglerIds,
+  defaultTogglers,
+  buildAssessmentWeights,
+  sameWeights,
+  weightsSearch,
+  type TogglerStates,
+  type TogglerState,
+  type AssessmentWeights,
+} from "../lib/assessmentWeights";
 import { TogglerCard } from "./TogglerCard";
-import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { MapboxMap } from "./MapboxMap";
-import { CharacCard } from "./CharacCard";
-import { Skeleton } from "./ui/skeleton";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { fetcher } from "../lib/fetcher";
@@ -21,6 +34,7 @@ type CategoryRating = {
   enabled: boolean;
   weight: number;
   adjusted_score: number | null;
+  description?: string | null;
 };
 
 type HexagonAssessment = {
@@ -29,62 +43,9 @@ type HexagonAssessment = {
   categories: CategoryRating[];
 };
 
-const togglerIds = ["01", "02", "03", "04", "05", "06", "07", "08"] as const;
-const lockedTogglerIds = new Set<string>(["08"]);
-
-type TogglerState = { value: number; on: boolean };
-type TogglerStates = Record<string, TogglerState>;
-// Slider 20 is backend weight 1 (sent as value / 20).
-const DEFAULT_TOGGLER: TogglerState = { value: 20, on: true };
-const defaultTogglers = (): TogglerStates =>
-  Object.fromEntries(togglerIds.map((id) => [id, DEFAULT_TOGGLER]));
-
-type AssessmentWeights = {
-  weight_health: number;
-  weight_study: number;
-  weight_daily: number;
-  weight_mobility: number;
-  weight_sport: number;
-  weight_enjoyment: number;
-  weight_food: number;
-  weight_security: number;
-};
-
-function buildAssessmentWeights(togglers: TogglerStates): AssessmentWeights {
-  const weight = (id: string) =>
-    togglers[id].on ? togglers[id].value / 20 : 0;
-
-  return {
-    weight_health: weight("03"),
-    weight_study: weight("04"),
-    weight_daily: weight("02"),
-    weight_mobility: weight("01"),
-    weight_sport: weight("06"),
-    weight_enjoyment: weight("05"),
-    weight_food: weight("07"),
-    weight_security: weight("08"),
-  };
-}
-
-function sameWeights(a: AssessmentWeights | null, b: AssessmentWeights | null) {
-  if (a === null || b === null) return a === b;
-  return (Object.keys(a) as (keyof AssessmentWeights)[]).every(
-    (key) => a[key] === b[key],
-  );
-}
-
-// No query string keeps the backend defaults (every weight is 1).
-function weightsSearch(weights: AssessmentWeights | null) {
-  if (weights === null) return "";
-  const query = new URLSearchParams(
-    Object.entries(weights).map(([key, value]) => [key, String(value)]),
-  ).toString();
-  return query ? `?${query}` : "";
-}
-
 const categoryLabels = [
   ["mobility", "Мобільність"],
-  ["daily", "Побут"],
+  ["daily", "Щоденні потреби"],
   ["health", "Здоров'я"],
   ["study", "Освіта"],
   ["enjoyment", "Дозвілля"],
@@ -92,40 +53,6 @@ const categoryLabels = [
   ["food", "Їжа"],
   ["security", "Безпека"],
 ] as const;
-
-function categoryCards(assessment: HexagonAssessment) {
-  return categoryLabels.flatMap(([category, title]) => {
-    const item = assessment.categories.find(
-      (entry) => entry.category === category,
-    );
-    if (!item) return [];
-    return [{ title, score: item.score }];
-  });
-}
-
-const mapTabs = [
-  { value: "overall", label: "Загальний" },
-  { value: "mobility", label: "Мобільність" },
-  { value: "daily", label: "Побут" },
-  { value: "health", label: "Здоров'я" },
-  { value: "education", label: "Освіта" },
-  { value: "leisure", label: "Дозвілля" },
-  { value: "sport", label: "Спорт" },
-  { value: "food", label: "Їжа" },
-  { value: "shelter", label: "Укриття" },
-];
-
-// iOS-style segmented control (Figma: h 35.5, gap 1, padding 2, radius 11, fill #767680 @ 12%)
-const segmentedList =
-  "h-[35.5px] scrollbar-none overscroll-x-contain scroll-pl-0.5 justify-start gap-px overflow-x-auto overflow-y-hidden rounded-[11px] bg-[#767680]/12 p-0.5 group-data-horizontal/tabs:h-[35.5px] [&::-webkit-scrollbar]:hidden";
-
-const segmentedTrigger = cn(
-  // after:hidden drops the base underline indicator that overflows the list by 2px on Y
-  "h-full flex-none snap-start rounded-[9px] px-3.5 text-[13px] leading-none font-medium text-[#3C3C43]/60 after:hidden hover:text-[#3C3C43]/85",
-  "data-active:bg-white data-active:font-semibold data-active:text-black data-active:shadow-[0_3px_8px_rgba(0,0,0,0.12),0_3px_1px_rgba(0,0,0,0.04)]",
-  // divider between inactive segments (hidden on the first, the active one, and the one after active)
-  "before:absolute before:top-1/2 before:-left-px before:h-4 before:w-px before:-translate-y-1/2 before:bg-[#3C3C43]/30 first:before:hidden data-active:before:hidden [[data-active]+&]:before:hidden",
-);
 
 interface MapProps {
   clearSelectionKey: number;
@@ -143,6 +70,7 @@ export const Map = ({
   const [appliedTogglers, setAppliedTogglers] = useState<TogglerStates | null>(
     null,
   );
+  const [assessmentExpanded, setAssessmentExpanded] = useState(false);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
   const assessmentWeights = useMemo(
     () =>
@@ -193,25 +121,77 @@ export const Map = ({
   const showAssessmentSkeleton =
     isAssessmentLoading || (isAssessmentError && isAssessmentFetching);
 
-  const tabsWrapRef = useRef<HTMLDivElement>(null);
-
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const expandRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    const list =
-      tabsWrapRef.current?.querySelector<HTMLElement>('[role="tablist"]');
-    if (!list) return;
-
-    const onWheel = (e: WheelEvent) => {
-      if (list.scrollWidth <= list.clientWidth) return;
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-
-      e.preventDefault();
-      list.scrollLeft += e.deltaY;
+    if (!expanded) return;
+    const returnFocus = expandRef.current;
+    const previous = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    const siblings: { element: HTMLElement; inert: boolean }[] = [];
+    let node: HTMLElement | null = sectionRef.current;
+    while (node?.parentElement) {
+      for (const sibling of node.parentElement.children) {
+        if (sibling !== node && sibling instanceof HTMLElement) {
+          siblings.push({ element: sibling, inert: sibling.inert });
+          sibling.inert = true;
+        }
+      }
+      node = node.parentElement;
+    }
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setExpanded(false);
+        setPanelOpen(false);
+      }
+      if (event.key === "Tab") {
+        const elements = [
+          ...sectionRef.current!.querySelectorAll<HTMLElement>(
+            'button,input,summary,a[href],[tabindex="0"]',
+          ),
+        ].filter(
+          (e) => e.getClientRects().length && !e.hasAttribute("disabled"),
+        );
+        const first = elements[0],
+          last = elements.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
     };
-
-    list.addEventListener("wheel", onWheel, { passive: false });
-    return () => list.removeEventListener("wheel", onWheel);
-  }, []);
-
+    window.addEventListener("keydown", key);
+    return () => {
+      document.documentElement.style.overflow = previous;
+      siblings.forEach(({ element, inert }) => (element.inert = inert));
+      window.removeEventListener("keydown", key);
+      returnFocus?.focus();
+    };
+  }, [expanded]);
+  const [routesEnabled, setRoutesEnabled] = useState(false);
+  const panelRef = useRef<HTMLElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!panelOpen) return;
+    panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !expanded) {
+        setPanelOpen(false);
+        toggleRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [panelOpen, expanded]);
+  const dirty = !sameWeights(
+    buildAssessmentWeights(togglers),
+    assessmentWeights ?? buildAssessmentWeights(defaultTogglers()),
+  );
   const updateToggler = (id: string, patch: Partial<TogglerState>) =>
     setTogglers((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
 
@@ -237,305 +217,293 @@ export const Map = ({
     }
   };
 
-  const handleReset = () =>
-    setTogglers((prev) =>
-      Object.fromEntries(
-        togglerIds.map((id) => [
-          id,
-          lockedTogglerIds.has(id) || prev[id].on ? DEFAULT_TOGGLER : prev[id],
-        ]),
-      ),
-    );
-
+  const handleReset = () => setTogglers(defaultTogglers());
+  const closePanel = () => {
+    setPanelOpen(false);
+    toggleRef.current?.focus();
+  };
   return (
-    <div id="map" className="flex flex-col gap-8 px-6 py-20">
-      <div data-head className="flex items-baseline-last justify-between">
-        <div data-mapname className="flex flex-col gap-3">
-          <div className="text-[13px] font-medium text-[#8E8E93]">
-            Інтерактивна карта
+    <section
+      ref={sectionRef}
+      id="map"
+      className={`map-section ${expanded ? "map-expanded" : ""} ${panelOpen ? "panel-open" : ""}`}
+      role={expanded ? "dialog" : undefined}
+      aria-modal={expanded ? true : undefined}
+      aria-labelledby="map-heading"
+    >
+      <div className="map-heading">
+        <div>
+          <div className="text-block eyebrow">ДОСЛІДЖУЙТЕ МІСТО</div>
+          <div
+            role="heading"
+            aria-level={2}
+            className="heading-2"
+            id="map-heading"
+          >
+            Знайдіть місце за своїми пріоритетами.
           </div>
-
-          <div className="text-4xl font-bold">Львів у гексагонах</div>
         </div>
-
-        <div data-bestrate className="flex gap-7">
-          <div className="flex items-baseline gap-2">
-            <div className="text-2xl font-medium">30</div>
-            <div className="text-sm text-[#8E8E93]">Середній</div>
-          </div>
-
-          <div className="flex items-baseline gap-2">
-            <div className="text-2xl font-medium">83</div>
-            <div className="text-sm text-[#8E8E93]">Найкращий</div>
-          </div>
-
-          <div className="flex items-baseline gap-2">
-            <div className="text-2xl font-medium">2756</div>
-            <div className="text-sm text-[#8E8E93]">Комірок</div>
-          </div>
+        <div className="text-block">
+          Досліджуйте окіл: від щоденних потреб до транспорту й відпочинку.
+          Натисніть на ділянку, щоб побачити оцінку
         </div>
       </div>
-
-      <div data-map className="flex gap-6">
-        <div data-togglers className="px-1">
-          <div className="flex items-baseline-last justify-between">
-            {/* мб поміняти розмір шрифту */}
-            <div className="text-[13px] text-[#8E8E93]">Що важливо для вас</div>
-            {/* хендлери потім поставити */}
-            <button
-              onClick={handleReset}
-              className="text-[15px] text-[#007AFF] transition-opacity hover:opacity-70"
-            >
-              Скинути
-            </button>
-          </div>
-
-          <div className="pt-1 pb-2 text-[13px] text-[#8E8E93]">
-            Натисніть категорію: карта покаже її шар, а <br /> праворуч буде
-            пояснення бала.
-          </div>
-
-          <div className="rounded-[22px] bg-white">
-            <TogglerCard
-              {...togglerProps("01")}
-              title="Мобільність"
-              description="Транспорт (GTFS), парковки, заправки"
-            />
-
-            <hr />
-
-            <TogglerCard
-              {...togglerProps("02")}
-              title="Щоденні потреби"
-              description="Аптеки, магазини, пошта, банки"
-            />
-
-            <hr />
-
-            <TogglerCard
-              {...togglerProps("03")}
-              title="Здоров’я"
-              description="Лікарні, поліклініки, стоматології"
-            />
-
-            <hr />
-
-            <TogglerCard
-              {...togglerProps("04")}
-              title="Освіта"
-              description="Садочки, школи, виші"
-            />
-
-            <hr />
-
-            <TogglerCard
-              {...togglerProps("05")}
-              title="Дозвілля"
-              description="Парки, ТРЦ, кінотеатри"
-            />
-
-            <hr />
-
-            <TogglerCard
-              {...togglerProps("06")}
-              title="Спорт"
-              description="Спортзали, стадіони, басейни"
-            />
-
-            <hr />
-
-            <TogglerCard
-              {...togglerProps("07")}
-              title="Їжа"
-              description="Кафе, ресторани, заклади харчування"
-            />
-
-            <hr />
-
-            <TogglerCard
-              {...togglerProps("08")}
-              title="Безпека і стійкість"
-              description="Обов’язкова категорія"
-            />
-          </div>
-          <button
-            onClick={handleApply}
-            className="mt-4 w-full rounded-[14px] bg-[#007AFF] py-3 text-[15px] font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
-          >
-            Застосувати
-          </button>
-        </div>
-
-        <div data-map-and-search className="flex flex-col">
-          <div data-tabs ref={tabsWrapRef} className="w-full max-w-137">
-            <Tabs
-              defaultValue="overall"
-              className="w-full flex-none items-start gap-0 self-stretch pb-3 data-horizontal:flex-row"
-            >
-              <TabsList className={cn(segmentedList, "w-full")}>
-                {mapTabs.map(({ value, label }) => (
-                  <TabsTrigger
-                    key={value}
-                    className={segmentedTrigger}
-                    value={value}
-                  >
-                    {label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              {/* <TabsContent value="account">
-                Make changes to your account here.
-              </TabsContent>
-              <TabsContent value="password">
-                Change your password here.
-              </TabsContent> */}
-            </Tabs>
-          </div>
-
-          <div data-reacheability className="flex flex-col gap-2 pb-3.5">
-            <div className="text-[13px] text-[#8E8E93]">
-              Куди доїдете транспортом
+      <div className="map-workspace">
+        <div className="map-toolbar">
+          {!expanded && (
+            <div className="inline-map-info">
+              <strong>Індекс комфорту, Львів</strong>
+              <div className="inline-text">
+                Оберіть комірку, щоб побачити деталі
+              </div>
             </div>
-
-            <div>
-              <Tabs
-                defaultValue="on"
-                className="w-fit flex-none items-start gap-0 data-horizontal:flex-row"
-              >
-                <TabsList className={cn(segmentedList, "w-fit")}>
-                  <TabsTrigger className={segmentedTrigger} value="on">
-                    вимк
-                  </TabsTrigger>
-                  <TabsTrigger className={segmentedTrigger} value="off">
-                    увімк
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </div>
-
+          )}
           <AddressSearch
             selectedAddress={searchedLocation}
             onLocationChange={onAddressChange}
           />
-
-          <div data-map className="w-full min-w-0">
-            {showSkeleton ? (
-              <Skeleton className="h-125 w-full rounded-2xl bg-[#767680]/12" />
-            ) : isHexagonsError ? (
-              <div className="flex h-125 w-full flex-col items-center justify-center gap-2 rounded-2xl bg-[#767680]/12 px-6 text-center">
-                <div className="text-sm font-medium">
-                  Не вдалося завантажити карту
-                </div>
-                <div className="text-[13px] text-[#8E8E93]">
-                  Перевірте з'єднання і спробуйте ще раз.
-                </div>
-                <button
-                  type="button"
-                  onClick={() => refetch()}
-                  className="mt-1 text-[15px] text-[#007AFF] transition-opacity hover:opacity-70"
-                >
-                  Спробувати знову
-                </button>
+          <button
+            ref={toggleRef}
+            className="secondary-button"
+            aria-expanded={panelOpen}
+            aria-controls="weights-panel"
+            onClick={() => setPanelOpen(!panelOpen)}
+          >
+            <SlidersHorizontal width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" />{" "}
+            Пріоритети{" "}
+            {dirty && (
+              <div className="inline-text" aria-label="Є незастосовані зміни">
+                •
               </div>
-            ) : (
-              <MapboxMap
-                hexagons={hexagonsData}
-                clearSelectionKey={clearSelectionKey}
-                searchedLocation={searchedLocation}
-                onHexSelect={setSelectedHexId}
-              />
             )}
-          </div>
+          </button>
+          <label className="route-toggle">
+            <input
+              type="checkbox"
+              checked={routesEnabled}
+              onChange={(e) => setRoutesEnabled(e.target.checked)}
+            />{" "}
+            <BusFront width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" /> Маршрути
+            транспорту
+          </label>
+          <button
+            ref={expandRef}
+            className={`expand-map-button ${expanded ? "map-exit" : ""}`}
+            aria-label={
+              expanded ? "Повернутися до сторінки" : "Розгорнути карту"
+            }
+            title={expanded ? "Повернутися до сторінки" : "Розгорнути карту"}
+            aria-expanded={expanded}
+            onClick={() => {
+              setExpanded(!expanded);
+              setPanelOpen(!expanded);
+            }}
+          >
+            {expanded ? (
+              <Minimize2 width={17} height={17} style={{ width: 17, height: 17 }} />
+            ) : (
+              <Expand width={17} height={17} style={{ width: 17, height: 17 }} />
+            )}{" "}
+            {!expanded && "Розгорнути карту"}
+          </button>
         </div>
-
-        <div data-characteristics className="grow">
-          <div className="text-[13px] text-[#8E8E93]">
-            Обраний H3: {selectedHexId ?? "знайдіть адресу"}
-          </div>
-
-          {!selectedHexId ? (
-            <>
-              <div data-rate-number className="flex items-baseline-last gap-4">
-                <div className="text-7xl font-bold">—</div>
-                <div className="flex flex-col">
-                  <div className="text-sm font-medium">загальна</div>
-                  <div className="text-xs text-[#8E8E93]">з 100</div>
-                </div>
-              </div>
-              <p className="pt-2 text-xs font-light text-[#8E8E93]">
-                Оберіть гексагон на карті, щоб побачити його оцінку.
-              </p>
-            </>
-          ) : showAssessmentSkeleton ? (
-            <div
-              role="status"
-              aria-busy="true"
-              aria-label="Завантаження оцінки"
-            >
-              <div className="flex items-end gap-4">
-                <Skeleton className="h-16 w-24 rounded-2xl bg-[#767680]/12" />
-                <div className="flex flex-col gap-2 pb-1">
-                  <Skeleton className="h-3.5 w-16 bg-[#767680]/12" />
-                  <Skeleton className="h-3 w-10 bg-[#767680]/12" />
-                </div>
-              </div>
-              <div className="pt-4">
-                {Array.from({ length: 7 }, (_, index) => (
-                  <div key={index} className="flex flex-col gap-1.5 py-1.5">
-                    <div className="flex justify-between">
-                      <Skeleton className="h-3 w-24 bg-[#767680]/12" />
-                      <Skeleton className="h-3 w-6 bg-[#767680]/12" />
-                    </div>
-                    <Skeleton className="h-1.5 w-full rounded-full bg-[#767680]/12" />
-                  </div>
-                ))}
-              </div>
+        <div className="map-canvas">
+          <MapboxMap
+            hexagons={hexagonsData}
+            clearSelectionKey={clearSelectionKey}
+            searchedLocation={searchedLocation}
+            onHexSelect={setSelectedHexId}
+            routesEnabled={routesEnabled}
+          />
+          {showSkeleton && (
+            <div className="map-data-status" role="status">
+              Завантажуємо оцінки…
             </div>
-          ) : isAssessmentError ? (
-            <div className="flex flex-col gap-2 pt-4" role="alert">
-              <div className="text-sm font-medium">
-                Не вдалося завантажити оцінку
-              </div>
-              <div className="text-[13px] text-[#8E8E93]">
-                Перевірте з'єднання і спробуйте ще раз.
+          )}
+          {isHexagonsError && !isFetching && (
+            <div className="map-data-status" role="alert">
+              <div className="text-block">
+                Не вдалося завантажити оцінки. Карта доступна без них.
               </div>
               <button
-                type="button"
-                onClick={() => void refetchAssessment()}
-                className="mt-1 w-fit text-[15px] text-[#007AFF] transition-opacity hover:opacity-70"
+                className="secondary-button"
+                onClick={() => void refetch()}
               >
                 Спробувати знову
               </button>
             </div>
-          ) : (
-            <>
-              <div data-rate-number className="flex items-baseline-last gap-4">
-                <div className="text-7xl font-bold">
-                  {assessmentData?.overall_rating ?? "—"}
-                </div>
-
-                <div className="flex flex-col">
-                  <div className="text-sm font-medium">Оцінка</div>
-                  <div className="text-xs text-[#8E8E93]">з 100</div>
-                </div>
-              </div>
-
-              {assessmentData && (
-                <div data-characteristics-list className="pt-4">
-                  {categoryCards(assessmentData).map((card) => (
-                    <CharacCard
-                      key={card.title}
-                      title={card.title}
-                      value={card.score}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
           )}
         </div>
+        {panelOpen && (
+          <aside
+            ref={panelRef}
+            id="weights-panel"
+            className="weights-panel"
+            aria-label="Пріоритети"
+          >
+            <div className="panel-heading">
+              <div>
+                <div className="text-block eyebrow">ПЕРСОНАЛЬНА ОЦІНКА</div>
+                <div role="heading" aria-level={3} className="heading-3">
+                  Що для вас важливо
+                </div>
+              </div>
+              <button aria-label="Закрити налаштування" onClick={closePanel}>
+                ✕
+              </button>
+            </div>
+            <div className="text-block panel-intro">
+              Змініть важливість категорій. Карта оновиться після застосування.
+            </div>
+            <div className="weights-list">
+              {categoryLabels.map(([, title], i) => (
+                <TogglerCard
+                  key={togglerIds[i]}
+                  {...togglerProps(togglerIds[i])}
+                  title={title}
+                  description={
+                    [
+                      "Зупинки та транспорт",
+                      "Повсякденні послуги",
+                      "Медична інфраструктура",
+                      "Навчальні заклади",
+                      "Місця для відпочинку",
+                      "Спортивна інфраструктура",
+                      "Заклади харчування",
+                      "Завжди враховується",
+                    ][i]
+                  }
+                />
+              ))}
+            </div>
+            <div className="panel-actions">
+              <div className="text-block" role="status">
+                {dirty ? "Є незастосовані зміни" : "Пріоритети застосовано"}
+              </div>
+              <div>
+                <button className="secondary-button" onClick={handleReset}>
+                  Скинути
+                </button>
+                <button className="primary-button" onClick={handleApply}>
+                  Застосувати
+                </button>
+              </div>
+            </div>
+          </aside>
+        )}
+        {selectedHexId && (
+          <aside className="assessment-card" aria-label="Оцінка ділянки">
+            <div className="panel-heading">
+              <div className="text-block eyebrow">ВИБРАНА ДІЛЯНКА · ЛЬВІВ</div>
+              <button
+                aria-label="Скасувати вибір"
+                onClick={() => onAddressChange(null)}
+              >
+                ✕
+              </button>
+            </div>
+            {showAssessmentSkeleton ? (
+              <div className="text-block" role="status">
+                Розраховуємо оцінку…
+              </div>
+            ) : isAssessmentError ? (
+              <div role="alert">
+                <div className="text-block">Оцінка недоступна.</div>
+                <button onClick={() => void refetchAssessment()}>
+                  Спробувати знову
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="score">
+                  <strong>{assessmentData?.overall_rating ?? "—"}</strong>
+                  <div className="inline-text">
+                    Оцінка комфорту
+                    <br />з 100
+                  </div>
+                </div>
+                {expanded ? (
+                  <details
+                    open={assessmentExpanded}
+                    onToggle={(event) => {
+                      if (event.target === event.currentTarget)
+                        setAssessmentExpanded(event.currentTarget.open);
+                    }}
+                  >
+                    <summary>Докладніше про оцінку</summary>
+                    <div className="assessment-details">
+                      {categoryLabels.map(([key, title]) => {
+                        const item = assessmentData?.categories.find(
+                          (c) => c.category === key,
+                        );
+                        return (
+                          <details className="category-score" key={key}>
+                            <summary aria-label={`Пояснення: ${title}`}>
+                              <div>
+                                <div className="inline-text">{title}</div>
+                                <strong>
+                                  {!item
+                                    ? "Немає даних"
+                                    : !item.enabled
+                                      ? "Вимкнено"
+                                      : item.score}
+                                </strong>
+                              </div>
+                              <meter
+                                min="0"
+                                max="100"
+                                value={item?.enabled ? item.score : 0}
+                                aria-label={title}
+                                style={
+                                  {
+                                    "--score-color": comfortColor(
+                                      item?.score ?? 0,
+                                    ),
+                                  } as CSSProperties
+                                }
+                              />
+                            </summary>
+                            <div className="text-block category-description">
+                              {item?.description ||
+                                "Пояснення оцінки ще не додано."}
+                            </div>
+                          </details>
+                        );
+                      })}
+                    </div>
+                  </details>
+                ) : (
+                  <button
+                    className="inline-assessment-details"
+                    onClick={() => {
+                      setAssessmentExpanded(true);
+                      setExpanded(true);
+                      setPanelOpen(false);
+                    }}
+                  >
+                    Докладніше про оцінку{" "}
+                    <Expand width={14} height={14} style={{ width: 14, height: 14 }} aria-hidden="true" />
+                  </button>
+                )}
+              </>
+            )}
+          </aside>
+        )}
+        <div className="map-legend">
+          <div className="inline-text">Оцінка комфорту</div>
+          <div className="legend-ramp" />
+          <div>
+            <div className="inline-text">0</div>
+            <div className="inline-text">50</div>
+            <div className="inline-text">100</div>
+          </div>
+        </div>
+        {isFetching && !showSkeleton && (
+          <div className="text-block map-updating" role="status">
+            Оновлюємо оцінки…
+          </div>
+        )}
       </div>
-    </div>
+    </section>
   );
 };

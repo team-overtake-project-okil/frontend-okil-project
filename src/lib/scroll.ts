@@ -1,10 +1,16 @@
-const HEADER_OFFSET = 64;
-
 export const scrollToSection = (sectionId: string) => {
-  const element = document.getElementById(sectionId);
+  const section = document.getElementById(sectionId);
+  const element = section;
   if (!element) return;
-
-  const yCoordinate = element.getBoundingClientRect().top + window.scrollY;
-  const yOffset = sectionId === "map" ? -(HEADER_OFFSET - 70) : -HEADER_OFFSET;
-  window.scrollTo({ top: yCoordinate + yOffset, behavior: "smooth" });
+  const header =
+    document.querySelector(".site-header")?.getBoundingClientRect().height ??
+    64;
+  const top =
+    element.getBoundingClientRect().top + window.scrollY - header - 12;
+  window.scrollTo({
+    top: Math.max(0, top),
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth",
+  });
 };
