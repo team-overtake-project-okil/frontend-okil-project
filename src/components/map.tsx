@@ -143,6 +143,7 @@ export const Map = ({
   }
   const panelOpenRef = useRef(false);
   const panelStopRef = useRef<HexStopProperties | null>(null);
+  const restoreSlidersRef = useRef(false);
   useEffect(() => {
     panelOpenRef.current = panelOpen;
   }, [panelOpen]);
@@ -170,6 +171,8 @@ export const Map = ({
         if (panelStopRef.current) {
           panelStopRef.current = null;
           setPanelStop(null);
+          if (!restoreSlidersRef.current) setPanelOpen(false);
+          restoreSlidersRef.current = false;
           return;
         }
         setExpanded(false);
@@ -210,9 +213,13 @@ export const Map = ({
     if (panelStopRef.current === null) return;
     panelStopRef.current = null;
     setPanelStop(null);
+    if (!restoreSlidersRef.current) setPanelOpen(false);
+    restoreSlidersRef.current = false;
   }, []);
   const takeStopInPanel = useCallback((stop: HexStopProperties) => {
-    if (!panelOpenRef.current && panelStopRef.current === null) return false;
+    if (panelStopRef.current === null) {
+      restoreSlidersRef.current = panelOpenRef.current;
+    }
     panelStopRef.current = stop;
     setPanelStop(stop);
     setPanelOpen(true);
@@ -230,6 +237,8 @@ export const Map = ({
         if (panelStopRef.current) {
           panelStopRef.current = null;
           setPanelStop(null);
+          if (!restoreSlidersRef.current) setPanelOpen(false);
+          restoreSlidersRef.current = false;
           return;
         }
         setPanelOpen(false);
@@ -277,6 +286,7 @@ export const Map = ({
   const handleReset = () => setTogglers(defaultTogglers());
   const closePanel = () => {
     panelStopRef.current = null;
+    restoreSlidersRef.current = false;
     setPanelStop(null);
     setPanelOpen(false);
     toggleRef.current?.focus();
@@ -329,6 +339,7 @@ export const Map = ({
             aria-controls="weights-panel"
             onClick={() => {
               if (panelStopRef.current) {
+                restoreSlidersRef.current = true;
                 clearStopPanel();
                 return;
               }
