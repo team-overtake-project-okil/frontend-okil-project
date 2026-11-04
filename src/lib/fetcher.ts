@@ -1,5 +1,4 @@
 export async function fetcher(url: string, init?: RequestInit) {
-  // Older local setups use VITE_API_URL; keep them compatible.
   const base = (
     import.meta.env.VITE_BACKEND_URL?.trim() ||
     import.meta.env.VITE_API_URL?.trim()

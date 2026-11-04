@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { comfortColor } from "../lib/palette";
-import BusFront from "../icons/truck";
+import BusIcon from "../icons/bus";
 import Expand from "../icons/arrows-pointing-out";
 import Minimize2 from "../icons/arrows-pointing-in";
 import SlidersHorizontal from "../icons/adjustments-horizontal";
@@ -16,8 +16,19 @@ import {
   type AssessmentWeights,
 } from "../lib/assessmentWeights";
 import { TogglerCard } from "./TogglerCard";
+import { motion, MotionConfig } from "motion/react";
 import { MapboxMap } from "./MapboxMap";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { StopRoutesFace } from "./StopRoutesFace";
+import type { HexStopProperties } from "../lib/useStopsByHex";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const faceEase = [0.22, 0.82, 0.24, 1] as const;
+const faceTransition = {
+  x: { duration: 0.5, ease: faceEase },
+  scale: { duration: 0.5, ease: faceEase },
+  opacity: { duration: 0.38, ease: "easeOut" },
+  filter: { duration: 0.38, ease: "easeOut" },
+} as const;
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { fetcher } from "../lib/fetcher";
 import { AddressSearch } from "./AddressSearch";
@@ -122,6 +133,20 @@ export const Map = ({
     isAssessmentLoading || (isAssessmentError && isAssessmentFetching);
 
   const [panelOpen, setPanelOpen] = useState(false);
+  const [panelStop, setPanelStop] = useState<HexStopProperties | null>(null);
+  // Stays after panelStop clears so the route list can slide away.
+  const [retainedStop, setRetainedStop] = useState<HexStopProperties | null>(
+    null,
+  );
+  if (panelStop !== null && panelStop !== retainedStop) {
+    setRetainedStop(panelStop);
+  }
+  const panelOpenRef = useRef(false);
+  const panelStopRef = useRef<HexStopProperties | null>(null);
+  const restoreSlidersRef = useRef(false);
+  useEffect(() => {
+    panelOpenRef.current = panelOpen;
+  }, [panelOpen]);
   const [expanded, setExpanded] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const expandRef = useRef<HTMLButtonElement>(null);
@@ -143,6 +168,13 @@ export const Map = ({
     }
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (panelStopRef.current) {
+          panelStopRef.current = null;
+          setPanelStop(null);
+          if (!restoreSlidersRef.current) setPanelOpen(false);
+          restoreSlidersRef.current = false;
+          return;
+        }
         setExpanded(false);
         setPanelOpen(false);
       }
@@ -152,7 +184,10 @@ export const Map = ({
             'button,input,summary,a[href],[tabindex="0"]',
           ),
         ].filter(
-          (e) => e.getClientRects().length && !e.hasAttribute("disabled"),
+          (e) =>
+            e.getClientRects().length &&
+            !e.hasAttribute("disabled") &&
+            !e.closest("[inert]"),
         );
         const first = elements[0],
           last = elements.at(-1);
@@ -174,13 +209,38 @@ export const Map = ({
     };
   }, [expanded]);
   const [routesEnabled, setRoutesEnabled] = useState(false);
+  const clearStopPanel = useCallback(() => {
+    if (panelStopRef.current === null) return;
+    panelStopRef.current = null;
+    setPanelStop(null);
+    if (!restoreSlidersRef.current) setPanelOpen(false);
+    restoreSlidersRef.current = false;
+  }, []);
+  const takeStopInPanel = useCallback((stop: HexStopProperties) => {
+    if (panelStopRef.current === null) {
+      restoreSlidersRef.current = panelOpenRef.current;
+    }
+    panelStopRef.current = stop;
+    setPanelStop(stop);
+    setPanelOpen(true);
+    return true;
+  }, []);
   const panelRef = useRef<HTMLElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!panelOpen) return;
-    panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    if (!panelStopRef.current) {
+      panelRef.current?.querySelector<HTMLButtonElement>(".weights-close")?.focus();
+    }
     const close = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !expanded) {
+        if (panelStopRef.current) {
+          panelStopRef.current = null;
+          setPanelStop(null);
+          if (!restoreSlidersRef.current) setPanelOpen(false);
+          restoreSlidersRef.current = false;
+          return;
+        }
         setPanelOpen(false);
         toggleRef.current?.focus();
       }
@@ -188,6 +248,12 @@ export const Map = ({
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [panelOpen, expanded]);
+  useEffect(() => {
+    if (!panelStop) return;
+    panelRef.current
+      ?.querySelector<HTMLButtonElement>(".stop-panel-close")
+      ?.focus();
+  }, [panelStop]);
   const dirty = !sameWeights(
     buildAssessmentWeights(togglers),
     assessmentWeights ?? buildAssessmentWeights(defaultTogglers()),
@@ -219,9 +285,13 @@ export const Map = ({
 
   const handleReset = () => setTogglers(defaultTogglers());
   const closePanel = () => {
+    panelStopRef.current = null;
+    restoreSlidersRef.current = false;
+    setPanelStop(null);
     setPanelOpen(false);
     toggleRef.current?.focus();
   };
+  const faceStop = panelStop ?? retainedStop;
   return (
     <section
       ref={sectionRef}
@@ -267,9 +337,21 @@ export const Map = ({
             className="secondary-button"
             aria-expanded={panelOpen}
             aria-controls="weights-panel"
-            onClick={() => setPanelOpen(!panelOpen)}
+            onClick={() => {
+              if (panelStopRef.current) {
+                restoreSlidersRef.current = true;
+                clearStopPanel();
+                return;
+              }
+              setPanelOpen(!panelOpen);
+            }}
           >
-            <SlidersHorizontal width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" />{" "}
+            <SlidersHorizontal
+              width={16}
+              height={16}
+              style={{ width: 16, height: 16 }}
+              aria-hidden="true"
+            />{" "}
             Пріоритети{" "}
             {dirty && (
               <div className="inline-text" aria-label="Є незастосовані зміни">
@@ -283,7 +365,7 @@ export const Map = ({
               checked={routesEnabled}
               onChange={(e) => setRoutesEnabled(e.target.checked)}
             />{" "}
-            <BusFront width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" /> Маршрути
+            <BusIcon className="size-4" aria-hidden="true" /> Маршрути
             транспорту
           </label>
           <button
@@ -295,14 +377,23 @@ export const Map = ({
             title={expanded ? "Повернутися до сторінки" : "Розгорнути карту"}
             aria-expanded={expanded}
             onClick={() => {
+              if (expanded) clearStopPanel();
               setExpanded(!expanded);
               setPanelOpen(!expanded);
             }}
           >
             {expanded ? (
-              <Minimize2 width={17} height={17} style={{ width: 17, height: 17 }} />
+              <Minimize2
+                width={17}
+                height={17}
+                style={{ width: 17, height: 17 }}
+              />
             ) : (
-              <Expand width={17} height={17} style={{ width: 17, height: 17 }} />
+              <Expand
+                width={17}
+                height={17}
+                style={{ width: 17, height: 17 }}
+              />
             )}{" "}
             {!expanded && "Розгорнути карту"}
           </button>
@@ -313,6 +404,8 @@ export const Map = ({
             clearSelectionKey={clearSelectionKey}
             searchedLocation={searchedLocation}
             onHexSelect={setSelectedHexId}
+            onStopInPanel={takeStopInPanel}
+            onStopPanelDismiss={clearStopPanel}
             routesEnabled={routesEnabled}
           />
           {showSkeleton && (
@@ -338,57 +431,99 @@ export const Map = ({
           <aside
             ref={panelRef}
             id="weights-panel"
-            className="weights-panel"
-            aria-label="Пріоритети"
+            className={`weights-panel${panelStop ? " is-stop" : ""}`}
+            aria-label={panelStop ? "Маршрути зупинки" : "Пріоритети"}
           >
-            <div className="panel-heading">
-              <div>
-                <div className="text-block eyebrow">ПЕРСОНАЛЬНА ОЦІНКА</div>
-                <div role="heading" aria-level={3} className="heading-3">
-                  Що для вас важливо
+            <MotionConfig reducedMotion="user">
+            <div className="panel-deck">
+              <motion.div
+                className="panel-face weights-face"
+                initial={false}
+                animate={
+                  panelStop
+                    ? { x: "-14%", scale: 0.96, opacity: 0, filter: "blur(3px)" }
+                    : { x: "0%", scale: 1, opacity: 1, filter: "blur(0px)" }
+                }
+                transition={faceTransition}
+                inert={Boolean(panelStop)}
+                style={{ pointerEvents: panelStop ? "none" : "auto" }}
+              >
+                <div className="panel-heading">
+                  <div>
+                    <div className="text-block eyebrow">ПЕРСОНАЛЬНА ОЦІНКА</div>
+                    <div role="heading" aria-level={3} className="heading-3">
+                      Що для вас важливо
+                    </div>
+                  </div>
+                  <button
+                    className="weights-close"
+                    aria-label="Закрити налаштування"
+                    onClick={closePanel}
+                  >
+                    ✕
+                  </button>
                 </div>
-              </div>
-              <button aria-label="Закрити налаштування" onClick={closePanel}>
-                ✕
-              </button>
+                <div className="text-block panel-intro">
+                  Змініть важливість категорій. Карта оновиться після
+                  застосування.
+                </div>
+                <div className="weights-list">
+                  {categoryLabels.map(([, title], i) => (
+                    <TogglerCard
+                      key={togglerIds[i]}
+                      {...togglerProps(togglerIds[i])}
+                      title={title}
+                      description={
+                        [
+                          "Зупинки та транспорт",
+                          "Повсякденні послуги",
+                          "Медична інфраструктура",
+                          "Навчальні заклади",
+                          "Місця для відпочинку",
+                          "Спортивна інфраструктура",
+                          "Заклади харчування",
+                          "Завжди враховується",
+                        ][i]
+                      }
+                    />
+                  ))}
+                </div>
+                <div className="panel-actions">
+                  <div className="text-block" role="status">
+                    {dirty ? "Є незастосовані зміни" : "Пріоритети застосовано"}
+                  </div>
+                  <div>
+                    <button className="secondary-button" onClick={handleReset}>
+                      Скинути
+                    </button>
+                    <button className="primary-button" onClick={handleApply}>
+                      Застосувати
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+              <motion.div
+                className="panel-face stop-face"
+                initial={{ x: "16%", scale: 0.98, opacity: 0, filter: "blur(3px)" }}
+                animate={
+                  panelStop
+                    ? { x: "0%", scale: 1, opacity: 1, filter: "blur(0px)" }
+                    : { x: "16%", scale: 0.98, opacity: 0, filter: "blur(3px)" }
+                }
+                transition={faceTransition}
+                inert={!panelStop}
+                style={{ pointerEvents: panelStop ? "auto" : "none" }}
+              >
+                {faceStop && (
+                  <StopRoutesFace
+                    key={faceStop.id}
+                    stop={faceStop}
+                    onClose={clearStopPanel}
+                  />
+                )}
+              </motion.div>
             </div>
-            <div className="text-block panel-intro">
-              Змініть важливість категорій. Карта оновиться після застосування.
-            </div>
-            <div className="weights-list">
-              {categoryLabels.map(([, title], i) => (
-                <TogglerCard
-                  key={togglerIds[i]}
-                  {...togglerProps(togglerIds[i])}
-                  title={title}
-                  description={
-                    [
-                      "Зупинки та транспорт",
-                      "Повсякденні послуги",
-                      "Медична інфраструктура",
-                      "Навчальні заклади",
-                      "Місця для відпочинку",
-                      "Спортивна інфраструктура",
-                      "Заклади харчування",
-                      "Завжди враховується",
-                    ][i]
-                  }
-                />
-              ))}
-            </div>
-            <div className="panel-actions">
-              <div className="text-block" role="status">
-                {dirty ? "Є незастосовані зміни" : "Пріоритети застосовано"}
-              </div>
-              <div>
-                <button className="secondary-button" onClick={handleReset}>
-                  Скинути
-                </button>
-                <button className="primary-button" onClick={handleApply}>
-                  Застосувати
-                </button>
-              </div>
-            </div>
+            </MotionConfig>
           </aside>
         )}
         {selectedHexId && (
@@ -482,7 +617,12 @@ export const Map = ({
                     }}
                   >
                     Докладніше про оцінку{" "}
-                    <Expand width={14} height={14} style={{ width: 14, height: 14 }} aria-hidden="true" />
+                    <Expand
+                      width={14}
+                      height={14}
+                      style={{ width: 14, height: 14 }}
+                      aria-hidden="true"
+                    />
                   </button>
                 )}
               </>
