@@ -1167,6 +1167,10 @@ body {
   z-index: 3;
   font-size: 11px;
 }
+.mapboxgl-popup.stop-popup,
+.mapboxgl-popup.stop-nametag {
+  font-family: "Geist Variable", sans-serif;
+}
 .mapboxgl-popup.stop-popup .mapboxgl-popup-content {
   box-sizing: border-box;
   width: 228px;
