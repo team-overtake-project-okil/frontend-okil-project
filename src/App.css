@@ -426,7 +426,7 @@ button:disabled {
 .panel-heading button:hover {
   background: #f0f4f5;
 }
-.weights-panel .panel-heading {
+.weights-face .panel-heading {
   padding: 18px 18px 8px;
 }
 .panel-deck {
@@ -446,10 +446,8 @@ button:disabled {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
   scrollbar-width: thin;
   scrollbar-color: #c9d4cd transparent;
 }
@@ -489,7 +487,6 @@ button:disabled {
   font-size: 12px;
   color: var(--muted-ink);
   line-height: 1.6;
-  padding: 0 18px 14px;
 }
 .weights-list {
   flex: 1;
@@ -2414,15 +2411,17 @@ input:focus-visible {
   width: 280px;
   bottom: 40px;
 }
-.weights-panel .panel-heading {
+.weights-face .panel-heading {
   padding: 14px 14px 8px;
 }
 .panel-heading .heading-3 {
   font-size: 18px;
 }
 .panel-intro {
-  padding: 0 14px 12px;
   font-size: 11px;
+}
+.weights-face .panel-intro {
+  padding: 0 14px 12px;
 }
 .weights-list > div {
   padding: 13px 14px;
@@ -2638,10 +2637,10 @@ input:focus-visible {
 .assessment-card {
   padding: 0;
 }
-.weights-panel .panel-heading {
+.weights-face .panel-heading {
   padding: 12px 16px 6px;
 }
-.weights-panel .panel-intro {
+.weights-face .panel-intro {
   padding: 0 16px 12px;
   margin: 0;
 }
