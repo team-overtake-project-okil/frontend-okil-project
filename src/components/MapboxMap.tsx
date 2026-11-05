@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cellToBoundary, polygonToCells, cellToLatLng } from "h3-js";
-import { comparisonColors } from "../lib/hexagonAssessment";
+import { comparisonColors, comparisonLabels } from "../lib/hexagonAssessment";
 import { comfortPalette } from "../lib/palette";
 import cityBoundary from "../data/lviv-city.json";
 import type { Hexagon } from "./map";
@@ -623,6 +623,18 @@ export function MapboxMap({
         data: { type: "FeatureCollection", features: [] },
       });
       map.addLayer({
+        id: "h3-comparison-glow",
+        type: "line",
+        source: "h3-comparison",
+        layout: { "line-join": "round" },
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": 16,
+          "line-blur": 6,
+          "line-opacity": 0.72,
+        },
+      });
+      map.addLayer({
         id: "h3-comparison-outline",
         type: "line",
         source: "h3-comparison",
@@ -725,14 +737,26 @@ export function MapboxMap({
       });
     };
 
+    const labels = comparisonIds.map((id, index) => {
+      const [lat, lng] = cellToLatLng(id);
+      const element = document.createElement("span");
+      element.className = "comparison-map-label";
+      element.textContent = comparisonLabels[index];
+      element.style.color = comparisonColors[index];
+      element.setAttribute("aria-hidden", "true");
+      return new mapboxgl.Marker({ element }).setLngLat([lng, lat]).addTo(map);
+    });
+
     if (map.getSource("h3-comparison")) {
       apply();
     } else {
       map.once("load", apply);
-      return () => {
-        map.off("load", apply);
-      };
     }
+
+    return () => {
+      map.off("load", apply);
+      labels.forEach((label) => label.remove());
+    };
   }, [comparisonIds, selectHex]);
 
   // Push the routes of the selected hexagon into the map (empty when nothing is selected).

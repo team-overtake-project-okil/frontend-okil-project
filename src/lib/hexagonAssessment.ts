@@ -46,4 +46,4 @@ export function hexagonAssessmentOptions(
 
 export const comparisonLabels = ["А", "Б", "В"] as const;
 
-export const comparisonColors = ["#6d927f", "#827eae", "#ad8053"] as const;
+export const comparisonColors = ["#b26782", "#827eae", "#ad8053"] as const;
