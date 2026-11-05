@@ -747,6 +747,17 @@ export function MapboxMap({
       return new mapboxgl.Marker({ element }).setLngLat([lng, lat]).addTo(map);
     });
 
+    const resizeLabels = () => {
+      const scale = Math.min(1, 2 ** (map.getZoom() - SELECTION_ZOOM));
+      for (const label of labels) {
+        const element = label.getElement();
+        element.style.setProperty("--comparison-label-size", `${18 * scale}px`);
+        element.hidden = scale < 0.35;
+      }
+    };
+    resizeLabels();
+    map.on("zoom", resizeLabels);
+
     if (map.getSource("h3-comparison")) {
       apply();
     } else {
@@ -755,6 +766,7 @@ export function MapboxMap({
 
     return () => {
       map.off("load", apply);
+      map.off("zoom", resizeLabels);
       labels.forEach((label) => label.remove());
     };
   }, [comparisonIds, selectHex]);

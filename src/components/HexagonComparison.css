@@ -110,10 +110,10 @@
 }
 
 .mapboxgl-marker.comparison-map-label {
-  font: 800 18px/1 system-ui, sans-serif;
+  font: 800 var(--comparison-label-size, 18px)/1 system-ui, sans-serif;
   text-shadow:
-    0 0 4px color-mix(in srgb, currentColor 48%, transparent),
-    0 0 8px color-mix(in srgb, currentColor 28%, transparent);
+    0 0 0.22em color-mix(in srgb, currentColor 48%, transparent),
+    0 0 0.44em color-mix(in srgb, currentColor 28%, transparent);
   pointer-events: none;
   user-select: none;
 }
