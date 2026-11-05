@@ -751,7 +751,7 @@ export function MapboxMap({
       const scale = Math.min(1, 2 ** (map.getZoom() - SELECTION_ZOOM));
       for (const label of labels) {
         const element = label.getElement();
-        element.style.setProperty("--comparison-label-size", `${18 * scale}px`);
+        element.style.setProperty("--comparison-label-size", `${Math.max(12, 18 * scale)}px`);
         element.hidden = scale < 0.35;
       }
     };
