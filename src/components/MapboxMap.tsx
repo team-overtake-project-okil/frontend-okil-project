@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cellToBoundary, polygonToCells, cellToLatLng } from "h3-js";
+import { comparisonLabels } from "../lib/hexagonAssessment";
 import { comfortPalette } from "../lib/palette";
 import cityBoundary from "../data/lviv-city.json";
 import type { Hexagon } from "./map";
@@ -203,6 +204,7 @@ function pointCoordinates(
 
 interface MapboxMapProps {
   hexagons: Hexagon[];
+  comparisonIds: readonly string[];
   searchedLocation?: { lat: number; lng: number } | null;
   onHexSelect?: (hexId: string | null) => void;
   clearSelectionKey?: number;
@@ -215,6 +217,7 @@ interface MapboxMapProps {
 
 export function MapboxMap({
   hexagons,
+  comparisonIds,
   searchedLocation,
   onHexSelect,
   clearSelectionKey,
@@ -687,6 +690,22 @@ export function MapboxMap({
       mapRef.current = null;
     };
   }, [selectHex]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const markers = comparisonIds.map((id, index) => {
+      const [lat, lng] = cellToLatLng(id);
+      const element = document.createElement("span");
+      element.className = "comparison-marker";
+      element.textContent = comparisonLabels[index];
+      element.setAttribute("aria-hidden", "true");
+      return new mapboxgl.Marker({ element }).setLngLat([lng, lat]).addTo(map);
+    });
+
+    return () => markers.forEach((marker) => marker.remove());
+  }, [comparisonIds, selectHex]);
 
   // Push the routes of the selected hexagon into the map (empty when nothing is selected).
   useEffect(() => {

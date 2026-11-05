@@ -1,0 +1,111 @@
+.map-comparison-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.map-expanded .map-comparison-layout {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.hex-comparison {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d5dcd7;
+  border-radius: 16px;
+  background: #fff;
+  color: #25392d;
+  font-size: 14px;
+}
+
+.hex-comparison-controls,
+.hex-comparison-selection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hex-comparison-controls {
+  justify-content: space-between;
+}
+
+.hex-comparison-selection {
+  padding: 0;
+  margin: 6px 0;
+  list-style: none;
+}
+
+.hex-comparison button,
+.assessment-card .comparison-add {
+  padding: 4px 8px;
+  border: 1px solid #b8c9bf;
+  border-radius: 8px;
+  background: #f1f6f2;
+  color: #25392d;
+  cursor: pointer;
+}
+
+.assessment-card .comparison-add {
+  margin: 6px 0;
+}
+
+.hex-comparison button:disabled,
+.assessment-card .comparison-add:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.hex-comparison-scroll {
+  overflow: auto;
+  max-height: min(45dvh, 420px);
+}
+
+.hex-comparison table {
+  width: 100%;
+  border-spacing: 0;
+}
+
+.hex-comparison th,
+.hex-comparison td {
+  min-width: 105px;
+  padding: 7px;
+  text-align: left;
+  border-bottom: 1px solid #d5dcd7;
+}
+
+.hex-comparison th:first-child {
+  position: sticky;
+  left: 0;
+  background: #fff;
+}
+
+.comparison-marker {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #25392d;
+  color: #fff;
+  font: bold 14px/1 system-ui;
+  pointer-events: none;
+}
+
+@media (min-width: 901px) {
+  .map-comparison-layout:has(.hex-comparison) {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 34%);
+  }
+
+  .hex-comparison {
+    align-self: start;
+  }
+
+  .map-expanded .hex-comparison {
+    margin-top: 64px;
+  }
+
+  .hex-comparison-scroll {
+    max-height: min(60dvh, 520px);
+  }
+}
