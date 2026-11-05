@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cellToBoundary, polygonToCells, cellToLatLng } from "h3-js";
-import { comparisonLabels } from "../lib/hexagonAssessment";
+import { comparisonColors } from "../lib/hexagonAssessment";
 import { comfortPalette } from "../lib/palette";
 import cityBoundary from "../data/lviv-city.json";
 import type { Hexagon } from "./map";
@@ -618,6 +618,21 @@ export function MapboxMap({
       map.moveLayer("h3-selected-glow");
       map.moveLayer("h3-hexes-selected");
 
+      map.addSource("h3-comparison", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      map.addLayer({
+        id: "h3-comparison-outline",
+        type: "line",
+        source: "h3-comparison",
+        layout: { "line-join": "round" },
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": 4,
+        },
+      });
+
       // Stops inside the selected hexagon. The request also returns the rest of each route.
       map.addSource("stops", {
         type: "geojson",
@@ -695,16 +710,29 @@ export function MapboxMap({
     const map = mapRef.current;
     if (!map) return;
 
-    const markers = comparisonIds.map((id, index) => {
-      const [lat, lng] = cellToLatLng(id);
-      const element = document.createElement("span");
-      element.className = "comparison-marker";
-      element.textContent = comparisonLabels[index];
-      element.setAttribute("aria-hidden", "true");
-      return new mapboxgl.Marker({ element }).setLngLat([lng, lat]).addTo(map);
-    });
+    const apply = () => {
+      const source = map.getSource<mapboxgl.GeoJSONSource>("h3-comparison");
+      source?.setData({
+        type: "FeatureCollection",
+        features: comparisonIds.map((id, index) => ({
+          type: "Feature",
+          properties: { color: comparisonColors[index] },
+          geometry: {
+            type: "Polygon",
+            coordinates: [cellToBoundary(id, true)],
+          },
+        })),
+      });
+    };
 
-    return () => markers.forEach((marker) => marker.remove());
+    if (map.getSource("h3-comparison")) {
+      apply();
+    } else {
+      map.once("load", apply);
+      return () => {
+        map.off("load", apply);
+      };
+    }
   }, [comparisonIds, selectHex]);
 
   // Push the routes of the selected hexagon into the map (empty when nothing is selected).

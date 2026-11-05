@@ -1,21 +1,24 @@
-.map-comparison-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.map-expanded .map-comparison-layout {
-  height: 100%;
-  grid-template-rows: minmax(0, 1fr) auto;
-}
-
 .hex-comparison {
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid #d5dcd7;
-  border-radius: 16px;
-  background: #fff;
-  color: #25392d;
-  font-size: 14px;
+  position: absolute;
+  z-index: 10;
+  top: 76px;
+  left: 16px;
+  width: min(300px, calc(100% - 32px));
+  max-height: calc(100% - 100px);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid #dce2de;
+  border-radius: 26px;
+  background: #f8faf9;
+  color: var(--ink);
+  box-shadow: 0 8px 24px #25392d14;
+  font-size: 13px;
+}
+
+.hex-comparison[data-open="true"] {
+  width: min(420px, 48%);
 }
 
 .hex-comparison-controls,
@@ -31,22 +34,30 @@
 
 .hex-comparison-selection {
   padding: 0;
-  margin: 6px 0;
+  margin: 8px 0 0;
   list-style: none;
+}
+
+.hex-comparison p {
+  margin: 6px 0 0;
 }
 
 .hex-comparison button,
 .assessment-card .comparison-add {
-  padding: 4px 8px;
-  border: 1px solid #b8c9bf;
-  border-radius: 8px;
-  background: #f1f6f2;
-  color: #25392d;
+  padding: 4px 9px;
+  border: 1px solid #d0dbd3;
+  border-radius: 999px;
+  background: #eef3ef;
+  color: #405c4a;
+  font-size: 12px;
+  line-height: 1.4;
   cursor: pointer;
 }
 
 .assessment-card .comparison-add {
-  margin: 6px 0;
+  display: block;
+  width: fit-content;
+  margin: 4px 0 8px;
 }
 
 .hex-comparison button:disabled,
@@ -56,8 +67,8 @@
 }
 
 .hex-comparison-scroll {
+  margin-top: 8px;
   overflow: auto;
-  max-height: min(45dvh, 420px);
 }
 
 .hex-comparison table {
@@ -67,45 +78,75 @@
 
 .hex-comparison th,
 .hex-comparison td {
-  min-width: 105px;
-  padding: 7px;
+  padding: 6px;
   text-align: left;
-  border-bottom: 1px solid #d5dcd7;
+  border-bottom: 1px solid #e1e7e2;
+}
+
+.hex-comparison td {
+  min-width: 64px;
+  font-size: 12px;
 }
 
 .hex-comparison th:first-child {
   position: sticky;
   left: 0;
-  background: #fff;
+  background: #f8faf9;
 }
 
-.comparison-marker {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 2px solid #fff;
+.comparison-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.comparison-swatch::before {
+  content: "";
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: #25392d;
-  color: #fff;
-  font: bold 14px/1 system-ui;
-  pointer-events: none;
+  background: var(--hex-color);
 }
 
-@media (min-width: 901px) {
-  .map-comparison-layout:has(.hex-comparison) {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 34%);
-  }
+.comparison-score strong {
+  font-variant-numeric: tabular-nums;
+}
 
+.comparison-score meter {
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin-top: 3px;
+  appearance: none;
+  background: #e4eae5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.comparison-score meter::-webkit-meter-bar {
+  border: 0;
+  background: #e4eae5;
+}
+
+.comparison-score meter::-webkit-meter-optimum-value {
+  background: var(--score-color);
+}
+
+.comparison-score meter::-moz-meter-bar {
+  background: var(--score-color);
+}
+
+@media (max-width: 700px) {
   .hex-comparison {
-    align-self: start;
+    top: auto;
+    bottom: 82px;
+    left: 12px;
+    max-height: min(42%, 290px);
   }
 
-  .map-expanded .hex-comparison {
-    margin-top: 64px;
-  }
-
-  .hex-comparison-scroll {
-    max-height: min(60dvh, 520px);
+  .hex-comparison[data-open="true"] {
+    width: calc(100% - 24px);
+    bottom: 12px;
   }
 }

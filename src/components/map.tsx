@@ -187,6 +187,12 @@ export const Map = ({
     if (!restoreSlidersRef.current) setPanelOpen(false);
     restoreSlidersRef.current = false;
   }, []);
+  const closeMapPanelsForComparison = () => {
+    restoreSlidersRef.current = false;
+    clearStopPanel();
+    setPanelOpen(false);
+    setRoutesEnabled(false);
+  };
   const takeStopInPanel = useCallback((stop: HexStopProperties) => {
     if (panelStopRef.current === null) {
       restoreSlidersRef.current = panelOpenRef.current;
@@ -291,386 +297,384 @@ export const Map = ({
           Натисніть на ділянку, щоб побачити оцінку
         </div>
       </div>
-      <div className="map-comparison-layout">
-        <div className="map-workspace">
-          <div className="map-toolbar">
-            {!expanded && (
-              <div className="inline-map-info">
-                <strong>Індекс комфорту, Львів</strong>
-                <div className="inline-text">
-                  Оберіть комірку, щоб побачити деталі
-                </div>
+      <div className="map-workspace">
+        <div className="map-toolbar">
+          {!expanded && (
+            <div className="inline-map-info">
+              <strong>Індекс комфорту, Львів</strong>
+              <div className="inline-text">
+                Оберіть комірку, щоб побачити деталі
               </div>
-            )}
-            <AddressSearch
-              selectedAddress={searchedLocation}
-              onLocationChange={onAddressChange}
-            />
-            <button
-              ref={toggleRef}
-              className="secondary-button"
-              aria-expanded={panelOpen}
-              aria-controls="weights-panel"
-              onClick={() => {
-                if (panelStopRef.current) {
-                  restoreSlidersRef.current = true;
-                  clearStopPanel();
-                  return;
-                }
-                setPanelOpen(!panelOpen);
-              }}
-            >
-              <SlidersHorizontal
-                width={16}
-                height={16}
-                style={{ width: 16, height: 16 }}
-                aria-hidden="true"
-              />{" "}
-              Пріоритети{" "}
-              {dirty && (
-                <div className="inline-text" aria-label="Є незастосовані зміни">
-                  •
-                </div>
-              )}
-            </button>
-            <label className="route-toggle">
-              <input
-                type="checkbox"
-                checked={routesEnabled}
-                onChange={(e) => setRoutesEnabled(e.target.checked)}
-              />{" "}
-              <BusIcon className="size-4" aria-hidden="true" /> Маршрути
-              транспорту
-            </label>
-            <button
-              ref={expandRef}
-              className={`expand-map-button ${expanded ? "map-exit" : ""}`}
-              aria-label={
-                expanded ? "Повернутися до сторінки" : "Розгорнути карту"
-              }
-              title={expanded ? "Повернутися до сторінки" : "Розгорнути карту"}
-              aria-expanded={expanded}
-              onClick={() => {
-                if (expanded) clearStopPanel();
-                setExpanded(!expanded);
-                setPanelOpen(!expanded);
-              }}
-            >
-              {expanded ? (
-                <Minimize2
-                  width={17}
-                  height={17}
-                  style={{ width: 17, height: 17 }}
-                />
-              ) : (
-                <Expand
-                  width={17}
-                  height={17}
-                  style={{ width: 17, height: 17 }}
-                />
-              )}{" "}
-              {!expanded && "Розгорнути карту"}
-            </button>
-          </div>
-          <div className="map-canvas">
-            <MapboxMap
-              hexagons={hexagonsData}
-              comparisonIds={comparisonIds}
-              clearSelectionKey={clearSelectionKey}
-              searchedLocation={searchedLocation}
-              onHexSelect={setSelectedHexId}
-              onStopInPanel={takeStopInPanel}
-              onStopPanelDismiss={clearStopPanel}
-              routesEnabled={routesEnabled}
-            />
-            {showSkeleton && (
-              <div className="map-data-status" role="status">
-                Завантажуємо оцінки…
-              </div>
-            )}
-            {isHexagonsError && !isFetching && (
-              <div className="map-data-status" role="alert">
-                <div className="text-block">
-                  Не вдалося завантажити оцінки. Карта доступна без них.
-                </div>
-                <button
-                  className="secondary-button"
-                  onClick={() => void refetch()}
-                >
-                  Спробувати знову
-                </button>
-              </div>
-            )}
-          </div>
-          {panelOpen && (
-            <aside
-              ref={panelRef}
-              id="weights-panel"
-              className={`weights-panel${panelStop ? "is-stop" : ""}`}
-              aria-label={panelStop ? "Маршрути зупинки" : "Пріоритети"}
-            >
-              <MotionConfig reducedMotion="user">
-                <div className="panel-deck">
-                  <motion.div
-                    className="panel-face weights-face"
-                    initial={false}
-                    animate={
-                      panelStop
-                        ? {
-                            x: "-14%",
-                            scale: 0.96,
-                            opacity: 0,
-                            filter: "blur(3px)",
-                          }
-                        : { x: "0%", scale: 1, opacity: 1, filter: "blur(0px)" }
-                    }
-                    transition={faceTransition}
-                    inert={Boolean(panelStop)}
-                    style={{ pointerEvents: panelStop ? "none" : "auto" }}
-                  >
-                    <div className="panel-heading">
-                      <div>
-                        <div className="text-block eyebrow">
-                          ПЕРСОНАЛЬНА ОЦІНКА
-                        </div>
-                        <div
-                          role="heading"
-                          aria-level={3}
-                          className="heading-3"
-                        >
-                          Що для вас важливо
-                        </div>
-                      </div>
-                      <button
-                        className="weights-close"
-                        aria-label="Закрити налаштування"
-                        onClick={closePanel}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    <div className="text-block panel-intro">
-                      Змініть важливість категорій. Карта оновиться після
-                      застосування.
-                    </div>
-                    <div className="weights-list">
-                      {categoryLabels.map(([, title], i) => (
-                        <TogglerCard
-                          key={togglerIds[i]}
-                          {...togglerProps(togglerIds[i])}
-                          title={title}
-                          description={
-                            [
-                              "Зупинки та транспорт",
-                              "Повсякденні послуги",
-                              "Медична інфраструктура",
-                              "Навчальні заклади",
-                              "Місця для відпочинку",
-                              "Спортивна інфраструктура",
-                              "Заклади харчування",
-                              "Завжди враховується",
-                            ][i]
-                          }
-                        />
-                      ))}
-                    </div>
-                    <div className="panel-actions">
-                      <div className="text-block" role="status">
-                        {dirty
-                          ? "Є незастосовані зміни"
-                          : "Пріоритети застосовано"}
-                      </div>
-                      <div>
-                        <button
-                          className="secondary-button"
-                          onClick={handleReset}
-                        >
-                          Скинути
-                        </button>
-                        <button
-                          className="primary-button"
-                          onClick={handleApply}
-                        >
-                          Застосувати
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                  <motion.div
-                    className="panel-face stop-face"
-                    initial={{
-                      x: "16%",
-                      scale: 0.98,
-                      opacity: 0,
-                      filter: "blur(3px)",
-                    }}
-                    animate={
-                      panelStop
-                        ? { x: "0%", scale: 1, opacity: 1, filter: "blur(0px)" }
-                        : {
-                            x: "16%",
-                            scale: 0.98,
-                            opacity: 0,
-                            filter: "blur(3px)",
-                          }
-                    }
-                    transition={faceTransition}
-                    inert={!panelStop}
-                    style={{ pointerEvents: panelStop ? "auto" : "none" }}
-                  >
-                    {faceStop && (
-                      <StopRoutesFace
-                        key={faceStop.id}
-                        stop={faceStop}
-                        onClose={clearStopPanel}
-                      />
-                    )}
-                  </motion.div>
-                </div>
-              </MotionConfig>
-            </aside>
+            </div>
           )}
-          {selectedHexId && (
-            <aside className="assessment-card" aria-label="Оцінка ділянки">
-              <div className="panel-heading">
-                <div className="text-block eyebrow">
-                  ВИБРАНА ДІЛЯНКА · ЛЬВІВ
-                </div>
-                <button
-                  aria-label="Скасувати вибір"
-                  onClick={() => onAddressChange(null)}
-                >
-                  ✕
-                </button>
+          <AddressSearch
+            selectedAddress={searchedLocation}
+            onLocationChange={onAddressChange}
+          />
+          <button
+            ref={toggleRef}
+            className="secondary-button"
+            aria-expanded={panelOpen}
+            aria-controls="weights-panel"
+            onClick={() => {
+              if (panelStopRef.current) {
+                restoreSlidersRef.current = true;
+                clearStopPanel();
+                return;
+              }
+              if (!panelOpen) setComparisonOpen(false);
+              setPanelOpen(!panelOpen);
+            }}
+          >
+            <SlidersHorizontal
+              width={16}
+              height={16}
+              style={{ width: 16, height: 16 }}
+              aria-hidden="true"
+            />{" "}
+            Пріоритети{" "}
+            {dirty && (
+              <div className="inline-text" aria-label="Є незастосовані зміни">
+                •
+              </div>
+            )}
+          </button>
+          <label className="route-toggle">
+            <input
+              type="checkbox"
+              checked={routesEnabled}
+              onChange={(e) => {
+                if (e.target.checked) setComparisonOpen(false);
+                setRoutesEnabled(e.target.checked);
+              }}
+            />{" "}
+            <BusIcon className="size-4" aria-hidden="true" /> Маршрути
+            транспорту
+          </label>
+          <button
+            ref={expandRef}
+            className={`expand-map-button ${expanded ? "map-exit" : ""}`}
+            aria-label={
+              expanded ? "Повернутися до сторінки" : "Розгорнути карту"
+            }
+            title={expanded ? "Повернутися до сторінки" : "Розгорнути карту"}
+            aria-expanded={expanded}
+            onClick={() => {
+              if (expanded) clearStopPanel();
+              setExpanded(!expanded);
+              setPanelOpen(!expanded && !comparisonOpen);
+            }}
+          >
+            {expanded ? (
+              <Minimize2
+                width={17}
+                height={17}
+                style={{ width: 17, height: 17 }}
+              />
+            ) : (
+              <Expand
+                width={17}
+                height={17}
+                style={{ width: 17, height: 17 }}
+              />
+            )}{" "}
+            {!expanded && "Розгорнути карту"}
+          </button>
+        </div>
+        <div className="map-canvas">
+          <MapboxMap
+            hexagons={hexagonsData}
+            comparisonIds={comparisonIds}
+            clearSelectionKey={clearSelectionKey}
+            searchedLocation={searchedLocation}
+            onHexSelect={setSelectedHexId}
+            onStopInPanel={takeStopInPanel}
+            onStopPanelDismiss={clearStopPanel}
+            routesEnabled={routesEnabled}
+          />
+          {showSkeleton && (
+            <div className="map-data-status" role="status">
+              Завантажуємо оцінки…
+            </div>
+          )}
+          {isHexagonsError && !isFetching && (
+            <div className="map-data-status" role="alert">
+              <div className="text-block">
+                Не вдалося завантажити оцінки. Карта доступна без них.
               </div>
               <button
-                type="button"
-                className="comparison-add"
-                disabled={!canAddToComparison}
-                onClick={() => {
-                  if (canAddToComparison)
-                    setComparisonIds([...comparisonIds, selectedHexId]);
-                }}
+                className="secondary-button"
+                onClick={() => void refetch()}
               >
-                {comparisonIds.includes(selectedHexId)
-                  ? "Ділянку додано"
-                  : comparisonIds.length === comparisonLabels.length
-                    ? "Вибрано максимум ділянок"
-                    : "Додати до порівняння"}
+                Спробувати знову
               </button>
-              {showAssessmentSkeleton ? (
-                <div className="text-block" role="status">
-                  Розраховуємо оцінку…
-                </div>
-              ) : isAssessmentError ? (
-                <div role="alert">
-                  <div className="text-block">Оцінка недоступна.</div>
-                  <button onClick={() => void refetchAssessment()}>
-                    Спробувати знову
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="score">
-                    <strong>{assessmentData?.overall_rating ?? "—"}</strong>
-                    <div className="inline-text">
-                      Оцінка комфорту
-                      <br />з 100
-                    </div>
-                  </div>
-                  {expanded ? (
-                    <details
-                      open={assessmentExpanded}
-                      onToggle={(event) => {
-                        if (event.target === event.currentTarget)
-                          setAssessmentExpanded(event.currentTarget.open);
-                      }}
-                    >
-                      <summary>Докладніше про оцінку</summary>
-                      <div className="assessment-details">
-                        {categoryLabels.map(([key, title]) => {
-                          const item = assessmentData?.categories.find(
-                            (c) => c.category === key,
-                          );
-                          return (
-                            <details className="category-score" key={key}>
-                              <summary aria-label={`Пояснення: ${title}`}>
-                                <div>
-                                  <div className="inline-text">{title}</div>
-                                  <strong>
-                                    {!item
-                                      ? "Немає даних"
-                                      : !item.enabled
-                                        ? "Вимкнено"
-                                        : item.score}
-                                  </strong>
-                                </div>
-                                <meter
-                                  min="0"
-                                  max="100"
-                                  value={item?.enabled ? item.score : 0}
-                                  aria-label={title}
-                                  style={
-                                    {
-                                      "--score-color": comfortColor(
-                                        item?.score ?? 0,
-                                      ),
-                                    } as CSSProperties
-                                  }
-                                />
-                              </summary>
-                              <div className="text-block category-description">
-                                {item?.description ||
-                                  "Пояснення оцінки ще не додано."}
-                              </div>
-                            </details>
-                          );
-                        })}
-                      </div>
-                    </details>
-                  ) : (
-                    <button
-                      className="inline-assessment-details"
-                      onClick={() => {
-                        setAssessmentExpanded(true);
-                        setExpanded(true);
-                        setPanelOpen(false);
-                      }}
-                    >
-                      Докладніше про оцінку{" "}
-                      <Expand
-                        width={14}
-                        height={14}
-                        style={{ width: 14, height: 14 }}
-                        aria-hidden="true"
-                      />
-                    </button>
-                  )}
-                </>
-              )}
-            </aside>
-          )}
-          <div className="map-legend">
-            <div className="inline-text">Оцінка комфорту</div>
-            <div className="legend-ramp" />
-            <div>
-              <div className="inline-text">0</div>
-              <div className="inline-text">50</div>
-              <div className="inline-text">100</div>
-            </div>
-          </div>
-          {isFetching && !showSkeleton && (
-            <div className="text-block map-updating" role="status">
-              Оновлюємо оцінки…
             </div>
           )}
         </div>
-        {comparisonIds.length > 0 && (
+        {panelOpen && (
+          <aside
+            ref={panelRef}
+            id="weights-panel"
+            className={`weights-panel${panelStop ? "is-stop" : ""}`}
+            aria-label={panelStop ? "Маршрути зупинки" : "Пріоритети"}
+          >
+            <MotionConfig reducedMotion="user">
+              <div className="panel-deck">
+                <motion.div
+                  className="panel-face weights-face"
+                  initial={false}
+                  animate={
+                    panelStop
+                      ? {
+                          x: "-14%",
+                          scale: 0.96,
+                          opacity: 0,
+                          filter: "blur(3px)",
+                        }
+                      : { x: "0%", scale: 1, opacity: 1, filter: "blur(0px)" }
+                  }
+                  transition={faceTransition}
+                  inert={Boolean(panelStop)}
+                  style={{ pointerEvents: panelStop ? "none" : "auto" }}
+                >
+                  <div className="panel-heading">
+                    <div>
+                      <div className="text-block eyebrow">
+                        ПЕРСОНАЛЬНА ОЦІНКА
+                      </div>
+                      <div role="heading" aria-level={3} className="heading-3">
+                        Що для вас важливо
+                      </div>
+                    </div>
+                    <button
+                      className="weights-close"
+                      aria-label="Закрити налаштування"
+                      onClick={closePanel}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="text-block panel-intro">
+                    Змініть важливість категорій. Карта оновиться після
+                    застосування.
+                  </div>
+                  <div className="weights-list">
+                    {categoryLabels.map(([, title], i) => (
+                      <TogglerCard
+                        key={togglerIds[i]}
+                        {...togglerProps(togglerIds[i])}
+                        title={title}
+                        description={
+                          [
+                            "Зупинки та транспорт",
+                            "Повсякденні послуги",
+                            "Медична інфраструктура",
+                            "Навчальні заклади",
+                            "Місця для відпочинку",
+                            "Спортивна інфраструктура",
+                            "Заклади харчування",
+                            "Завжди враховується",
+                          ][i]
+                        }
+                      />
+                    ))}
+                  </div>
+                  <div className="panel-actions">
+                    <div className="text-block" role="status">
+                      {dirty
+                        ? "Є незастосовані зміни"
+                        : "Пріоритети застосовано"}
+                    </div>
+                    <div>
+                      <button
+                        className="secondary-button"
+                        onClick={handleReset}
+                      >
+                        Скинути
+                      </button>
+                      <button className="primary-button" onClick={handleApply}>
+                        Застосувати
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div
+                  className="panel-face stop-face"
+                  initial={{
+                    x: "16%",
+                    scale: 0.98,
+                    opacity: 0,
+                    filter: "blur(3px)",
+                  }}
+                  animate={
+                    panelStop
+                      ? { x: "0%", scale: 1, opacity: 1, filter: "blur(0px)" }
+                      : {
+                          x: "16%",
+                          scale: 0.98,
+                          opacity: 0,
+                          filter: "blur(3px)",
+                        }
+                  }
+                  transition={faceTransition}
+                  inert={!panelStop}
+                  style={{ pointerEvents: panelStop ? "auto" : "none" }}
+                >
+                  {faceStop && (
+                    <StopRoutesFace
+                      key={faceStop.id}
+                      stop={faceStop}
+                      onClose={clearStopPanel}
+                    />
+                  )}
+                </motion.div>
+              </div>
+            </MotionConfig>
+          </aside>
+        )}
+        {selectedHexId && (
+          <aside className="assessment-card" aria-label="Оцінка ділянки">
+            <div className="panel-heading">
+              <div className="text-block eyebrow">ВИБРАНА ДІЛЯНКА · ЛЬВІВ</div>
+              <button
+                aria-label="Скасувати вибір"
+                onClick={() => onAddressChange(null)}
+              >
+                ✕
+              </button>
+            </div>
+            {showAssessmentSkeleton ? (
+              <div className="text-block" role="status">
+                Розраховуємо оцінку…
+              </div>
+            ) : isAssessmentError ? (
+              <div role="alert">
+                <div className="text-block">Оцінка недоступна.</div>
+                <button onClick={() => void refetchAssessment()}>
+                  Спробувати знову
+                </button>
+              </div>
+            ) : (
+              <div className="score">
+                <strong>{assessmentData?.overall_rating ?? "—"}</strong>
+                <div className="inline-text">
+                  Оцінка комфорту
+                  <br />з 100
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              className="comparison-add"
+              disabled={!canAddToComparison}
+              onClick={() => {
+                if (canAddToComparison) {
+                  closeMapPanelsForComparison();
+                  setComparisonIds([...comparisonIds, selectedHexId]);
+                }
+              }}
+            >
+              {comparisonIds.includes(selectedHexId)
+                ? "Ділянку додано"
+                : comparisonIds.length === comparisonLabels.length
+                  ? "Вибрано максимум ділянок"
+                  : "Додати до порівняння"}
+            </button>
+            {!showAssessmentSkeleton &&
+              !isAssessmentError &&
+              (expanded ? (
+                <details
+                  open={assessmentExpanded}
+                  onToggle={(event) => {
+                    if (event.target === event.currentTarget)
+                      setAssessmentExpanded(event.currentTarget.open);
+                  }}
+                >
+                  <summary>Докладніше про оцінку</summary>
+                  <div className="assessment-details">
+                    {categoryLabels.map(([key, title]) => {
+                      const item = assessmentData?.categories.find(
+                        (c) => c.category === key,
+                      );
+                      return (
+                        <details className="category-score" key={key}>
+                          <summary aria-label={`Пояснення: ${title}`}>
+                            <div>
+                              <div className="inline-text">{title}</div>
+                              <strong>
+                                {!item
+                                  ? "Немає даних"
+                                  : !item.enabled
+                                    ? "Вимкнено"
+                                    : item.score}
+                              </strong>
+                            </div>
+                            <meter
+                              min="0"
+                              max="100"
+                              value={item?.enabled ? item.score : 0}
+                              aria-label={title}
+                              style={
+                                {
+                                  "--score-color": comfortColor(
+                                    item?.score ?? 0,
+                                  ),
+                                } as CSSProperties
+                              }
+                            />
+                          </summary>
+                          <div className="text-block category-description">
+                            {item?.description ||
+                              "Пояснення оцінки ще не додано."}
+                          </div>
+                        </details>
+                      );
+                    })}
+                  </div>
+                </details>
+              ) : (
+                <button
+                  className="inline-assessment-details"
+                  onClick={() => {
+                    setAssessmentExpanded(true);
+                    setExpanded(true);
+                    setPanelOpen(false);
+                  }}
+                >
+                  Докладніше про оцінку{" "}
+                  <Expand
+                    width={14}
+                    height={14}
+                    style={{ width: 14, height: 14 }}
+                    aria-hidden="true"
+                  />
+                </button>
+              ))}
+          </aside>
+        )}
+        <div className="map-legend">
+          <div className="inline-text">Оцінка комфорту</div>
+          <div className="legend-ramp" />
+          <div>
+            <div className="inline-text">0</div>
+            <div className="inline-text">50</div>
+            <div className="inline-text">100</div>
+          </div>
+        </div>
+        {isFetching && !showSkeleton && (
+          <div className="text-block map-updating" role="status">
+            Оновлюємо оцінки…
+          </div>
+        )}
+        {comparisonIds.length > 0 && !panelOpen && (
           <HexagonComparison
             ids={comparisonIds}
             weights={assessmentWeights}
             open={comparisonOpen}
-            onToggle={() => setComparisonOpen(!comparisonOpen)}
+            onToggle={() => {
+              if (!comparisonOpen) closeMapPanelsForComparison();
+              setComparisonOpen(!comparisonOpen);
+            }}
             onRemove={(id) => {
               setComparisonIds(comparisonIds.filter((item) => item !== id));
               if (comparisonIds.length <= 2) setComparisonOpen(false);

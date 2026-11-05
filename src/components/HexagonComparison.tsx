@@ -1,11 +1,13 @@
-import { useId } from "react";
+import { useId, type CSSProperties } from "react";
 import { useQueries } from "@tanstack/react-query";
 import type { AssessmentWeights } from "../lib/assessmentWeights";
 import {
   categoryLabels,
+  comparisonColors,
   comparisonLabels,
   hexagonAssessmentOptions,
 } from "../lib/hexagonAssessment";
+import { comfortColor } from "../lib/palette";
 import "./HexagonComparison.css";
 
 interface HexagonComparisonProps {
@@ -14,6 +16,21 @@ interface HexagonComparisonProps {
   open: boolean;
   onToggle: () => void;
   onRemove: (id: string) => void;
+}
+
+function ComparisonScore({ value }: { value: number }) {
+  return (
+    <div className="comparison-score">
+      <strong>{value}</strong>
+      <meter
+        min={0}
+        max={100}
+        value={value}
+        aria-hidden="true"
+        style={{ "--score-color": comfortColor(value) } as CSSProperties}
+      />
+    </div>
+  );
 }
 
 export function HexagonComparison({
@@ -29,7 +46,11 @@ export function HexagonComparison({
   });
 
   return (
-    <aside className="hex-comparison" aria-label="Порівняння ділянок">
+    <aside
+      className="hex-comparison"
+      data-open={open}
+      aria-label="Порівняння ділянок"
+    >
       <div className="hex-comparison-controls">
         <strong>Порівняння · {ids.length}/3</strong>
         <button
@@ -47,6 +68,10 @@ export function HexagonComparison({
           <li key={id}>
             <button
               type="button"
+              className="comparison-swatch"
+              style={
+                { "--hex-color": comparisonColors[index] } as CSSProperties
+              }
               aria-label={`Прибрати ділянку ${comparisonLabels[index]}`}
               onClick={() => onRemove(id)}
             >
@@ -71,7 +96,16 @@ export function HexagonComparison({
                 <th scope="col">Показник</th>
                 {ids.map((id, index) => (
                   <th scope="col" key={id}>
-                    Ділянка {comparisonLabels[index]}
+                    <span
+                      className="comparison-swatch"
+                      style={
+                        {
+                          "--hex-color": comparisonColors[index],
+                        } as CSSProperties
+                      }
+                    >
+                      {comparisonLabels[index]}
+                    </span>
                   </th>
                 ))}
               </tr>
@@ -95,7 +129,7 @@ export function HexagonComparison({
                         </button>
                       </>
                     ) : (
-                      column.data.overall_rating
+                      <ComparisonScore value={column.data.overall_rating} />
                     )}
                   </td>
                 ))}
@@ -109,13 +143,15 @@ export function HexagonComparison({
                     );
                     return (
                       <td key={ids[index]}>
-                        {!column.isSuccess
-                          ? "—"
-                          : !item
-                            ? "Немає даних"
-                            : item.enabled
-                              ? item.score
-                              : "Вимкнено"}
+                        {!column.isSuccess ? (
+                          "—"
+                        ) : !item ? (
+                          "Немає даних"
+                        ) : item.enabled ? (
+                          <ComparisonScore value={item.score} />
+                        ) : (
+                          "Вимкнено"
+                        )}
                       </td>
                     );
                   })}
