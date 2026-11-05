@@ -626,19 +626,19 @@ export function MapboxMap({
         id: "h3-comparison-glow",
         type: "line",
         source: "h3-comparison",
-        layout: { "line-join": "round" },
+        layout: { "line-join": "miter" },
         paint: {
           "line-color": ["get", "color"],
-          "line-width": 16,
-          "line-blur": 6,
-          "line-opacity": 0.72,
+          "line-width": 10,
+          "line-blur": 4,
+          "line-opacity": 0.42,
         },
       });
       map.addLayer({
         id: "h3-comparison-outline",
         type: "line",
         source: "h3-comparison",
-        layout: { "line-join": "round" },
+        layout: { "line-join": "miter" },
         paint: {
           "line-color": ["get", "color"],
           "line-width": 4,
