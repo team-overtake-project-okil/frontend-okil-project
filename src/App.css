@@ -2538,7 +2538,7 @@ input:focus-visible {
   margin: 0;
   border-bottom: 1px solid #e8ece9;
 }
-.assessment-card .category-score > summary {
+.assessment-card .category-score > .category-toggle {
   display: block;
   list-style: none;
   padding: 12px 0;
@@ -2546,24 +2546,46 @@ input:focus-visible {
   font-weight: 400;
   cursor: pointer;
 }
-.category-score > summary::-webkit-details-marker {
-  display: none;
-}
-.category-score > summary > div {
+.category-score > .category-toggle > .category-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
   gap: 8px;
 }
-.category-score > summary > div > .inline-text:after {
-  content: "⌄";
-  display: inline-block;
-  margin-left: 8px;
-  color: #8b978f;
+.category-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
 }
-.category-score[open] > summary > div > .inline-text:after {
-  transform: rotate(180deg);
+.category-toggle:focus-visible {
+  outline: 2px solid #36877c;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.category-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.category-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 9.6px;
+  width: 9.6px;
+  height: 9.6px;
+  color: inherit;
+}
+.category-chevron svg {
+  width: 9.6px;
+  height: 9.6px;
+}
+.category-score > .category-panel {
+  display: block;
+  overflow: hidden;
 }
 .category-score meter {
   margin: 8px 0 0;
@@ -2707,11 +2729,11 @@ input:focus-visible {
   padding-top: 4px;
   margin: 0;
 }
-.assessment-card .category-score > summary {
+.assessment-card .category-score > .category-toggle {
   padding: 10px 0;
   line-height: 18px;
 }
-.category-score > summary > div {
+.category-score > .category-toggle > .category-summary {
   line-height: 18px;
 }
 .category-score meter {
@@ -3056,7 +3078,7 @@ input:focus-visible {
 .map-section:not(.map-expanded) .assessment-card .score strong {
   font-size: 38px;
 }
-.map-section:not(.map-expanded) .assessment-card .category-score > summary {
+.map-section:not(.map-expanded) .assessment-card .category-score > .category-toggle {
   padding: 8px 0;
 }
 .mapbox-frame > .route-status,
