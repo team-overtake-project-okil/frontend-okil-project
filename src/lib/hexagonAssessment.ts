@@ -35,11 +35,12 @@ export function hexagonAssessmentOptions(
   return queryOptions({
     queryKey: ["hexagon-assessment", hexId, weights] as const,
     enabled: hexId !== null,
-    queryFn: () => {
+    queryFn: async () => {
       if (hexId === null) throw new Error("A hexagon must be selected.");
-      return fetcher(
+      const assessment = (await fetcher(
         `/hexagons/${encodeURIComponent(hexId)}${weightsSearch(weights)}`,
-      ) as Promise<HexagonAssessment>;
+      )) as HexagonAssessment;
+      return { ...assessment, overall_rating: Math.trunc(assessment.overall_rating) };
     },
   });
 }

@@ -40,10 +40,29 @@ import { fetcher } from "../lib/fetcher";
 import { AddressSearch } from "./AddressSearch";
 import type { AddressSuggestion } from "../services/geocoding";
 
+declare const intBrand: unique symbol;
+
+export type int = number & { readonly [intBrand]: true };
+
+function asInt(value: number): int {
+  return Math.trunc(value) as int;
+}
+
 export type Hexagon = {
+  h3_id: string;
+  overall_rating: int;
+};
+
+type HexagonPayload = {
   h3_id: string;
   overall_rating: number;
 };
+
+function withIntegerRating<T extends { overall_rating: number }>(
+  item: T,
+): Omit<T, "overall_rating"> & { overall_rating: int } {
+  return { ...item, overall_rating: asInt(item.overall_rating) };
+}
 
 interface MapProps {
   clearSelectionKey: number;
@@ -84,11 +103,12 @@ export const Map = ({
   } = useQuery({
     queryKey: ["hexagons", assessmentWeights],
     placeholderData: keepPreviousData,
-    queryFn: ({ queryKey }) => {
+    queryFn: async ({ queryKey }) => {
       const weights = queryKey[1] as AssessmentWeights | null;
-      return fetcher(`/hexagons${weightsSearch(weights)}`) as Promise<
-        Hexagon[]
-      >;
+      const hexagons = (await fetcher(
+        `/hexagons${weightsSearch(weights)}`,
+      )) as HexagonPayload[];
+      return hexagons.map(withIntegerRating);
     },
   });
 
