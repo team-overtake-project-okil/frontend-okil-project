@@ -17,6 +17,12 @@ import {
 } from "../lib/assessmentWeights";
 import { TogglerCard } from "./TogglerCard";
 import { motion, MotionConfig } from "motion/react";
+import { HexagonComparison } from "./HexagonComparison";
+import {
+  categoryLabels,
+  comparisonLabels,
+  hexagonAssessmentOptions,
+} from "../lib/hexagonAssessment";
 import { MapboxMap } from "./MapboxMap";
 import { StopRoutesFace } from "./StopRoutesFace";
 import type { HexStopProperties } from "../lib/useStopsByHex";
@@ -58,36 +64,6 @@ function withIntegerRating<T extends { overall_rating: number }>(
   return { ...item, overall_rating: asInt(item.overall_rating) };
 }
 
-type CategoryRating = {
-  category: string;
-  score: number;
-  enabled: boolean;
-  weight: number;
-  adjusted_score: number | null;
-  description?: string | null;
-};
-
-type HexagonAssessment = {
-  h3_id: string;
-  overall_rating: int;
-  categories: CategoryRating[];
-};
-
-type HexagonAssessmentPayload = Omit<HexagonAssessment, "overall_rating"> & {
-  overall_rating: number;
-};
-
-const categoryLabels = [
-  ["mobility", "Мобільність"],
-  ["daily", "Щоденні потреби"],
-  ["health", "Здоров'я"],
-  ["study", "Освіта"],
-  ["enjoyment", "Дозвілля"],
-  ["sport", "Спорт"],
-  ["food", "Їжа"],
-  ["security", "Безпека"],
-] as const;
-
 interface MapProps {
   clearSelectionKey: number;
   searchedLocation: AddressSuggestion | null;
@@ -106,6 +82,13 @@ export const Map = ({
   );
   const [assessmentExpanded, setAssessmentExpanded] = useState(false);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
+  const [comparisonIds, setComparisonIds] = useState<string[]>([]);
+  const [comparisonOpen, setComparisonOpen] = useState(false);
+  const canAddToComparison =
+    selectedHexId !== null &&
+    !comparisonIds.includes(selectedHexId) &&
+    comparisonIds.length < comparisonLabels.length;
+
   const assessmentWeights = useMemo(
     () =>
       appliedTogglers === null ? null : buildAssessmentWeights(appliedTogglers),
@@ -136,24 +119,7 @@ export const Map = ({
     isError: isAssessmentError,
     isFetching: isAssessmentFetching,
     refetch: refetchAssessment,
-  } = useQuery({
-    queryKey: ["hexagon-assessment", selectedHexId, assessmentWeights],
-    enabled: selectedHexId !== null,
-    queryFn: async ({ queryKey }) => {
-      const hexId = queryKey[1] as string | null;
-      const weights = queryKey[2] as AssessmentWeights | null;
-      if (hexId === null) {
-        throw new Error(
-          "A hexagon must be selected to request its assessment.",
-        );
-      }
-
-      const assessment = (await fetcher(
-        `/hexagons/${encodeURIComponent(hexId)}${weightsSearch(weights)}`,
-      )) as HexagonAssessmentPayload;
-      return withIntegerRating(assessment);
-    },
-  });
+  } = useQuery(hexagonAssessmentOptions(selectedHexId, assessmentWeights));
   const showAssessmentSkeleton =
     isAssessmentLoading || (isAssessmentError && isAssessmentFetching);
 
@@ -241,6 +207,12 @@ export const Map = ({
     if (!restoreSlidersRef.current) setPanelOpen(false);
     restoreSlidersRef.current = false;
   }, []);
+  const closeMapPanelsForComparison = () => {
+    restoreSlidersRef.current = false;
+    clearStopPanel();
+    setPanelOpen(false);
+    setRoutesEnabled(false);
+  };
   const takeStopInPanel = useCallback((stop: HexStopProperties) => {
     if (panelStopRef.current === null) {
       restoreSlidersRef.current = panelOpenRef.current;
@@ -255,7 +227,9 @@ export const Map = ({
   useEffect(() => {
     if (!panelOpen) return;
     if (!panelStopRef.current) {
-      panelRef.current?.querySelector<HTMLButtonElement>(".weights-close")?.focus();
+      panelRef.current
+        ?.querySelector<HTMLButtonElement>(".weights-close")
+        ?.focus();
     }
     const close = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !expanded) {
@@ -368,6 +342,7 @@ export const Map = ({
                 clearStopPanel();
                 return;
               }
+              if (!panelOpen) setComparisonOpen(false);
               setPanelOpen(!panelOpen);
             }}
           >
@@ -388,7 +363,10 @@ export const Map = ({
             <input
               type="checkbox"
               checked={routesEnabled}
-              onChange={(e) => setRoutesEnabled(e.target.checked)}
+              onChange={(e) => {
+                if (e.target.checked) setComparisonOpen(false);
+                setRoutesEnabled(e.target.checked);
+              }}
             />{" "}
             <BusIcon className="size-4" aria-hidden="true" /> Маршрути
             транспорту
@@ -404,7 +382,7 @@ export const Map = ({
             onClick={() => {
               if (expanded) clearStopPanel();
               setExpanded(!expanded);
-              setPanelOpen(!expanded);
+              setPanelOpen(!expanded && !comparisonOpen);
             }}
           >
             {expanded ? (
@@ -426,6 +404,7 @@ export const Map = ({
         <div className="map-canvas">
           <MapboxMap
             hexagons={hexagonsData}
+            comparisonIds={comparisonIds}
             clearSelectionKey={clearSelectionKey}
             searchedLocation={searchedLocation}
             onHexSelect={setSelectedHexId}
@@ -456,98 +435,120 @@ export const Map = ({
           <aside
             ref={panelRef}
             id="weights-panel"
-            className={`weights-panel${panelStop ? " is-stop" : ""}`}
+            className={`weights-panel${panelStop ? "is-stop" : ""}`}
             aria-label={panelStop ? "Маршрути зупинки" : "Пріоритети"}
           >
             <MotionConfig reducedMotion="user">
-            <div className="panel-deck">
-              <motion.div
-                className="panel-face weights-face"
-                initial={false}
-                animate={
-                  panelStop
-                    ? { x: "-14%", scale: 0.96, opacity: 0, filter: "blur(3px)" }
-                    : { x: "0%", scale: 1, opacity: 1, filter: "blur(0px)" }
-                }
-                transition={faceTransition}
-                inert={Boolean(panelStop)}
-                style={{ pointerEvents: panelStop ? "none" : "auto" }}
-              >
-                <div className="panel-heading">
-                  <div>
-                    <div className="text-block eyebrow">ПЕРСОНАЛЬНА ОЦІНКА</div>
-                    <div role="heading" aria-level={3} className="heading-3">
-                      Що для вас важливо
+              <div className="panel-deck">
+                <motion.div
+                  className="panel-face weights-face"
+                  initial={false}
+                  animate={
+                    panelStop
+                      ? {
+                          x: "-14%",
+                          scale: 0.96,
+                          opacity: 0,
+                          filter: "blur(3px)",
+                        }
+                      : { x: "0%", scale: 1, opacity: 1, filter: "blur(0px)" }
+                  }
+                  transition={faceTransition}
+                  inert={Boolean(panelStop)}
+                  style={{ pointerEvents: panelStop ? "none" : "auto" }}
+                >
+                  <div className="panel-heading">
+                    <div>
+                      <div className="text-block eyebrow">
+                        ПЕРСОНАЛЬНА ОЦІНКА
+                      </div>
+                      <div role="heading" aria-level={3} className="heading-3">
+                        Що для вас важливо
+                      </div>
+                    </div>
+                    <button
+                      className="weights-close"
+                      aria-label="Закрити налаштування"
+                      onClick={closePanel}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="text-block panel-intro">
+                    Змініть важливість категорій. Карта оновиться після
+                    застосування.
+                  </div>
+                  <div className="weights-list">
+                    {categoryLabels.map(([, title], i) => (
+                      <TogglerCard
+                        key={togglerIds[i]}
+                        {...togglerProps(togglerIds[i])}
+                        title={title}
+                        description={
+                          [
+                            "Зупинки та транспорт",
+                            "Повсякденні послуги",
+                            "Медична інфраструктура",
+                            "Навчальні заклади",
+                            "Місця для відпочинку",
+                            "Спортивна інфраструктура",
+                            "Заклади харчування",
+                            "Завжди враховується",
+                          ][i]
+                        }
+                      />
+                    ))}
+                  </div>
+                  <div className="panel-actions">
+                    <div className="text-block" role="status">
+                      {dirty
+                        ? "Є незастосовані зміни"
+                        : "Пріоритети застосовано"}
+                    </div>
+                    <div>
+                      <button
+                        className="secondary-button"
+                        onClick={handleReset}
+                      >
+                        Скинути
+                      </button>
+                      <button className="primary-button" onClick={handleApply}>
+                        Застосувати
+                      </button>
                     </div>
                   </div>
-                  <button
-                    className="weights-close"
-                    aria-label="Закрити налаштування"
-                    onClick={closePanel}
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="text-block panel-intro">
-                  Змініть важливість категорій. Карта оновиться після
-                  застосування.
-                </div>
-                <div className="weights-list">
-                  {categoryLabels.map(([, title], i) => (
-                    <TogglerCard
-                      key={togglerIds[i]}
-                      {...togglerProps(togglerIds[i])}
-                      title={title}
-                      description={
-                        [
-                          "Зупинки та транспорт",
-                          "Повсякденні послуги",
-                          "Медична інфраструктура",
-                          "Навчальні заклади",
-                          "Місця для відпочинку",
-                          "Спортивна інфраструктура",
-                          "Заклади харчування",
-                          "Завжди враховується",
-                        ][i]
-                      }
+                </motion.div>
+                <motion.div
+                  className="panel-face stop-face"
+                  initial={{
+                    x: "16%",
+                    scale: 0.98,
+                    opacity: 0,
+                    filter: "blur(3px)",
+                  }}
+                  animate={
+                    panelStop
+                      ? { x: "0%", scale: 1, opacity: 1, filter: "blur(0px)" }
+                      : {
+                          x: "16%",
+                          scale: 0.98,
+                          opacity: 0,
+                          filter: "blur(3px)",
+                        }
+                  }
+                  transition={faceTransition}
+                  inert={!panelStop}
+                  style={{ pointerEvents: panelStop ? "auto" : "none" }}
+                >
+                  {faceStop && (
+                    <StopRoutesFace
+                      key={faceStop.id}
+                      stop={faceStop}
+                      onClose={clearStopPanel}
                     />
-                  ))}
-                </div>
-                <div className="panel-actions">
-                  <div className="text-block" role="status">
-                    {dirty ? "Є незастосовані зміни" : "Пріоритети застосовано"}
-                  </div>
-                  <div>
-                    <button className="secondary-button" onClick={handleReset}>
-                      Скинути
-                    </button>
-                    <button className="primary-button" onClick={handleApply}>
-                      Застосувати
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-              <motion.div
-                className="panel-face stop-face"
-                initial={{ x: "16%", scale: 0.98, opacity: 0, filter: "blur(3px)" }}
-                animate={
-                  panelStop
-                    ? { x: "0%", scale: 1, opacity: 1, filter: "blur(0px)" }
-                    : { x: "16%", scale: 0.98, opacity: 0, filter: "blur(3px)" }
-                }
-                transition={faceTransition}
-                inert={!panelStop}
-                style={{ pointerEvents: panelStop ? "auto" : "none" }}
-              >
-                {faceStop && (
-                  <StopRoutesFace
-                    key={faceStop.id}
-                    stop={faceStop}
-                    onClose={clearStopPanel}
-                  />
-                )}
-              </motion.div>
-            </div>
+                  )}
+                </motion.div>
+              </div>
             </MotionConfig>
           </aside>
         )}
@@ -574,84 +575,101 @@ export const Map = ({
                 </button>
               </div>
             ) : (
-              <>
-                <div className="score">
-                  <strong>{assessmentData?.overall_rating ?? "—"}</strong>
-                  <div className="inline-text">
-                    Оцінка комфорту
-                    <br />з 100
-                  </div>
+              <div className="score">
+                <strong>{assessmentData?.overall_rating ?? "—"}</strong>
+                <div className="inline-text">
+                  Оцінка комфорту
+                  <br />з 100
                 </div>
-                {expanded ? (
-                  <details
-                    open={assessmentExpanded}
-                    onToggle={(event) => {
-                      if (event.target === event.currentTarget)
-                        setAssessmentExpanded(event.currentTarget.open);
-                    }}
-                  >
-                    <summary>Докладніше про оцінку</summary>
-                    <div className="assessment-details">
-                      {categoryLabels.map(([key, title]) => {
-                        const item = assessmentData?.categories.find(
-                          (c) => c.category === key,
-                        );
-                        return (
-                          <details className="category-score" key={key}>
-                            <summary aria-label={`Пояснення: ${title}`}>
-                              <div>
-                                <div className="inline-text">{title}</div>
-                                <strong>
-                                  {!item
-                                    ? "Немає даних"
-                                    : !item.enabled
-                                      ? "Вимкнено"
-                                      : item.score}
-                                </strong>
-                              </div>
-                              <meter
-                                min="0"
-                                max="100"
-                                value={item?.enabled ? item.score : 0}
-                                aria-label={title}
-                                style={
-                                  {
-                                    "--score-color": comfortColor(
-                                      item?.score ?? 0,
-                                    ),
-                                  } as CSSProperties
-                                }
-                              />
-                            </summary>
-                            <div className="text-block category-description">
-                              {item?.description ||
-                                "Пояснення оцінки ще не додано."}
-                            </div>
-                          </details>
-                        );
-                      })}
-                    </div>
-                  </details>
-                ) : (
-                  <button
-                    className="inline-assessment-details"
-                    onClick={() => {
-                      setAssessmentExpanded(true);
-                      setExpanded(true);
-                      setPanelOpen(false);
-                    }}
-                  >
-                    Докладніше про оцінку{" "}
-                    <Expand
-                      width={14}
-                      height={14}
-                      style={{ width: 14, height: 14 }}
-                      aria-hidden="true"
-                    />
-                  </button>
-                )}
-              </>
+              </div>
             )}
+            <button
+              type="button"
+              className="comparison-add"
+              disabled={!canAddToComparison}
+              onClick={() => {
+                if (canAddToComparison) {
+                  closeMapPanelsForComparison();
+                  setComparisonIds([...comparisonIds, selectedHexId]);
+                }
+              }}
+            >
+              {comparisonIds.includes(selectedHexId)
+                ? "Ділянку додано"
+                : comparisonIds.length === comparisonLabels.length
+                  ? "Вибрано максимум ділянок"
+                  : "Додати до порівняння"}
+            </button>
+            {!showAssessmentSkeleton &&
+              !isAssessmentError &&
+              (expanded ? (
+                <details
+                  open={assessmentExpanded}
+                  onToggle={(event) => {
+                    if (event.target === event.currentTarget)
+                      setAssessmentExpanded(event.currentTarget.open);
+                  }}
+                >
+                  <summary>Докладніше про оцінку</summary>
+                  <div className="assessment-details">
+                    {categoryLabels.map(([key, title]) => {
+                      const item = assessmentData?.categories.find(
+                        (c) => c.category === key,
+                      );
+                      return (
+                        <details className="category-score" key={key}>
+                          <summary aria-label={`Пояснення: ${title}`}>
+                            <div>
+                              <div className="inline-text">{title}</div>
+                              <strong>
+                                {!item
+                                  ? "Немає даних"
+                                  : !item.enabled
+                                    ? "Вимкнено"
+                                    : item.score}
+                              </strong>
+                            </div>
+                            <meter
+                              min="0"
+                              max="100"
+                              value={item?.enabled ? item.score : 0}
+                              aria-label={title}
+                              style={
+                                {
+                                  "--score-color": comfortColor(
+                                    item?.score ?? 0,
+                                  ),
+                                } as CSSProperties
+                              }
+                            />
+                          </summary>
+                          <div className="text-block category-description">
+                            {item?.description ||
+                              "Пояснення оцінки ще не додано."}
+                          </div>
+                        </details>
+                      );
+                    })}
+                  </div>
+                </details>
+              ) : (
+                <button
+                  className="inline-assessment-details"
+                  onClick={() => {
+                    setAssessmentExpanded(true);
+                    setExpanded(true);
+                    setPanelOpen(false);
+                  }}
+                >
+                  Докладніше про оцінку{" "}
+                  <Expand
+                    width={14}
+                    height={14}
+                    style={{ width: 14, height: 14 }}
+                    aria-hidden="true"
+                  />
+                </button>
+              ))}
           </aside>
         )}
         <div className="map-legend">
@@ -667,6 +685,21 @@ export const Map = ({
           <div className="text-block map-updating" role="status">
             Оновлюємо оцінки…
           </div>
+        )}
+        {comparisonIds.length > 0 && !panelOpen && (
+          <HexagonComparison
+            ids={comparisonIds}
+            weights={assessmentWeights}
+            open={comparisonOpen}
+            onToggle={() => {
+              if (!comparisonOpen) closeMapPanelsForComparison();
+              setComparisonOpen(!comparisonOpen);
+            }}
+            onRemove={(id) => {
+              setComparisonIds(comparisonIds.filter((item) => item !== id));
+              if (comparisonIds.length <= 2) setComparisonOpen(false);
+            }}
+          />
         )}
       </div>
     </section>
