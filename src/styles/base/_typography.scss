@@ -1,6 +1,0 @@
-@use "../abstracts/variables" as tokens;
-
-// Low specificity lets existing section styles keep their current appearance.
-:where(html) {
-  font-family: tokens.$font-family;
-}
