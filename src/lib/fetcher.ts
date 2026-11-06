@@ -1,3 +1,12 @@
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Request failed: ${status}`);
+    this.status = status;
+  }
+}
+
 export async function fetcher(url: string, init?: RequestInit) {
   const base = (
     import.meta.env.VITE_BACKEND_URL?.trim() ||
@@ -6,7 +15,7 @@ export async function fetcher(url: string, init?: RequestInit) {
   if (!base)
     throw new Error("Не налаштовано адресу сервісу оцінок (VITE_BACKEND_URL).");
   const response = await fetch(base + url, init);
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  if (!response.ok) throw new ApiError(response.status);
   if (!response.headers.get("content-type")?.includes("application/json")) {
     throw new Error(
       "Сервіс оцінок повернув некоректну відповідь. Перевірте адресу API.",

@@ -2,13 +2,15 @@ import { queryOptions } from "@tanstack/react-query";
 import { weightsSearch, type AssessmentWeights } from "./assessmentWeights";
 import { fetcher } from "./fetcher";
 
-type CategoryRating = {
+
+
+export type CategoryRating = {
   category: string;
   score: number;
   enabled: boolean;
   weight: number;
   adjusted_score: number | null;
-  description?: string | null;
+  explanation: string | null;
 };
 
 type HexagonAssessment = {
@@ -48,3 +50,33 @@ export function hexagonAssessmentOptions(
 export const comparisonLabels = ["А", "Б", "В"] as const;
 
 export const comparisonColors = ["#b26782", "#827eae", "#ad8053"] as const;
+
+export function categoryExplanation(
+  category: CategoryRating | undefined,
+): string {
+  return (
+    category?.explanation?.trim() ||
+    "Дані для пояснення поки відсутні."
+  );
+}
+
+export function getHexagonRatings(
+  weights: AssessmentWeights | null,
+  signal?: AbortSignal,
+): Promise<{ h3_id: string; overall_rating: number }[]> {
+  return fetcher(
+    `/hexagons${weightsSearch(weights)}`,
+    signal ? { signal } : undefined,
+  );
+}
+
+export function getHexagonAssessment(
+  id: string,
+  weights: AssessmentWeights | null,
+  signal?: AbortSignal,
+): Promise<HexagonAssessment> {
+  return fetcher(
+    `/hexagons/${encodeURIComponent(id)}${weightsSearch(weights)}`,
+    signal ? { signal } : undefined,
+  );
+}

@@ -1,5 +1,3 @@
-import type { CSSProperties } from "react";
-import { comfortColor } from "../lib/palette";
 import BusIcon from "../icons/bus";
 import Expand from "../icons/arrows-pointing-out";
 import Minimize2 from "../icons/arrows-pointing-in";
@@ -10,7 +8,6 @@ import {
   defaultTogglers,
   buildAssessmentWeights,
   sameWeights,
-  weightsSearch,
   type TogglerStates,
   type TogglerState,
   type AssessmentWeights,
@@ -36,7 +33,9 @@ const faceTransition = {
   filter: { duration: 0.38, ease: "easeOut" },
 } as const;
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { fetcher } from "../lib/fetcher";
+import { ApiError } from "../lib/fetcher";
+import { getHexagonRatings } from "../lib/hexagonAssessment";
+import { CategoryScore } from "./CategoryScore";
 import { AddressSearch } from "./AddressSearch";
 import type { AddressSuggestion } from "../services/geocoding";
 
@@ -51,11 +50,6 @@ function asInt(value: number): int {
 export type Hexagon = {
   h3_id: string;
   overall_rating: int;
-};
-
-type HexagonPayload = {
-  h3_id: string;
-  overall_rating: number;
 };
 
 function withIntegerRating<T extends { overall_rating: number }>(
@@ -81,6 +75,7 @@ export const Map = ({
     null,
   );
   const [assessmentExpanded, setAssessmentExpanded] = useState(false);
+  const [openCategory, setOpenCategory] = useState<{ hexId: string; category: string } | null>(null);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
   const [comparisonOpen, setComparisonOpen] = useState(false);
@@ -103,11 +98,9 @@ export const Map = ({
   } = useQuery({
     queryKey: ["hexagons", assessmentWeights],
     placeholderData: keepPreviousData,
-    queryFn: async ({ queryKey }) => {
+    queryFn: async ({ queryKey, signal }) => {
       const weights = queryKey[1] as AssessmentWeights | null;
-      const hexagons = (await fetcher(
-        `/hexagons${weightsSearch(weights)}`,
-      )) as HexagonPayload[];
+      const hexagons = await getHexagonRatings(weights, signal);
       return hexagons.map(withIntegerRating);
     },
   });
@@ -117,6 +110,7 @@ export const Map = ({
     data: assessmentData,
     isLoading: isAssessmentLoading,
     isError: isAssessmentError,
+    error: assessmentError,
     isFetching: isAssessmentFetching,
     refetch: refetchAssessment,
   } = useQuery(hexagonAssessmentOptions(selectedHexId, assessmentWeights));
@@ -569,7 +563,9 @@ export const Map = ({
               </div>
             ) : isAssessmentError ? (
               <div role="alert">
-                <div className="text-block">Оцінка недоступна.</div>
+                <div className="text-block">{assessmentError instanceof ApiError && assessmentError.status === 404
+                  ? "Для цієї ділянки немає даних у базі. Оберіть іншу ділянку."
+                  : "Оцінка недоступна."}</div>
                 <button onClick={() => void refetchAssessment()}>
                   Спробувати знову
                 </button>
@@ -612,42 +608,31 @@ export const Map = ({
                 >
                   <summary>Докладніше про оцінку</summary>
                   <div className="assessment-details">
+                    <p className="text-block category-description">
+                      Відстані по прямій від центру гексагону.
+                    </p>
                     {categoryLabels.map(([key, title]) => {
                       const item = assessmentData?.categories.find(
                         (c) => c.category === key,
                       );
                       return (
-                        <details className="category-score" key={key}>
-                          <summary aria-label={`Пояснення: ${title}`}>
-                            <div>
-                              <div className="inline-text">{title}</div>
-                              <strong>
-                                {!item
-                                  ? "Немає даних"
-                                  : !item.enabled
-                                    ? "Вимкнено"
-                                    : item.score}
-                              </strong>
-                            </div>
-                            <meter
-                              min="0"
-                              max="100"
-                              value={item?.enabled ? item.score : 0}
-                              aria-label={title}
-                              style={
-                                {
-                                  "--score-color": comfortColor(
-                                    item?.score ?? 0,
-                                  ),
-                                } as CSSProperties
-                              }
-                            />
-                          </summary>
-                          <div className="text-block category-description">
-                            {item?.description ||
-                              "Пояснення оцінки ще не додано."}
-                          </div>
-                        </details>
+                        <CategoryScore
+                          key={key}
+                          title={title}
+                          item={item}
+                          open={
+                            openCategory?.hexId === selectedHexId &&
+                            openCategory.category === key
+                          }
+                          onToggle={() =>
+                            setOpenCategory((current) =>
+                              current?.hexId === selectedHexId &&
+                                current.category === key
+                                ? null
+                                : { hexId: selectedHexId, category: key },
+                            )
+                          }
+                        />
                       );
                     })}
                   </div>
