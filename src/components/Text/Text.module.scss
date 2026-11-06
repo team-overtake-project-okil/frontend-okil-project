@@ -1,0 +1,76 @@
+@use "../../styles/abstracts/variables" as tokens;
+@use "../../styles/abstracts/mixins";
+
+.text {
+  margin: 0;
+  font-family: tokens.$font-family;
+  line-height: 1.5;
+}
+
+.body,
+.secondary {
+  font-size: 1rem;
+}
+
+.caption {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.label {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.color-default {
+  color: tokens.$color-ink;
+}
+
+.color-muted {
+  color: tokens.$color-muted;
+}
+
+.color-primary {
+  color: tokens.$color-primary;
+}
+
+.weight-regular {
+  font-weight: 400;
+}
+
+.weight-medium {
+  font-weight: 500;
+}
+
+.weight-semibold {
+  font-weight: 600;
+}
+
+.weight-bold {
+  font-weight: 700;
+}
+
+.align-left {
+  text-align: left;
+}
+
+.align-center {
+  text-align: center;
+}
+
+.align-right {
+  text-align: right;
+}
+
+.align-justify {
+  text-align: justify;
+}
+
+@include mixins.mobile {
+  .body,
+  .secondary {
+    font-size: 0.9375rem;
+  }
+}
