@@ -27,5 +27,8 @@ The heading scale is an initial scale based on the current UI; confirm it with
 the team before replacing existing section-specific typography. Existing page
 selectors remain in `App.css` and may override component styles when adopted.
 
-Text, paragraph, caption and label components belong to issue #76 and should
-reuse these abstracts rather than duplicate them.
+`src/components/Text/Text.tsx` exports `Text` for inline copy and `Paragraph`
+for block paragraphs. Both support `body`, `secondary`, `caption` and `label`
+variants, `default`, `muted` and `primary` colors, four font weights, and text
+alignment. Their SCSS module reuses these abstracts; the colocated story
+demonstrates all variants and paragraph styles.
