@@ -306,9 +306,9 @@ export function AddressSearch({
             <button
               type="button"
               onClick={() => {
+                inputRef.current?.focus();
                 changeValue("");
                 if (!selectedAddress) onLocationChange(null);
-                inputRef.current?.focus();
               }}
               aria-label="Очистити адресу"
               className="shrink-0 text-[#8E8E93] transition-opacity hover:opacity-70"
