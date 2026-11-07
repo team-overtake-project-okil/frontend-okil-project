@@ -214,6 +214,7 @@ export const Map = ({
     setRoutesEnabled(false);
   };
   const takeStopInPanel = useCallback((stop: HexStopProperties) => {
+    setComparisonOpen(false);
     if (panelStopRef.current === null) {
       restoreSlidersRef.current = panelOpenRef.current;
     }
@@ -435,7 +436,7 @@ export const Map = ({
           <aside
             ref={panelRef}
             id="weights-panel"
-            className={`weights-panel${panelStop ? "is-stop" : ""}`}
+            className={`weights-panel${panelStop ? " is-stop" : ""}`}
             aria-label={panelStop ? "Маршрути зупинки" : "Пріоритети"}
           >
             <MotionConfig reducedMotion="user">
