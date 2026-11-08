@@ -3448,10 +3448,10 @@ input:focus-visible {
   color: #343638;
 }
 .project-sources {
-  border: 1px solid #dce5de;
+  border: 1px solid #e4e6ea;
   border-radius: 26px;
-  background: #edf2ee80;
-  padding: 28px;
+  background: #fff;
+  padding: 28px 28px 0;
   margin-top: 44px;
 }
 .sources-intro {
@@ -3467,64 +3467,125 @@ input:focus-visible {
 .sources-intro > .text-block:last-child {
   font-size: 14px;
   line-height: 1.8;
-  color: #5e6e62;
+  color: var(--muted-ink);
 }
 .source-groups {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 40px;
+  column-gap: 48px;
+  grid-template-rows: auto repeat(4, auto);
   margin-top: 28px;
 }
-.source-group h4 {
+.source-group {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 5;
+  min-width: 0;
+}
+.source-label {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   font-size: 12px;
   font-weight: 600;
-  margin: 0 0 8px;
-  color: #5d7665;
+  margin: 0;
+  padding-bottom: 8px;
+  color: var(--ink);
+}
+.source-label svg {
+  flex: none;
 }
 .source-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  height: 100%;
+  min-height: 76px;
   text-decoration: none;
-  padding: 15px 0;
-  border-bottom: 1px solid #dce5de;
-  transition: color 0.18s;
+  margin: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid #eceef1;
+  transition: background 0.18s ease;
 }
-.source-row strong {
-  display: block;
+.source-copy {
+  min-width: 0;
+}
+.source-name {
+  display: inline;
   font-size: 14px;
   font-weight: 550;
   color: var(--ink);
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: center calc(100% - 1px);
+  background-size: 0% 1px;
+  transition: background-size 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
-.source-row small {
+.source-description {
   display: block;
   font-size: 12px;
   line-height: 1.65;
-  color: #637167;
+  color: var(--muted-ink);
   margin-top: 4px;
 }
 .source-row > svg {
   flex: none;
-  color: #7b8f80;
+  color: #a0a6ae;
+  transition: color 0.18s ease, transform 0.18s ease;
 }
-.source-row:hover strong {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.source-group:first-child .source-row:last-child {
+  border-bottom-color: transparent;
+}
+.source-row:hover .source-name,
+.source-row:focus-visible .source-name {
+  background-size: 100% 1px;
+}
+.source-row:hover > svg {
+  color: var(--ink);
+  transform: translate(1px, -1px);
 }
 .source-method {
+  margin: 22px -28px 0;
+  padding: 16px 28px 18px;
+  border-top: 1px solid #eceef1;
+  background: #f7f8f9;
+  border-radius: 0 0 26px 26px;
+}
+.source-method .text-block {
   font-size: 12px;
-  line-height: 1.8;
-  color: #637167;
-  margin-top: 18px;
+  line-height: 1.75;
+  color: #60666e;
 }
 .source-method a {
-  color: #48604e;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  color: var(--ink);
+  text-decoration: none;
+  background-image:
+    linear-gradient(currentColor, currentColor),
+    linear-gradient(#d5d8de, #d5d8de),
+    linear-gradient(#c8ccd1, #c8ccd1);
+  background-repeat: no-repeat;
+  background-position: center 100%, center 100%, center 100%;
+  background-size: 0% 1px, 100% 0, 100% 1px;
+  transition: background-size 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.source-method a:hover,
+.source-method a:focus-visible {
+  background-size: 100% 1px, 100% 0.62em, 100% 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-row,
+  .source-row > svg,
+  .source-name,
+  .source-method a {
+    transition: none;
+  }
+  .source-name {
+    background-size: 100% 1px;
+  }
+  .source-method a {
+    background-size: 100% 1px, 100% 0, 100% 1px;
+  }
 }
 @media (max-width: 700px) {
   .info-grid .step-card {
@@ -3534,14 +3595,27 @@ input:focus-visible {
     margin-top: 12px;
   }
   .project-sources {
-    padding: 20px;
+    padding: 20px 20px 0;
     border-radius: 22px;
     margin-top: 30px;
   }
+  .source-method {
+    margin: 18px -20px 0;
+    padding: 14px 20px 16px;
+    border-radius: 0 0 22px 22px;
+  }
   .source-groups {
     grid-template-columns: 1fr;
-    gap: 24px;
+    grid-template-rows: none;
+    row-gap: 24px;
     margin-top: 22px;
+  }
+  .source-group {
+    display: block;
+    grid-row: auto;
+  }
+  .source-group:first-child .source-row:last-child {
+    border-bottom-color: #eceef1;
   }
   .sources-intro .heading-3 {
     font-size: 23px;

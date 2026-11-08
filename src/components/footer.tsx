@@ -40,10 +40,12 @@ export const Footer = () => (
               <div className="about-index" aria-hidden="true">
                 0{index + 1}
               </div>
+
               <div className="about-principle-copy">
                 <div role="heading" aria-level={3} className="heading-3">
                   {title}
                 </div>
+
                 <div className="text-block">{text}</div>
               </div>
             </div>
@@ -55,44 +57,41 @@ export const Footer = () => (
           <div className="text-block eyebrow uppercase">
             звідки ми знаємо, що поруч
           </div>
+
           <div role="heading" aria-level={3} className="heading-3">
             За кожним гексагоном — дані
           </div>
+
           <div className="text-block">
             Різні джерела доповнюють одне одного: від зупинок і укриттів до
             пошуку конкретної адреси
           </div>
         </div>
-        <div className="source-groups">
+        <div className="source-groups flex items-baseline-last">
           <div className="source-group">
-            <h4>
-              <Database
-                width={16}
-                height={16}
-                style={{ width: 16, height: 16 }}
-                aria-hidden="true"
-              />{" "}
+            <div className="source-label">
+              <Database className="size-4" aria-hidden="true" />
               Дані про місто
-            </h4>
+            </div>
             {[
               [
                 "EasyWay · GTFS",
-                "Зупинки, маршрути та геометрія транспортної мережі.",
+                "Зупинки, маршрути та геометрія транспортної мережі",
                 "https://www.eway.in.ua/",
               ],
               [
                 "Львівська міська рада",
-                "Переліки найпростіших укриттів і захисних споруд.",
+                "Переліки найпростіших укриттів і захисних споруд",
                 "https://city-adm.lviv.ua/",
               ],
               [
                 "Google Maps · SerpAPI",
-                "Дані про аптеки, які завантажуємо через SerpAPI.",
+                "Дані про аптеки, які завантажуємо через SerpAPI",
                 "https://serpapi.com/google-maps-api",
               ],
               [
                 "OpenStreetMap",
-                "Межа міста для гексагональної сітки; також серед даних картографічної основи.",
+                "Межа міста для гексагональної сітки; також серед даних картографічної основи",
                 "https://www.openstreetmap.org/relation/2032280",
               ],
             ].map(([name, description, url]) => (
@@ -103,9 +102,9 @@ export const Footer = () => (
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <div className="inline-text">
-                  <strong>{name}</strong>
-                  <small>{description}</small>
+                <div className="source-copy">
+                  <span className="source-name">{name}</span>
+                  <span className="source-description">{description}</span>
                 </div>
                 <ArrowUpRight
                   width={15}
@@ -117,29 +116,24 @@ export const Footer = () => (
             ))}
           </div>
           <div className="source-group">
-            <h4>
-              <MapPinned
-                width={16}
-                height={16}
-                style={{ width: 16, height: 16 }}
-                aria-hidden="true"
-              />{" "}
+            <div className="source-label">
+              <MapPinned className="size-4" aria-hidden="true" />
               Карта й пошук
-            </h4>
+            </div>
             {[
               [
                 "Visicom",
-                "Підказки назв вулиць і адрес під час введення.",
+                "Підказки назв вулиць і адрес під час введення",
                 "https://api.visicom.ua/",
               ],
               [
                 "Geoapify",
-                "Визначення координат вибраної адреси.",
+                "Визначення координат вибраної адреси",
                 "https://www.geoapify.com/",
               ],
               [
                 "Mapbox",
-                "Картографічна основа та взаємодія з мапою.",
+                "Картографічна основа та взаємодія з мапою",
                 "https://www.mapbox.com/",
               ],
             ].map(([name, description, url]) => (
@@ -150,9 +144,9 @@ export const Footer = () => (
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <div className="inline-text">
-                  <strong>{name}</strong>
-                  <small>{description}</small>
+                <div className="source-copy">
+                  <span className="source-name">{name}</span>
+                  <span className="source-description">{description}</span>
                 </div>
                 <ArrowUpRight
                   width={15}
@@ -162,28 +156,28 @@ export const Footer = () => (
                 />
               </a>
             ))}
-            <div className="text-block source-method">
-              Об’єднуємо дані за допомогою{" "}
-              <a
-                href="https://h3geo.org/"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                сітки H3 ↗
-              </a>{" "}
-              — спільних гексагональних ділянок міста.
-            </div>
+          </div>
+        </div>
+        <div className="source-method">
+          <div className="text-block">
+            Об’єднуємо дані за допомогою{" "}
+            <a
+              href="https://h3geo.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              сітки H3
+            </a>{" "}
+            — спільних гексагональних ділянок міста. Карта доповнює знайомство з
+            районом; повнота відкритих даних може відрізнятися між категоріями
+            та ділянками
           </div>
         </div>
       </div>
-      <div className="text-block about-note">
-        Карта доповнює знайомство з районом. Повнота відкритих даних може
-        відрізнятися між категоріями та ділянками.
-      </div>
     </div>
-    <footer className="project-credits">
-      <div className="inline-text">OKIL · Ваш ритм. Ваш окіл.</div>
+    <div className="project-credits">
+      <div className="inline-text">OKIL · Ваш ритм · Ваш окіл</div>
       <div className="inline-text">Overtake · IT Garage від SoftServe</div>
-    </footer>
+    </div>
   </>
 );
