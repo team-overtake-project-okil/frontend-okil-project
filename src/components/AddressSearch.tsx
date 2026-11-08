@@ -318,7 +318,7 @@ export function AddressSearch({
           )}
           {variant === "hero" && (
             <button type="submit" className="address-submit">
-              Знайти <ArrowRight width={17} height={17} style={{ width: 17, height: 17 }} aria-hidden="true" />
+              Знайти <ArrowRight width={17} height={17} strokeWidth={2} style={{ width: 17, height: 17 }} aria-hidden="true" />
             </button>
           )}
         </div>

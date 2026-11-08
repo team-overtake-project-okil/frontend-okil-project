@@ -109,6 +109,7 @@ export const Footer = () => (
                 <ArrowUpRight
                   width={15}
                   height={15}
+                  strokeWidth={2}
                   style={{ width: 15, height: 15 }}
                   aria-hidden="true"
                 />
@@ -151,6 +152,7 @@ export const Footer = () => (
                 <ArrowUpRight
                   width={15}
                   height={15}
+                  strokeWidth={2}
                   style={{ width: 15, height: 15 }}
                   aria-hidden="true"
                 />
