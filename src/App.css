@@ -3894,6 +3894,11 @@ input:focus-visible {
   font-size: 16px;
   line-height: 24px;
 }
+[data-search-variant="hero"] .address-search-panel {
+  filter:
+    drop-shadow(0 1px 2px #34463a1a)
+    drop-shadow(0 8px 20px #34463a22);
+}
 [data-search-variant="hero"] .address-search-field {
   min-height: 56px;
   padding: 6px 7px 6px 20px;

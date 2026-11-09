@@ -1,4 +1,4 @@
-import { useAddressHint } from "../lib/useAddressHint";
+import { addressHintStart, useAddressHint } from "../lib/useAddressHint";
 import { useEffect, useId, useRef, useState } from "react";
 import ArrowRight from "../icons/arrow-right";
 import SearchIcon from "../icons/search";
@@ -265,7 +265,9 @@ export function AddressSearch({
             }
             aria-describedby={validation ? `${inputId}-error` : undefined}
             aria-invalid={isInvalid}
-            placeholder="Введіть вулицю або адресу"
+            placeholder={
+              variant === "hero" ? addressHintStart : "Введіть вулицю або адресу"
+            }
             className="w-full min-w-0 bg-transparent text-sm text-black outline-none placeholder:text-[#8E8E93]"
             value={value}
             onChange={(event) => changeValue(event.target.value)}
@@ -324,7 +326,7 @@ export function AddressSearch({
         </div>
         {isOpen && (
           <div className="address-results absolute top-full left-0 z-50 w-full overflow-hidden">
-            <ul
+            <div
               id={`${inputId}-list`}
               role="listbox"
               aria-label="Знайдені адреси"
@@ -332,7 +334,7 @@ export function AddressSearch({
               {!isLoading &&
                 !error &&
                 suggestions.map((item, index) => (
-                  <li
+                  <div
                     key={item.id}
                     id={`${inputId}-option-${index}`}
                     role="option"
@@ -347,9 +349,9 @@ export function AddressSearch({
                         Додайте номер будинку
                       </div>
                     )}
-                  </li>
+                  </div>
                 ))}
-            </ul>
+            </div>
             {isLoading ? (
               <div
                 role="status"

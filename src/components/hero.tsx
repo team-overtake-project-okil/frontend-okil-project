@@ -20,7 +20,7 @@ export function Hero({ selectedAddress, onAddressChange }: HeroProps) {
 
         <div className="text-block hero-description">
           Дізнайтеся, що поруч. Обирайте місце для життя за своїми пріоритетами
-          — від транспорту до відпочинку.
+          — від транспорту до відпочинку
         </div>
 
         <AddressSearch
