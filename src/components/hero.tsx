@@ -9,18 +9,20 @@ interface HeroProps {
 }
 export function Hero({ selectedAddress, onAddressChange }: HeroProps) {
   return (
-    <section id="hero" className="hero-section">
+    <div id="hero" className="hero-section">
       <HeroHexField />
       <div className="hero-copy">
-        <h1>
+        <div className="hero-title">
           Ваш ритм
           <br />
           Ваш окіл
-        </h1>
+        </div>
+
         <div className="text-block hero-description">
           Дізнайтеся, що поруч. Обирайте місце для життя за своїми пріоритетами
           — від транспорту до відпочинку.
         </div>
+
         <AddressSearch
           variant="hero"
           selectedAddress={selectedAddress}
@@ -31,6 +33,6 @@ export function Hero({ selectedAddress, onAddressChange }: HeroProps) {
           onEmptySubmit={() => scrollToSection("map")}
         />
       </div>
-    </section>
+    </div>
   );
 }

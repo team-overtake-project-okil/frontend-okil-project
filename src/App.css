@@ -193,14 +193,14 @@ button:disabled {
   gap: 60px;
   padding: 64px 40px 48px;
 }
-.hero-copy h1 {
+.hero-copy .hero-title {
   font-size: clamp(44px, 4.6vw, 70px);
   line-height: 1.06;
   letter-spacing: -0.055em;
   font-weight: 650;
   margin: 24px 0;
 }
-.hero-copy h1 .inline-text {
+.hero-copy .hero-title .inline-text {
   color: #36877c;
 }
 .hero-description {
@@ -710,7 +710,7 @@ button:disabled {
     grid-template-columns: 1fr;
     padding: 32px 20px;
   }
-  .hero-copy h1 {
+  .hero-copy .hero-title {
     font-size: 48px;
   }
   .city-illustration svg {
@@ -831,7 +831,7 @@ body {
   padding: 76px 24px 58px;
   min-height: 590px;
 }
-.hero-copy h1 {
+.hero-copy .hero-title {
   font-size: clamp(42px, 4.1vw, 62px);
   font-weight: 630;
   line-height: 1.08;
@@ -839,7 +839,7 @@ body {
   color: #20252a;
   margin: 0;
 }
-.hero-copy h1 .inline-text {
+.hero-copy .hero-title .inline-text {
   color: #0a6cff;
 }
 .hero-description {
@@ -1354,7 +1354,7 @@ body {
   .hero-section {
     gap: 24px;
   }
-  .hero-copy h1 {
+  .hero-copy .hero-title {
     font-size: 48px;
   }
   .city-illustration small {
@@ -1367,7 +1367,7 @@ body {
     padding: 42px 20px 28px;
     gap: 30px;
   }
-  .hero-copy h1 {
+  .hero-copy .hero-title {
     font-size: 44px;
     letter-spacing: -2px;
   }
@@ -1675,7 +1675,7 @@ input:focus-visible {
   background: radial-gradient(ellipse, #f5f6f8 5%, transparent 72%);
   opacity: 0.72;
 }
-.hero-copy h1 {
+.hero-copy .hero-title {
   font-family: "Geist Variable", sans-serif;
   font-size: clamp(56px, 5.2vw, 82px);
   font-weight: 850;
@@ -2087,7 +2087,7 @@ input:focus-visible {
     min-height: 680px;
     padding: 70px 32px 90px;
   }
-  .hero-copy h1 {
+  .hero-copy .hero-title {
     font-size: 64px;
   }
   .hero-hex-field {
@@ -2121,7 +2121,7 @@ input:focus-visible {
     padding: 70px 22px 85px;
     gap: 0;
   }
-  .hero-copy h1 {
+  .hero-copy .hero-title {
     font-size: clamp(44px, 10.6vw, 62px);
     letter-spacing: -2.2px;
   }
