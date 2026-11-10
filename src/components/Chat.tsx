@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ChatBubbleLeftRightIcon,
-  XMarkIcon,
   PaperAirplaneIcon,
   ArrowPathIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
 import "./Chat.css";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 export type HexChatContext = {
@@ -35,18 +34,14 @@ export function Chat({
   open,
   onOpenChange: setOpen,
   host,
-  context,
-  onRemoveContext,
-  onAddContext,
-  canAddContext,
+  selectedContext,
+  details,
 }: {
   open: boolean;
   onOpenChange: (value: boolean) => void;
   host: HTMLDivElement | null;
-  context: HexChatContext | null;
-  onRemoveContext: () => void;
-  onAddContext: () => void;
-  canAddContext: boolean;
+  selectedContext: HexChatContext | null;
+  details: ReactNode;
 }) {
   const [attempt, setAttempt] = useState(0);
   const [started, setStarted] = useState(false);
@@ -58,6 +53,19 @@ export function Chat({
   const [text, setText] = useState("");
   const [ready, setReady] = useState(false);
   const [waiting, setWaiting] = useState(false);
+  // A draft pins its context. A later map click only changes the next draft.
+  const [draftContext, setDraftContext] = useState<{
+    value: HexChatContext | null;
+  } | null>(null);
+  const [pendingContext, setPendingContext] = useState<{
+    value: HexChatContext | null;
+  } | null>(null);
+  const context = draftContext
+    ? draftContext.value
+    : waiting && pendingContext
+      ? pendingContext.value
+      : selectedContext;
+
   const [status, setStatus] = useState("Підключаємося…");
 
   useEffect(() => {
@@ -156,11 +164,18 @@ export function Chat({
     }
   }, [open, turns, waiting]);
 
+  const showingDetails = Boolean(details);
+  useEffect(() => {
+    if (showingDetails && messagesRef.current)
+      messagesRef.current.scrollTop = 0;
+  }, [showingDetails, selectedContext?.id]);
+
   function closePanel() {
     setOpen(false);
     if (host) {
-      host.parentElement
-        ?.querySelector<HTMLButtonElement>(".assessment-tabs button")
+      host
+        .closest(".map-section")
+        ?.querySelector<HTMLButtonElement>(".map-chat-toggle")
         ?.focus();
     }
   }
@@ -204,17 +219,29 @@ export function Chat({
 
     setTurns((current) => [...current, { requestId, question: message }]);
     setText("");
+    setPendingContext({ value: context });
+    setDraftContext(null);
     setWaiting(true);
     setStatus("Надсилаємо…");
   }
 
   const disconnected = !ready && !waiting && status.startsWith("Зв’язок");
+  const showError =
+    Boolean(CHAT_URL) &&
+    ![
+      "Підключаємося…",
+      "Чат готовий",
+      "Запит прийнято",
+      "Готуємо відповідь…",
+      "Створюємо нову сесію…",
+      "Надсилаємо…",
+    ].includes(status);
   const panel = (
     <section
       id="okil-chat"
       className="chat-panel"
       role="region"
-      aria-labelledby="chat-title"
+      aria-label="Чат із помічником"
       hidden={!open}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
@@ -223,27 +250,8 @@ export function Chat({
         }
       }}
     >
-      <header className="chat-header">
-        <span className="chat-avatar">
-          <ChatBubbleLeftRightIcon aria-hidden="true" />
-        </span>
-        <div>
-          <p className="chat-eyebrow">Помічник Окіл</p>
-          <h2 id="chat-title">Поговорімо про місто</h2>
-        </div>
-        <button
-          type="button"
-          className="chat-icon-button"
-          aria-label="Закрити чат"
-          onClick={closePanel}
-        >
-          <XMarkIcon aria-hidden="true" />
-        </button>
-      </header>
-
-      <div className="chat-connection" role="status">
-        <span className={ready ? "chat-dot is-ready" : "chat-dot"} />
-        <span>{!CHAT_URL ? "Чат тимчасово недоступний" : status}</span>
+      <div className={showError ? "chat-connection" : "sr-only"} role="status">
+        <span>{CHAT_URL ? status : ""}</span>
         {disconnected && (
           <button type="button" onClick={reconnect} className="chat-reconnect">
             <ArrowPathIcon aria-hidden="true" /> Перепідключити
@@ -259,16 +267,20 @@ export function Chat({
         aria-live="polite"
         aria-relevant="additions text"
       >
-        {turns.length === 0 && (
+        {details}
+        {turns.length === 0 && !showingDetails && (
           <div className="chat-welcome">
-            <span className="chat-welcome-icon">
-              <ChatBubbleLeftRightIcon aria-hidden="true" />
-            </span>
-            <h3>Місто починається з питання</h3>
-            <p>Напиши, що тебе цікавить про райони та міське середовище.</p>
-            <span className="chat-welcome-note">
-              Твоя розмова залишиться тут, якщо закриєш панель.
-            </span>
+            <div className="chat-ai-mark">
+              <span className="chat-ai-icon">
+                <SparklesIcon aria-hidden="true" />
+              </span>
+              <span>AI-помічник Окіл</span>
+            </div>
+            <h3>Запитай про місто</h3>
+            <p>
+              Про райони, транспорт і місця поруч. Вибрана на мапі ділянка
+              додається до запитання.
+            </p>
           </div>
         )}
         {turns.map((turn) => (
@@ -296,45 +308,44 @@ export function Chat({
       </div>
 
       <form onSubmit={sendQuestion} className="chat-composer">
-        {host && (
-          <button
-            type="button"
-            className="chat-attach"
-            disabled={!canAddContext}
-            onClick={onAddContext}
-          >
-            <span aria-hidden="true">＋</span>{" "}
-            {context ? "Оновити ділянку в контексті" : "Додати цю ділянку"}
-          </button>
-        )}
         {context && (
           <div className="chat-context">
             <div>
-              <strong>Ділянка · {context.score}/100</strong>
+              <strong title={context.id}>
+                Про цю ділянку · {context.score}/100
+              </strong>
               <small>{context.id}</small>
             </div>
             <button
               type="button"
               aria-label="Прибрати ділянку з контексту"
-              onClick={onRemoveContext}
+              onClick={() => setDraftContext({ value: null })}
             >
               ✕
             </button>
+            {draftContext && context.id !== selectedContext?.id && (
+              <span className="chat-context-note">
+                Контекст цього запитання збережено
+              </span>
+            )}
             <p>Дані цієї ділянки буде додано до запитання.</p>
           </div>
         )}
-        <label htmlFor="chat-question" className="chat-input-label">
-          Твоє запитання
-        </label>
         <div className="chat-input-row">
           <textarea
             id="chat-question"
+            aria-label="Твоє запитання"
             ref={inputRef}
             placeholder="Напиши запитання…"
-            rows={2}
+            rows={1}
             value={text}
             maxLength={4000}
-            onChange={(event) => setText(event.target.value)}
+            onChange={(event) => {
+              const nextText = event.target.value;
+              if (!nextText) setDraftContext(null);
+              else if (!draftContext) setDraftContext({ value: context });
+              setText(nextText);
+            }}
             onKeyDown={(event) => {
               if (
                 event.key === "Enter" &&
@@ -354,10 +365,6 @@ export function Chat({
           >
             <PaperAirplaneIcon aria-hidden="true" />
           </button>
-        </div>
-        <div className="chat-composer-hint">
-          <span>Enter — надіслати · Shift + Enter — новий рядок</span>
-          <span>{text.length} / 4000</span>
         </div>
       </form>
     </section>

@@ -1,3 +1,7 @@
+import {
+  ChatBubbleLeftRightIcon,
+  Square3Stack3DIcon,
+} from "@heroicons/react/24/outline";
 // Панель над картою: пошук адреси, пріоритети, маршрути і розгортання
 import type { Ref } from "react";
 import BusIcon from "../../icons/bus";
@@ -8,6 +12,10 @@ import { AddressSearch } from "../address/AddressSearch";
 import type { AddressSuggestion } from "../../services/geocoding";
 
 interface MapToolbarProps {
+  chatOpen: boolean;
+  onToggleChat: () => void;
+  comparisonActive: boolean;
+  onToggleComparisonPanel: () => void;
   expanded: boolean;
   panelOpen: boolean;
   dirty: boolean;
@@ -22,6 +30,10 @@ interface MapToolbarProps {
 }
 
 export function MapToolbar({
+  chatOpen,
+  onToggleChat,
+  comparisonActive,
+  onToggleComparisonPanel,
   expanded,
   panelOpen,
   dirty,
@@ -68,6 +80,25 @@ export function MapToolbar({
             </span>
           </span>
         </span>
+      </button>
+      <button
+        type="button"
+        className="map-chat-toggle"
+        aria-pressed={chatOpen}
+        aria-controls="okil-chat"
+        onClick={onToggleChat}
+      >
+        <ChatBubbleLeftRightIcon aria-hidden="true" />
+        <span>Помічник Окіл</span>
+      </button>
+      <button
+        type="button"
+        className="map-compare-toggle"
+        aria-expanded={comparisonActive}
+        onClick={onToggleComparisonPanel}
+      >
+        <Square3Stack3DIcon aria-hidden="true" />
+        <span>Порівняти ділянки</span>
       </button>
       <label className="route-toggle">
         <input
