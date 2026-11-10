@@ -55,12 +55,19 @@ export function MapToolbar({
         aria-controls="weights-panel"
         onClick={onTogglePanel}
       >
-        <SlidersHorizontal aria-hidden="true" /> Пріоритети{" "}
-        {dirty && (
-          <div className="inline-text" aria-label="Є незастосовані зміни">
-            •
-          </div>
-        )}
+        <SlidersHorizontal aria-hidden="true" />
+        <span className="priorities-label">
+          Пріоритети
+          <span
+            className={`priorities-mark ${dirty ? "is-on" : ""}`}
+            aria-hidden={dirty ? undefined : true}
+            aria-label={dirty ? "Є незастосовані зміни" : undefined}
+          >
+            <span>
+              <span className="priorities-mark-dot">•</span>
+            </span>
+          </span>
+        </span>
       </button>
       <label className="route-toggle">
         <input

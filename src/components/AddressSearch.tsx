@@ -345,7 +345,7 @@ export function AddressSearch({
                   >
                     {item.address}
                     {!item.isComplete && (
-                      <div className="inline-text mt-1 block text-xs text-zinc-500">
+                      <div className="inline-text block text-xs text-zinc-500">
                         Додайте номер будинку
                       </div>
                     )}
