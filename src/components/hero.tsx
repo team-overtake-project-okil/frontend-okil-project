@@ -1,5 +1,5 @@
 import { HeroHexField } from "./HeroHexField";
-import { AddressSearch } from "./AddressSearch";
+import { AddressSearch } from "./address/AddressSearch";
 import { scrollToSection } from "../lib/scroll";
 import type { AddressSuggestion } from "../services/geocoding";
 

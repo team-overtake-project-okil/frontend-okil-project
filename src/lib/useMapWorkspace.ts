@@ -1,6 +1,7 @@
-// Розгортання карти, панель зупинки, порівняння ділянок і фокус з клавіатури
+// Порівняння ділянок, панель зупинки і розгортання карти
 import { useCallback, useEffect, useRef, useState } from "react";
 import { comparisonLabels } from "./hexagonAssessment";
+import { useExpandedMapFocus } from "./useExpandedMapFocus";
 import type { HexStopProperties } from "./useStopsByHex";
 
 export function useMapWorkspace() {
@@ -28,66 +29,6 @@ export function useMapWorkspace() {
     panelOpenRef.current = panelOpen;
   }, [panelOpen]);
   const [expanded, setExpanded] = useState(false);
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const expandRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!expanded) return;
-    const returnFocus = expandRef.current;
-    const previous = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = "hidden";
-    const siblings: { element: HTMLElement; inert: boolean }[] = [];
-    let node: HTMLElement | null = sectionRef.current;
-    while (node?.parentElement) {
-      for (const sibling of node.parentElement.children) {
-        if (sibling !== node && sibling instanceof HTMLElement) {
-          siblings.push({ element: sibling, inert: sibling.inert });
-          sibling.inert = true;
-        }
-      }
-      node = node.parentElement;
-    }
-    const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (panelStopRef.current) {
-          panelStopRef.current = null;
-          setPanelStop(null);
-          if (!restoreSlidersRef.current) setPanelOpen(false);
-          restoreSlidersRef.current = false;
-          return;
-        }
-        setExpanded(false);
-        setPanelOpen(false);
-      }
-      if (event.key === "Tab") {
-        const elements = [
-          ...sectionRef.current!.querySelectorAll<HTMLElement>(
-            'button,input,a[href],[tabindex="0"]',
-          ),
-        ].filter(
-          (element) =>
-            element.getClientRects().length &&
-            !element.hasAttribute("disabled") &&
-            !element.closest("[inert]"),
-        );
-        const first = elements[0];
-        const last = elements.at(-1);
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last?.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    window.addEventListener("keydown", key);
-    return () => {
-      document.documentElement.style.overflow = previous;
-      siblings.forEach(({ element, inert }) => (element.inert = inert));
-      window.removeEventListener("keydown", key);
-      returnFocus?.focus();
-    };
-  }, [expanded, expandRef, sectionRef]);
   const [routesEnabled, setRoutesEnabled] = useState(false);
   const clearStopPanel = useCallback(() => {
     if (panelStopRef.current === null) return;
@@ -96,6 +37,18 @@ export function useMapWorkspace() {
     if (!restoreSlidersRef.current) setPanelOpen(false);
     restoreSlidersRef.current = false;
   }, []);
+  const onExpandedEscape = useCallback(() => {
+    if (panelStopRef.current) {
+      clearStopPanel();
+      return;
+    }
+    setExpanded(false);
+    setPanelOpen(false);
+  }, [clearStopPanel]);
+  const { sectionRef, expandRef } = useExpandedMapFocus({
+    expanded,
+    onEscape: onExpandedEscape,
+  });
   const closeMapPanelsForComparison = () => {
     restoreSlidersRef.current = false;
     clearStopPanel();

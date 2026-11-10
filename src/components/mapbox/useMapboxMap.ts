@@ -1,20 +1,20 @@
 // Полотно Mapbox: камера Львова, оцінки ділянок, маршрути і порівняння
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cellToBoundary, cellToLatLng } from "h3-js";
-import { coordsToH3 } from "./h3";
-import { useRoutesByHex } from "./useRoutesByHex";
+import { coordsToH3 } from "../../lib/h3";
+import { useRoutesByHex } from "../../lib/useRoutesByHex";
 import {
   stopsInsideHex,
   useStopsByHex,
   type HexStopProperties,
-} from "./useStopsByHex";
-import type { Hexagon } from "./hexagonRating";
-import { handleMapClick } from "../components/mapbox/mapClick";
-import { installCityLayers } from "../components/mapbox/mapLayers";
-import { mountComparison } from "../components/mapbox/syncComparison";
-import { whenMapSourceReady } from "../components/mapbox/whenMapSourceReady";
+} from "../../lib/useStopsByHex";
+import type { Hexagon } from "../../lib/hexagonRating";
+import { handleMapClick } from "./mapClick";
+import { installCityLayers } from "./mapLayers";
+import { mountComparison } from "./syncComparison";
+import { whenMapSourceReady } from "./whenMapSourceReady";
 import {
   cityBounds,
   GRID_BEARING,
@@ -23,7 +23,7 @@ import {
   LVIV_LNG,
   lvivHexes,
   SELECTION_ZOOM,
-} from "../components/mapbox/lvivGrid";
+} from "./lvivGrid";
 
 export const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -33,6 +33,7 @@ interface UseMapboxMapArgs {
   hexagons: Hexagon[];
   comparisonIds: readonly string[];
   searchedLocation?: { lat: number; lng: number } | null;
+  selectedHexId: string | null;
   onHexSelect?: (hexId: string | null) => void;
   clearSelectionKey?: number;
   routesEnabled: boolean;
@@ -44,6 +45,7 @@ export function useMapboxMap({
   hexagons,
   comparisonIds,
   searchedLocation,
+  selectedHexId,
   onHexSelect,
   clearSelectionKey,
   routesEnabled,
@@ -56,7 +58,6 @@ export function useMapboxMap({
   const onStopInPanelRef = useRef(onStopInPanel);
   const onStopPanelDismissRef = useRef(onStopPanelDismiss);
   const hexScoresRef = useRef(new Map<string, number | undefined>());
-  const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
 
   // Fetch routes only when enabled and a hexagon is selected.
   const routesQuery = useRoutesByHex(routesEnabled ? selectedHexId : null);
@@ -71,13 +72,9 @@ export function useMapboxMap({
   const stopNameTagRef = useRef<mapboxgl.Popup | null>(null);
 
   // Keep the latest callback without recreating the Mapbox map.
-  // It also remembers the selected hexagon (null when the selection is cleared)
-  // so that the routes of this hexagon can be loaded.
+  // The workspace owns the selected hexagon and passes it back for routes.
   useEffect(() => {
-    onHexSelectRef.current = (hexId) => {
-      setSelectedHexId(hexId);
-      onHexSelect?.(hexId);
-    };
+    onHexSelectRef.current = onHexSelect;
   }, [onHexSelect]);
 
   useEffect(() => {
@@ -301,7 +298,6 @@ export function useMapboxMap({
 
   return {
     refs: { containerRef },
-    selectedHexId,
     routesCount: routes?.features.length ?? 0,
     routesFetching: routesQuery.isFetching,
     routesError: routesQuery.isError,

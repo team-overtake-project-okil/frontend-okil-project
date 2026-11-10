@@ -70,6 +70,7 @@ export const Map = ({
             comparisonIds={workspace.comparisonIds}
             clearSelectionKey={clearSelectionKey}
             searchedLocation={searchedLocation}
+            selectedHexId={workspace.selectedHexId}
             onHexSelect={workspace.setSelectedHexId}
             onStopInPanel={workspace.takeStopInPanel}
             onStopPanelDismiss={workspace.clearStopPanel}

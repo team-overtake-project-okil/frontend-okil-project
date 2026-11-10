@@ -1,12 +1,13 @@
 import type { Hexagon } from "../lib/hexagonRating";
 import { RouteStatus } from "./mapbox/RouteStatus";
-import { mapboxToken, useMapboxMap } from "../lib/useMapboxMap";
+import { mapboxToken, useMapboxMap } from "./mapbox/useMapboxMap";
 import type { HexStopProperties } from "../lib/useStopsByHex";
 
 interface MapboxMapProps {
   hexagons: Hexagon[];
   comparisonIds: readonly string[];
   searchedLocation?: { lat: number; lng: number } | null;
+  selectedHexId: string | null;
   onHexSelect?: (hexId: string | null) => void;
   clearSelectionKey?: number;
   routesEnabled?: boolean;
@@ -20,6 +21,7 @@ export function MapboxMap({
   hexagons,
   comparisonIds,
   searchedLocation,
+  selectedHexId,
   onHexSelect,
   clearSelectionKey,
   routesEnabled = true,
@@ -30,6 +32,7 @@ export function MapboxMap({
     hexagons,
     comparisonIds,
     searchedLocation,
+    selectedHexId,
     onHexSelect,
     clearSelectionKey,
     routesEnabled,
@@ -55,7 +58,7 @@ export function MapboxMap({
       />
       <RouteStatus
         routesEnabled={routesEnabled}
-        selectedHexId={map.selectedHexId}
+        selectedHexId={selectedHexId}
         routesCount={map.routesCount}
         routesFetching={map.routesFetching}
         routesError={map.routesError}

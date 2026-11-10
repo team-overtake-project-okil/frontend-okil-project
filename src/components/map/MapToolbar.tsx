@@ -4,7 +4,7 @@ import BusIcon from "../../icons/bus";
 import Expand from "../../icons/arrows-pointing-out";
 import Minimize2 from "../../icons/arrows-pointing-in";
 import SlidersHorizontal from "../../icons/adjustments-horizontal";
-import { AddressSearch } from "../AddressSearch";
+import { AddressSearch } from "../address/AddressSearch";
 import type { AddressSuggestion } from "../../services/geocoding";
 
 interface MapToolbarProps {
