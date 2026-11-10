@@ -1,7 +1,7 @@
 // Розгортання карти, панель зупинки, порівняння ділянок і фокус з клавіатури
 import { useCallback, useEffect, useRef, useState } from "react";
-import { comparisonLabels } from "../../lib/hexagonAssessment";
-import type { HexStopProperties } from "../../lib/useStopsByHex";
+import { comparisonLabels } from "./hexagonAssessment";
+import type { HexStopProperties } from "./useStopsByHex";
 
 export function useMapWorkspace() {
   const [assessmentExpanded, setAssessmentExpanded] = useState(false);
@@ -112,7 +112,7 @@ export function useMapWorkspace() {
     setPanelOpen(true);
     return true;
   }, []);
-  const panelRef = useRef<HTMLElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!panelOpen) return;

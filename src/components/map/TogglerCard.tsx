@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Slider } from "./ui/slider";
-import { Switch } from "./ui/switch";
+import { Slider } from "../ui/slider";
+import { Switch } from "../ui/switch";
 import { cn } from "cn";
 
 type TogglerCardProps = {

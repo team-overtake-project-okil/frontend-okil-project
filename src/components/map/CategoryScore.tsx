@@ -1,8 +1,8 @@
 import { useId, type CSSProperties } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { comfortColor } from "../lib/palette";
-import ChevronRight from "../icons/chevron-right";
-import { categoryExplanation, type CategoryRating } from "../lib/hexagonAssessment";
+import { comfortColor } from "../../lib/palette";
+import ChevronRight from "../../icons/chevron-right";
+import { categoryExplanation, type CategoryRating } from "../../lib/hexagonAssessment";
 
 type Props = {
   title: string;
@@ -28,7 +28,9 @@ export function CategoryScore({ title, item, open, onToggle }: Props) {
               <ChevronRight strokeWidth={2} />
             </motion.span>
           </span>
-          <strong>{!item ? "Немає даних" : !item.enabled ? "Вимкнено" : item.score}</strong>
+          <span className="inline-text category-value">
+            {!item ? "Немає даних" : !item.enabled ? "Вимкнено" : item.score}
+          </span>
         </span>
         <meter min="0" max="100" value={item?.enabled ? item.score : 0}
           aria-label={title} style={{ "--score-color": comfortColor(item?.score ?? 0) } as CSSProperties} />
@@ -40,7 +42,11 @@ export function CategoryScore({ title, item, open, onToggle }: Props) {
           opacity: { duration: reduceMotion ? 0 : 0.14 } }}>
         <div className="text-block category-description">
           {categoryExplanation(item)}
-          {item && !item.enabled && <p>Не враховується в загальній оцінці.</p>}
+          {item && !item.enabled && (
+            <div className="text-block">
+              Не враховується в загальній оцінці.
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

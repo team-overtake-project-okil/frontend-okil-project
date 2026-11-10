@@ -8,11 +8,11 @@ import {
   type AssessmentWeights,
   type TogglerState,
   type TogglerStates,
-} from "../../lib/assessmentWeights";
+} from "./assessmentWeights";
 import {
   getHexagonRatings,
   hexagonAssessmentOptions,
-} from "../../lib/hexagonAssessment";
+} from "./hexagonAssessment";
 import { withIntegerRating } from "./hexagonRating";
 
 export function useMapRatings(selectedHexId: string | null) {

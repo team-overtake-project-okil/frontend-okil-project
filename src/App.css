@@ -288,12 +288,12 @@ button:disabled {
     fill: #36877c;
   }
 }
-.city-illustration figcaption {
+.city-illustration .city-caption {
   padding: 18px 24px;
   border-top: 1px solid #d5dfda;
   font-size: 12px;
 }
-.city-illustration small {
+.city-illustration .city-caption-note {
   display: block;
   margin-top: 6px;
   color: #61746a;
@@ -916,7 +916,7 @@ body {
 .city-illustration polygon {
   transition: fill 90ms linear;
 }
-.city-illustration figcaption {
+.city-illustration .city-caption {
   border: 0;
   display: flex;
   align-items: center;
@@ -925,11 +925,11 @@ body {
   color: #96979f;
   font-size: 9px;
 }
-.city-illustration figcaption > .inline-text {
+.city-illustration .city-caption > .inline-text {
   letter-spacing: 0.05em;
   white-space: nowrap;
 }
-.city-illustration small {
+.city-illustration .city-caption-note {
   display: inline;
   margin: 0 0 0 auto;
   font-size: 9px;
@@ -1392,7 +1392,7 @@ body {
   .hero-copy .hero-title {
     font-size: 48px;
   }
-  .city-illustration small {
+  .city-illustration .city-caption-note {
     display: none;
   }
 }
@@ -1421,7 +1421,7 @@ body {
   .city-illustration svg {
     max-height: 350px;
   }
-  .city-illustration figcaption {
+  .city-illustration .city-caption {
     padding: 0 16px;
   }
   .hero-footnote {
@@ -1572,7 +1572,7 @@ body {
 .city-illustration polygon {
   transition: fill 2200ms ease-in-out;
 }
-.city-illustration figcaption small {
+.city-illustration .city-caption .city-caption-note {
   margin-left: auto;
 }
 @media (max-width: 700px) {
@@ -2630,6 +2630,9 @@ input:focus-visible {
   font-size: 12px;
   gap: 8px;
 }
+.category-summary .category-value {
+  font-weight: 650;
+}
 .category-toggle {
   width: 100%;
   border: 0;
@@ -2672,6 +2675,9 @@ input:focus-visible {
   line-height: 1.7;
   color: var(--muted-ink);
   padding: 0 0 14px;
+}
+.category-description > .text-block {
+  margin-top: 1em;
 }
 @media (max-width: 1000px) {
   .map-expanded .map-toolbar {

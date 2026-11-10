@@ -4,7 +4,7 @@ import {
   buildAssessmentWeights,
   sameWeights,
   weightsSearch,
-} from "./assessmentWeights";
+} from "../lib/assessmentWeights";
 describe("backend weight contract", () => {
   it("uses all eight scored categories and weight one by default", () => {
     const weights = buildAssessmentWeights(defaultTogglers());

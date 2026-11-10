@@ -3,7 +3,7 @@ import mapboxgl from "mapbox-gl";
 import { cellToBoundary, cellToLatLng, polygonToCells } from "h3-js";
 import cityBoundary from "../../data/lviv-city.json";
 import { H3_RES, coordsToH3 } from "../../lib/h3";
-import type { Hexagon } from "../map/hexagonRating";
+import type { Hexagon } from "../../lib/hexagonRating";
 
 export const LVIV_LAT = 49.8429;
 export const LVIV_LNG = 24.0316;

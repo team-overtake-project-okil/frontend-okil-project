@@ -1,6 +1,6 @@
-import type { Hexagon } from "./map/hexagonRating";
+import type { Hexagon } from "../lib/hexagonRating";
 import { RouteStatus } from "./mapbox/RouteStatus";
-import { mapboxToken, useMapboxMap } from "./mapbox/useMapboxMap";
+import { mapboxToken, useMapboxMap } from "../lib/useMapboxMap";
 import type { HexStopProperties } from "../lib/useStopsByHex";
 
 interface MapboxMapProps {

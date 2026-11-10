@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "./fetcher";
-import { buildAssessmentWeights, defaultTogglers } from "./assessmentWeights";
-import { categoryExplanation, getHexagonAssessment, getHexagonRatings, type CategoryRating } from "./hexagonAssessment";
+import { ApiError } from "../lib/fetcher";
+import { buildAssessmentWeights, defaultTogglers } from "../lib/assessmentWeights";
+import { categoryExplanation, getHexagonAssessment, getHexagonRatings, type CategoryRating } from "../lib/hexagonAssessment";
 
 afterEach(() => {
   vi.unstubAllEnvs();

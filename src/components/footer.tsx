@@ -24,7 +24,7 @@ export const Footer = () => (
     <div id="footer" className="about-section">
       <div className="about-layout">
         <div className="about-intro">
-          <div className="text-block eyebrow">ПРО ПРОЄКТ</div>
+          <div className="text-block eyebrow uppercase">про проєкт</div>
           <div role="heading" aria-level={2} className="heading-2">
             Окіл — усе важливе поруч
           </div>

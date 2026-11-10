@@ -1,13 +1,13 @@
 import type { AddressSuggestion } from "../services/geocoding";
 import { AssessmentCard } from "./map/AssessmentCard";
-import { HexagonComparison } from "./HexagonComparison";
+import { HexagonComparison } from "./map/HexagonComparison";
 import { MapboxMap } from "./MapboxMap";
 import { MapToolbar } from "./map/MapToolbar";
 import { WeightsPanel } from "./map/WeightsPanel";
-import { useMapRatings } from "./map/useMapRatings";
-import { useMapWorkspace } from "./map/useMapWorkspace";
+import { useMapRatings } from "../lib/useMapRatings";
+import { useMapWorkspace } from "../lib/useMapWorkspace";
 
-export type { Hexagon, int } from "./map/hexagonRating";
+export type { Hexagon, int } from "../lib/hexagonRating";
 
 interface MapProps {
   clearSelectionKey: number;
@@ -35,7 +35,7 @@ export const Map = ({
     >
       <div className="map-heading">
         <div>
-          <div className="text-block eyebrow">ДОСЛІДЖУЙТЕ МІСТО</div>
+          <div className="text-block eyebrow uppercase">досліджуйте місто</div>
           <div
             role="heading"
             aria-level={2}

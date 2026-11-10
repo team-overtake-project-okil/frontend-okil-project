@@ -10,8 +10,8 @@ import {
 } from "../../lib/assessmentWeights";
 import { categoryLabels } from "../../lib/hexagonAssessment";
 import type { HexStopProperties } from "../../lib/useStopsByHex";
-import { StopRoutesFace } from "../StopRoutesFace";
-import { TogglerCard } from "../TogglerCard";
+import { StopRoutesFace } from "./StopRoutesFace";
+import { TogglerCard } from "./TogglerCard";
 
 const faceEase = [0.22, 0.82, 0.24, 1] as const;
 const faceTransition = {
@@ -33,7 +33,7 @@ const categoryDescriptions = [
 ];
 
 interface WeightsPanelProps {
-  panelRef: Ref<HTMLElement>;
+  panelRef: Ref<HTMLDivElement>;
   stop: HexStopProperties | null;
   faceStop: HexStopProperties | null;
   dirty: boolean;
@@ -58,10 +58,10 @@ export function WeightsPanel({
   onStopClose,
 }: WeightsPanelProps) {
   return (
-    <aside
+    <div
       ref={panelRef}
       id="weights-panel"
-      className={`weights-panel${stop ? "is-stop" : ""}`}
+      className={`weights-panel ${stop ? "is-stop" : ""}`}
       aria-label={stop ? "Маршрути зупинки" : "Пріоритети"}
     >
       <MotionConfig reducedMotion="user">
@@ -80,7 +80,9 @@ export function WeightsPanel({
           >
             <div className="panel-heading">
               <div>
-                <div className="text-block eyebrow">ПЕРСОНАЛЬНА ОЦІНКА</div>
+                <div className="text-block eyebrow uppercase">
+                  персональна оцінка
+                </div>
                 <div role="heading" aria-level={3} className="heading-3">
                   Що для вас важливо
                 </div>
@@ -95,7 +97,7 @@ export function WeightsPanel({
               </button>
             </div>
             <div className="text-block panel-intro">
-              Змініть важливість категорій. Карта оновиться після застосування.
+              Змініть важливість категорій. Карта оновиться після застосування
             </div>
             <div className="weights-list">
               {categoryLabels.map(([, title], index) => {
@@ -156,6 +158,6 @@ export function WeightsPanel({
           </motion.div>
         </div>
       </MotionConfig>
-    </aside>
+    </div>
   );
 }

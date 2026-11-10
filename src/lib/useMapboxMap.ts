@@ -2,18 +2,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import { cellToBoundary, cellToLatLng } from "h3-js";
-import { coordsToH3 } from "../../lib/h3";
-import { useRoutesByHex } from "../../lib/useRoutesByHex";
+import { coordsToH3 } from "./h3";
+import { useRoutesByHex } from "./useRoutesByHex";
 import {
   stopsInsideHex,
   useStopsByHex,
   type HexStopProperties,
-} from "../../lib/useStopsByHex";
-import type { Hexagon } from "../map/hexagonRating";
-import { handleMapClick } from "./mapClick";
-import { installCityLayers } from "./mapLayers";
-import { mountComparison } from "./syncComparison";
-import { whenMapSourceReady } from "./whenMapSourceReady";
+} from "./useStopsByHex";
+import type { Hexagon } from "./hexagonRating";
+import { handleMapClick } from "../components/mapbox/mapClick";
+import { installCityLayers } from "../components/mapbox/mapLayers";
+import { mountComparison } from "../components/mapbox/syncComparison";
+import { whenMapSourceReady } from "../components/mapbox/whenMapSourceReady";
 import {
   cityBounds,
   GRID_BEARING,
@@ -22,7 +22,7 @@ import {
   LVIV_LNG,
   lvivHexes,
   SELECTION_ZOOM,
-} from "./lvivGrid";
+} from "../components/mapbox/lvivGrid";
 
 export const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
 

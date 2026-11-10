@@ -610,7 +610,7 @@ export function CityIllustration() {
     };
   }, []);
   return (
-    <figure className="city-illustration">
+    <div className="city-illustration">
       <svg
         ref={svgRef}
         viewBox="0 0 520 500"
@@ -621,10 +621,10 @@ export function CityIllustration() {
           <polygon key={i} points={points} fill={color(initialValue(x, y))} />
         ))}
       </svg>
-      <figcaption>
+      <div className="city-caption">
         <div className="inline-text">ЛЬВІВ — 49.84° N · 24.03° E</div>
-        <small>Демонстрація індексу</small>
-      </figcaption>
-    </figure>
+        <div className="city-caption-note">Демонстрація індексу</div>
+      </div>
+    </div>
   );
 }

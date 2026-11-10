@@ -6,7 +6,7 @@ import {
   categoryLabels,
   type CategoryRating,
 } from "../../lib/hexagonAssessment";
-import { CategoryScore } from "../CategoryScore";
+import { CategoryScore } from "./CategoryScore";
 
 interface AssessmentData {
   overall_rating: number;
@@ -58,9 +58,9 @@ export function AssessmentCard({
   onToggleCategory,
 }: AssessmentCardProps) {
   return (
-    <aside className="assessment-card" aria-label="Оцінка ділянки">
+    <div className="assessment-card" aria-label="Оцінка ділянки">
       <div className="panel-heading">
-        <div className="text-block eyebrow">ВИБРАНА ДІЛЯНКА · ЛЬВІВ</div>
+        <div className="text-block eyebrow uppercase">вибрана ділянка · львів</div>
         <button type="button" aria-label="Скасувати вибір" onClick={onClear}>
           <XMark aria-hidden="true" />
         </button>
@@ -146,6 +146,6 @@ export function AssessmentCard({
             Докладніше про оцінку <Expand aria-hidden="true" />
           </button>
         ))}
-    </aside>
+    </div>
   );
 }
