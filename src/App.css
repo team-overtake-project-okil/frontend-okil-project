@@ -831,11 +831,24 @@ button:disabled {
 .map-data-status button {
   margin-top: 8px;
 }
+/* Expanded toolbar sits on the same top edge and covers this status. */
+.map-expanded .map-data-status {
+  top: 68px;
+  z-index: 25;
+}
+@media (max-width: 1100px) {
+  .map-expanded .map-data-status {
+    top: 124px;
+  }
+}
 @media (max-width: 700px) {
   .map-data-status {
     top: 110px;
     width: calc(100% - 32px);
     max-width: none;
+  }
+  .map-expanded .map-data-status {
+    top: 124px;
   }
 }
 
@@ -3388,6 +3401,10 @@ input:focus-visible {
 .map-section:not(.map-expanded):has(.assessment-card) .route-status {
   left: 50% !important;
   bottom: 14px !important;
+}
+/* The comfort blurb shares the stop panel's corner on the inline map. */
+.map-section:not(.map-expanded).panel-open .inline-map-info {
+  display: none;
 }
 .map-section:not(.map-expanded):has(.assessment-card) .map-updating {
   left: 50%;
