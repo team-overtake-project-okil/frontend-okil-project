@@ -3,10 +3,10 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Map } from "./map";
+import { Map } from "../components/map";
 
 // WebGL rendering is outside this test; retain the real controls, queries and fetcher.
-vi.mock("./MapboxMap", () => ({
+vi.mock("../components/MapboxMap", () => ({
   MapboxMap: ({ hexagons }: { hexagons: { h3_id: string }[] }) => (
     <div data-testid="map-data">
       {hexagons.map((hex) => hex.h3_id).join(",")}

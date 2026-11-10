@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetcher } from "./fetcher";
+import { fetcher } from "../lib/fetcher";
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();

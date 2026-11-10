@@ -7,7 +7,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AddressSearch } from "./AddressSearch";
+import { AddressSearch } from "../components/address/AddressSearch";
 import { clearAddressRequestCache } from "../services/addressRequests";
 
 const address = "просп. В'ячеслава Чорновола, 13";

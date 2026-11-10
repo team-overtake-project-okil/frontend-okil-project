@@ -46,7 +46,7 @@
   padding: 0;
   background: transparent;
 }
-.map-section .assessment-card .score strong {
+.map-section .assessment-card .score-value {
   font-size: 44px;
 }
 .map-section .assessment-card .comparison-add {
@@ -408,4 +408,8 @@
   .chat-typing > span:not(.chat-typing-label) {
     animation: none;
   }
+}
+
+.map-section:not(.map-expanded) .assessment-card.with-chat {
+  height: min(600px, calc(100dvh - 120px));
 }

@@ -9,7 +9,7 @@ The component tests have also been checked by running Vitest directly under Bun.
 Run the full suite with `bun run test --run`, or only these flows with:
 
 ```sh
-bun run test --run src/components/AddressSearch.test.tsx src/components/map.test.tsx
+bun run test --run src/tests/AddressSearch.test.tsx src/tests/map.test.tsx
 ```
 
 The tests render real React components in jsdom. Only `fetch` responses and the

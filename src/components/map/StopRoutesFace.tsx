@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
-import type { HexStopProperties } from "../lib/useStopsByHex";
-import { groupStopRoutes, routesCountLabel } from "../lib/stopRoutes";
+import type { HexStopProperties } from "../../lib/useStopsByHex";
+import { groupStopRoutes, routesCountLabel } from "../../lib/stopRoutes";
 
 const chipEase = [0.16, 0.84, 0.3, 1] as const;
 
@@ -24,7 +24,7 @@ export function StopRoutesFace({ stop, onClose }: StopRoutesFaceProps) {
       <div className="px-4 pt-5 pb-5.5">
         <div className="panel-heading items-start!">
           <div>
-            <div className="text-block eyebrow">ЗУПИНКА</div>
+            <div className="text-block eyebrow uppercase">зупинка</div>
             <div role="heading" aria-level={3} className="heading-3">
               {stop.name?.trim() || "Зупинка"}
             </div>

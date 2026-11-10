@@ -35,10 +35,13 @@
 .hex-comparison-selection {
   padding: 0;
   margin: 8px 0 0;
-  list-style: none;
 }
 
-.hex-comparison p {
+.hex-comparison-controls .inline-text {
+  font-weight: 700;
+}
+
+.hex-comparison > .text-block {
   margin: 6px 0 0;
 }
 
@@ -118,7 +121,8 @@
   user-select: none;
 }
 
-.comparison-score strong {
+.comparison-score .inline-text {
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
