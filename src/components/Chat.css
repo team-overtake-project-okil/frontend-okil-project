@@ -19,7 +19,7 @@
 }
 .map-expanded .assessment-card,
 .map-expanded .assessment-card.with-chat {
-  height: min(720px, calc(100dvh - 196px));
+  height: auto;
   max-height: calc(100dvh - 196px);
 }
 .assessment-summary {
@@ -27,7 +27,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   column-gap: 8px;
   flex: none;
-  padding: 16px 16px 12px;
+  padding: 12px 16px;
 }
 .assessment-summary > .panel-heading {
   grid-column: 1 / -1;
@@ -50,7 +50,7 @@
   font-size: 44px;
 }
 .map-section .assessment-card .comparison-add {
-  grid-column: 1;
+  grid-column: 1 / -1;
   grid-row: 3;
   justify-self: start;
   display: inline-flex;
@@ -64,53 +64,133 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.assessment-tabs {
-  grid-column: 2;
-  grid-row: 2 / 4;
-  align-self: center;
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: #eaf0e9;
-  border-radius: 11px;
+.assessment-category-body {
+  padding: 0;
+  margin-bottom: 16px;
 }
-.assessment-tabs button {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+.assessment-summary[hidden] {
+  display: none;
+}
+.chat-context-note {
+  width: 100%;
+  font-size: 10px;
+  font-weight: 400;
   color: #637167;
 }
-.assessment-tabs button svg {
-  width: 17px;
-  height: 17px;
+.map-section .map-toolbar {
+  flex-wrap: wrap;
 }
-.assessment-tabs button.is-active {
-  background: #fff;
-  color: #344d3c;
-  box-shadow: 0 1px 4px #25392d12;
+@media (max-width: 1280px) {
+  .map-expanded .assessment-card {
+    top: 124px;
+    max-height: calc(100dvh - 242px);
+  }
+  .map-section.map-expanded {
+    --assistant-panel-top: 124px;
+  }
 }
-.assessment-tabs button:hover {
-  background: #ffffff80;
-  color: #344d3c;
+@media (max-width: 700px) {
+  .map-compare-toggle {
+    min-height: 38px;
+    padding: 8px 11px;
+    font-size: 11px;
+  }
+  .comparison-table-open .assessment-card {
+    visibility: hidden;
+    pointer-events: none;
+  }
 }
-.assessment-tabs button:focus-visible {
-  outline: 2px solid #738d79;
-  outline-offset: 2px;
+.assistant-panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 12px 16px 10px;
 }
-.assessment-category-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 0 16px 16px;
-  overscroll-behavior: contain;
+.assistant-panel-heading > svg {
+  width: 19px;
+  height: 19px;
+  color: #425c49;
+  flex: none;
+}
+.assistant-panel-heading h2 {
+  font-size: 14px;
+  font-weight: 650;
+  margin: 0;
+}
+.assistant-panel-heading button {
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+.assistant-panel-heading button:hover {
+  background: #e6eee7;
+}
+.map-section .assessment-card .assessment-summary {
+  margin: 0 16px 0;
+  padding: 8px 0 12px;
+  border: 0;
+  border-bottom: 1px solid #dce5de;
+  border-radius: 0;
+  background: transparent;
+}
+.selected-area-label {
+  font-size: 10px;
+  color: #637167;
+}
+.assessment-summary > .panel-heading {
+  min-height: 18px;
+}
+.assessment-summary > .panel-heading button {
+  min-width: 24px;
+  width: 24px;
+  min-height: 24px;
+  height: 24px;
+  padding: 0;
+}
+.map-section .assessment-card .score {
+  margin: 4px 0 0;
+}
+.map-section .assessment-card .score-value {
+  font-size: 32px;
+}
+.map-section .assessment-card .score .inline-text {
+  font-size: 10px;
+}
+.map-section .assessment-card .assessment-details-toggle {
+  font-size: 10px;
+  gap: 4px;
+}
+.map-compare-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #dce5de;
+  border-radius: 24px;
+  background: #fafbf9;
+  color: #425c49;
+  white-space: nowrap;
+}
+.map-compare-toggle > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.map-compare-toggle[aria-expanded="true"] {
+  background: #e6eee7;
+  border-color: #b8cbbc;
+}
+.map-compare-toggle:hover {
+  background: #edf2ee;
 }
 .assessment-category-body[hidden],
 .assessment-chat-host[hidden] {
-  display: none;
-}
-.map-expanded .assessment-category-body > details > summary {
   display: none;
 }
 .assessment-chat-host {
@@ -357,14 +437,17 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px 8px;
-  padding: 6px 10px;
-  margin-bottom: 8px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #edf2ee;
-  color: var(--focus);
-  font-size: 13px;
+  gap: 2px 8px;
+  padding: 0 2px 6px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #637167;
+  font-size: 11px;
+}
+.chat-context strong {
+  font-weight: 500;
 }
 .chat-context small,
 .chat-context p {
@@ -372,8 +455,8 @@
 }
 .chat-context button {
   margin-left: auto;
-  min-width: 32px;
-  min-height: 32px;
+  min-width: 24px;
+  min-height: 24px;
 }
 @keyframes chat-pulse {
   50% {
@@ -410,6 +493,276 @@
   }
 }
 
+/* The assistant belongs to the map toolbar, independently of selection. */
+.map-toolbar > .map-chat-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: none;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 24px;
+  border: 1px solid #425c49;
+  background: #425c49;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.map-chat-toggle svg {
+  width: 19px;
+  height: 19px;
+  flex: none;
+}
+.map-toolbar > .map-chat-toggle:hover {
+  background: #344d3c;
+}
+.map-toolbar > .map-chat-toggle[aria-pressed="true"] {
+  background: #e5eee6;
+  color: #344d3c;
+  border-color: #b8cbbc;
+}
+.map-toolbar > .map-chat-toggle:focus-visible {
+  outline: 3px solid #738d79;
+  outline-offset: 3px;
+}
 .map-section:not(.map-expanded) .assessment-card.with-chat {
-  height: min(600px, calc(100dvh - 120px));
+  height: min(480px, calc(100dvh - 196px));
+}
+.map-section.map-expanded .assessment-card.with-chat {
+  top: var(--assistant-panel-top, 78px);
+  bottom: calc(118px + env(safe-area-inset-bottom));
+  height: auto;
+  max-height: none;
+}
+.map-section .assessment-card .assessment-details-toggle {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  margin: 0;
+  min-height: 32px;
+  padding: 4px 0 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #425c49;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.assessment-details-toggle:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: #a2b7a7;
+}
+.assessment-details-toggle > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.assessment-details-toggle[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+.assessment-details-toggle:focus-visible {
+  outline: 2px solid #738d79;
+  outline-offset: 3px;
+}
+.chat-ai-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 14px;
+  color: #536d5a;
+  font-size: 11px;
+  font-weight: 500;
+}
+.chat-ai-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #e6eee7;
+  color: #425c49;
+}
+.chat-ai-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.chat-panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 32px;
+}
+.chat-panel-heading > svg {
+  width: 20px;
+  height: 20px;
+  color: #425c49;
+}
+.chat-panel-heading h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+.chat-panel-heading button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border-radius: 50%;
+}
+.chat-panel-heading button:hover {
+  background: #eaf0e9;
+}
+@media (max-width: 1000px) {
+  .map-toolbar {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 700px) {
+  .map-toolbar > .map-chat-toggle {
+    min-height: 38px;
+    padding: 8px 11px;
+    font-size: 11px;
+  }
+  .map-chat-toggle svg {
+    width: 17px;
+    height: 17px;
+  }
+}
+
+/* Compact composer: one input row, no repeated labels or keyboard legend. */
+.chat-composer {
+  padding: 8px 12px 12px;
+}
+.chat-attach {
+  min-height: 26px;
+  font-size: 11px;
+}
+.chat-input-row {
+  gap: 6px;
+  padding: 6px;
+  border-radius: 13px;
+}
+.chat-input-row textarea {
+  padding: 3px 4px;
+  font-size: 14px;
+  line-height: 24px;
+  height: 32px;
+}
+.chat-send {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+.chat-send svg {
+  width: 18px;
+  height: 18px;
+}
+.chat-input-row:focus-within {
+  outline-width: 2px;
+  outline-offset: 1px;
+}
+.chat-messages {
+  padding: 12px 16px;
+}
+.chat-welcome {
+  min-height: 100%;
+  padding: 12px 0;
+}
+.chat-welcome h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.chat-welcome p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.chat-panel-heading {
+  grid-column: 1 / -1;
+}
+.chat-connection {
+  padding: 6px 12px;
+  font-size: 11px;
+}
+@media (max-width: 700px) {
+  .chat-input-row textarea {
+    font-size: 16px;
+  }
+}
+
+/* Keep the restored toolbar usable when its controls wrap on a phone. */
+@media (max-width: 700px) {
+  .map-section.map-expanded {
+    --assistant-panel-top: 158px;
+  }
+  .map-section.map-expanded .map-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    width: auto;
+    max-width: none;
+    padding: 0;
+  }
+  .map-section.map-expanded .map-toolbar > form {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    margin: 0 44px 0 0;
+  }
+  .map-section.map-expanded .map-toolbar > form > div {
+    width: 100%;
+  }
+  .map-section.map-expanded .map-toolbar > .map-chat-toggle {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .map-section.map-expanded .map-toolbar > .map-compare-toggle {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .map-section.map-expanded .map-toolbar > .secondary-button {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .map-section.map-expanded .map-toolbar > .route-toggle {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .map-section.map-expanded
+    .map-toolbar
+    > :is(
+      .map-chat-toggle,
+      .map-compare-toggle,
+      .secondary-button,
+      .route-toggle
+    ) {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    margin: 0;
+    justify-content: center;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  .map-section.map-expanded .map-toolbar > .expand-map-button {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 38px;
+    height: 38px;
+    margin: 0;
+  }
 }

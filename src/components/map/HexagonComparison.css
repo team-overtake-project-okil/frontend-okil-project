@@ -113,7 +113,9 @@
 }
 
 .mapboxgl-marker.comparison-map-label {
-  font: 800 var(--comparison-label-size, 18px)/1 system-ui, sans-serif;
+  font:
+    800 var(--comparison-label-size, 18px)/1 system-ui,
+    sans-serif;
   text-shadow:
     0 0 0.22em color-mix(in srgb, currentColor 48%, transparent),
     0 0 0.44em color-mix(in srgb, currentColor 28%, transparent);
@@ -162,4 +164,10 @@
     width: calc(100% - 24px);
     bottom: 12px;
   }
+}
+
+.hex-comparison .comparison-add-selected {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 7px 11px;
 }

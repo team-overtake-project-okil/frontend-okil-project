@@ -5,51 +5,31 @@ import { afterEach, expect, it, vi } from "vitest";
 import { AssessmentCard } from "../components/map/AssessmentCard";
 
 afterEach(cleanup);
-
-it("switches assessment tabs while retaining the chat host and comparison controls", async () => {
+it("keeps the chat host mounted when the selection is cleared", async () => {
   const user = userEvent.setup();
-  const onChatOpenChange = vi.fn();
-  const onAdd = vi.fn();
   const props = {
-    hexId: "selected-hex",
-    data: { overall_rating: 76, categories: [] },
-    showSkeleton: false,
-    isError: false,
-    error: null,
-    expanded: false,
-    detailsOpen: false,
-    openCategory: null,
-    canAdd: true,
-    added: false,
-    atLimit: false,
-    onClear: vi.fn(),
-    onRetry: vi.fn(),
-    onAdd,
-    onToggleDetails: vi.fn(),
-    onExpandForDetails: vi.fn(),
-    onToggleCategory: vi.fn(),
-    onChatOpenChange,
-    chatHostRef: vi.fn(),
+    selectedHexId: "hex",
+    assessmentData: { overall_rating: 76, categories: [] },
+    showAssessmentSkeleton: false,
+    isAssessmentError: false,
+    assessmentError: null,
+    chatOpen: true,
+    assessmentExpanded: false,
+    setChatOpen: vi.fn(),
+    setSelectedHexId: vi.fn(),
+    setAssessmentExpanded: vi.fn(),
+    onAddressChange: vi.fn(),
+    refetchAssessment: vi.fn(),
+    setChatHost: vi.fn(),
   };
-  const { container, rerender } = render(
-    <AssessmentCard {...props} chatOpen={false} />,
-  );
+  const { container, rerender } = render(<AssessmentCard {...props} />);
   const host = container.querySelector(".assessment-chat-host");
-  expect(host?.hasAttribute("hidden")).toBe(true);
-  await user.click(screen.getByRole("button", { name: "Чат з Окіл" }));
-  expect(onChatOpenChange).toHaveBeenLastCalledWith(true);
-  rerender(<AssessmentCard {...props} chatOpen={true} />);
-  expect(container.querySelector(".assessment-chat-host")).toBe(host);
-  expect(host?.hasAttribute("hidden")).toBe(false);
-  expect(
-    container
-      .querySelector(".assessment-category-body")
-      ?.hasAttribute("hidden"),
-  ).toBe(true);
-  await user.click(
-    screen.getByRole("button", { name: "Додати до порівняння" }),
-  );
-  expect(onAdd).toHaveBeenCalledOnce();
   await user.click(screen.getByRole("button", { name: "Оцінки категорій" }));
-  expect(onChatOpenChange).toHaveBeenLastCalledWith(false);
+  expect(props.setAssessmentExpanded).toHaveBeenCalledWith(true);
+  rerender(<AssessmentCard {...props} selectedHexId={null} />);
+  expect(container.querySelector(".assessment-chat-host")).toBe(host);
+  expect(screen.queryByText("76")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Оцінки категорій" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Закрити чат" }));
+  expect(props.setChatOpen).toHaveBeenCalledWith(false);
 });
