@@ -12,6 +12,8 @@ import "./HexagonComparison.css";
 
 interface HexagonComparisonProps {
   ids: readonly string[];
+  selectedId: string | null;
+  onAdd: () => void;
   weights: AssessmentWeights | null;
   open: boolean;
   onToggle: () => void;
@@ -35,6 +37,8 @@ function ComparisonScore({ value }: { value: number }) {
 
 export function HexagonComparison({
   ids,
+  selectedId,
+  onAdd,
   weights,
   open,
   onToggle,
@@ -63,6 +67,25 @@ export function HexagonComparison({
           {open ? "Згорнути" : "Порівняти"}
         </button>
       </div>
+      <button
+        type="button"
+        className="comparison-add-selected"
+        disabled={
+          !selectedId ||
+          ids.includes(selectedId) ||
+          ids.length >= comparisonLabels.length
+        }
+        onClick={onAdd}
+      >
+        {selectedId && ids.includes(selectedId)
+          ? "Вибрану ділянку вже додано"
+          : ids.length >= comparisonLabels.length
+            ? "Вибрано максимум ділянок"
+            : "Додати вибрану ділянку"}
+      </button>
+      {!selectedId && (
+        <p>Виберіть ділянку на мапі, щоб додати її до порівняння.</p>
+      )}
       <ul className="hex-comparison-selection" aria-label="Вибрані ділянки">
         {ids.map((id, index) => (
           <li key={id}>

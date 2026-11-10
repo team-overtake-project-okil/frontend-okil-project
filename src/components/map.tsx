@@ -1,3 +1,11 @@
+import {
+  ChatBubbleLeftRightIcon,
+  ChevronDownIcon,
+  ScaleIcon,
+  SparklesIcon,
+} from "@heroicons/react/24/outline";
+import { Chat } from "./Chat";
+import type { HexChatContext } from "./Chat";
 import BusIcon from "../icons/bus";
 import Expand from "../icons/arrows-pointing-out";
 import Minimize2 from "../icons/arrows-pointing-in";
@@ -75,8 +83,14 @@ export const Map = ({
     null,
   );
   const [assessmentExpanded, setAssessmentExpanded] = useState(false);
-  const [openCategory, setOpenCategory] = useState<{ hexId: string; category: string } | null>(null);
+  const [openCategory, setOpenCategory] = useState<{
+    hexId: string;
+    category: string;
+  } | null>(null);
   const [selectedHexId, setSelectedHexId] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatHost, setChatHost] = useState<HTMLDivElement | null>(null);
+  const [comparisonActive, setComparisonActive] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const canAddToComparison =
@@ -166,7 +180,7 @@ export const Map = ({
       if (event.key === "Tab") {
         const elements = [
           ...sectionRef.current!.querySelectorAll<HTMLElement>(
-            'button,input,summary,a[href],[tabindex="0"]',
+            'button,input,textarea,summary,a[href],[tabindex="0"]',
           ),
         ].filter(
           (e) =>
@@ -285,16 +299,88 @@ export const Map = ({
     setPanelOpen(false);
     toggleRef.current?.focus();
   };
+  const selectedChatContext = useMemo<HexChatContext | null>(() => {
+    if (
+      !selectedHexId ||
+      !assessmentData ||
+      showAssessmentSkeleton ||
+      isAssessmentError
+    )
+      return null;
+    return {
+      id: selectedHexId,
+      score: assessmentData.overall_rating,
+      categories: assessmentData.categories
+        .filter((item) => item.enabled)
+        .map((item) => ({
+          title:
+            categoryLabels.find(([key]) => key === item.category)?.[1] ??
+            item.category,
+          score: item.score,
+        })),
+    };
+  }, [
+    selectedHexId,
+    assessmentData,
+    showAssessmentSkeleton,
+    isAssessmentError,
+  ]);
+  const categoryDetails =
+    selectedHexId &&
+    assessmentExpanded &&
+    !showAssessmentSkeleton &&
+    !isAssessmentError ? (
+      <div className="assessment-category-body">
+        {selectedHexId && !showAssessmentSkeleton && !isAssessmentError && (
+          <div className="assessment-details">
+            <p className="text-block category-description">
+              Відстані по прямій від центру гексагону.
+            </p>
+            {categoryLabels.map(([key, title]) => {
+              const item = assessmentData?.categories.find(
+                (c) => c.category === key,
+              );
+              return (
+                <CategoryScore
+                  key={key}
+                  title={title}
+                  item={item}
+                  open={
+                    openCategory?.hexId === selectedHexId &&
+                    openCategory.category === key
+                  }
+                  onToggle={() =>
+                    setOpenCategory((current) =>
+                      current?.hexId === selectedHexId &&
+                      current.category === key
+                        ? null
+                        : { hexId: selectedHexId, category: key },
+                    )
+                  }
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+    ) : null;
   const faceStop = panelStop ?? retainedStop;
   return (
     <section
       ref={sectionRef}
       id="map"
-      className={`map-section ${expanded ? "map-expanded" : ""} ${panelOpen ? "panel-open" : ""}`}
+      className={`map-section ${expanded ? "map-expanded" : ""} ${panelOpen ? "panel-open" : ""} ${comparisonActive && comparisonOpen && !panelOpen ? "comparison-table-open" : ""}`}
       role={expanded ? "dialog" : undefined}
       aria-modal={expanded ? true : undefined}
       aria-labelledby="map-heading"
     >
+      <Chat
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        host={chatHost}
+        selectedContext={selectedChatContext}
+        details={categoryDetails}
+      />
       <div className="map-heading">
         <div>
           <div className="text-block eyebrow">ДОСЛІДЖУЙТЕ МІСТО</div>
@@ -354,6 +440,33 @@ export const Map = ({
               </div>
             )}
           </button>
+          <button
+            type="button"
+            className="map-chat-toggle"
+            aria-pressed={chatOpen}
+            aria-controls="okil-chat"
+            onClick={() => setChatOpen(!chatOpen)}
+          >
+            <ChatBubbleLeftRightIcon aria-hidden="true" />
+            <span>Помічник Окіл</span>
+          </button>
+          <button
+            type="button"
+            className="map-compare-toggle"
+            aria-expanded={comparisonActive && !panelOpen}
+            onClick={() => {
+              if (comparisonActive && !panelOpen) {
+                setComparisonActive(false);
+                setComparisonOpen(false);
+              } else {
+                closeMapPanelsForComparison();
+                setComparisonActive(true);
+              }
+            }}
+          >
+            <ScaleIcon aria-hidden="true" />
+            <span>Порівняти ділянки</span>
+          </button>
           <label className="route-toggle">
             <input
               type="checkbox"
@@ -402,7 +515,10 @@ export const Map = ({
             comparisonIds={comparisonIds}
             clearSelectionKey={clearSelectionKey}
             searchedLocation={searchedLocation}
-            onHexSelect={setSelectedHexId}
+            onHexSelect={(id) => {
+              setSelectedHexId(id);
+              if (id) setChatOpen(true);
+            }}
             onStopInPanel={takeStopInPanel}
             onStopPanelDismiss={clearStopPanel}
             routesEnabled={routesEnabled}
@@ -547,115 +663,89 @@ export const Map = ({
             </MotionConfig>
           </aside>
         )}
-        {selectedHexId && (
-          <aside className="assessment-card" aria-label="Оцінка ділянки">
-            <div className="panel-heading">
-              <div className="text-block eyebrow">ВИБРАНА ДІЛЯНКА · ЛЬВІВ</div>
+        {(selectedHexId || chatOpen) && (
+          <aside
+            className={
+              chatOpen ? "assessment-card with-chat" : "assessment-card"
+            }
+            aria-label="Помічник Окіл"
+          >
+            <header className="assistant-panel-heading">
+              <SparklesIcon aria-hidden="true" />
+              <h2>Помічник Окіл</h2>
               <button
-                aria-label="Скасувати вибір"
-                onClick={() => onAddressChange(null)}
+                type="button"
+                aria-label="Закрити чат"
+                onClick={() => {
+                  setChatOpen(false);
+                  setSelectedHexId(null);
+                  onAddressChange(null);
+                }}
               >
                 ✕
               </button>
-            </div>
-            {showAssessmentSkeleton ? (
-              <div className="text-block" role="status">
-                Розраховуємо оцінку…
-              </div>
-            ) : isAssessmentError ? (
-              <div role="alert">
-                <div className="text-block">{assessmentError instanceof ApiError && assessmentError.status === 404
-                  ? "Для цієї ділянки немає даних у базі. Оберіть іншу ділянку."
-                  : "Оцінка недоступна."}</div>
-                <button onClick={() => void refetchAssessment()}>
-                  Спробувати знову
-                </button>
-              </div>
-            ) : (
-              <div className="score">
-                <strong>{assessmentData?.overall_rating ?? "—"}</strong>
-                <div className="inline-text">
-                  Оцінка комфорту
-                  <br />з 100
-                </div>
-              </div>
-            )}
-            <button
-              type="button"
-              className="comparison-add"
-              disabled={!canAddToComparison}
-              onClick={() => {
-                if (canAddToComparison) {
-                  closeMapPanelsForComparison();
-                  setComparisonIds([...comparisonIds, selectedHexId]);
-                }
-              }}
-            >
-              {comparisonIds.includes(selectedHexId)
-                ? "Ділянку додано"
-                : comparisonIds.length === comparisonLabels.length
-                  ? "Вибрано максимум ділянок"
-                  : "Додати до порівняння"}
-            </button>
-            {!showAssessmentSkeleton &&
-              !isAssessmentError &&
-              (expanded ? (
-                <details
-                  open={assessmentExpanded}
-                  onToggle={(event) => {
-                    if (event.target === event.currentTarget)
-                      setAssessmentExpanded(event.currentTarget.open);
-                  }}
-                >
-                  <summary>Докладніше про оцінку</summary>
-                  <div className="assessment-details">
-                    <p className="text-block category-description">
-                      Відстані по прямій від центру гексагону.
-                    </p>
-                    {categoryLabels.map(([key, title]) => {
-                      const item = assessmentData?.categories.find(
-                        (c) => c.category === key,
-                      );
-                      return (
-                        <CategoryScore
-                          key={key}
-                          title={title}
-                          item={item}
-                          open={
-                            openCategory?.hexId === selectedHexId &&
-                            openCategory.category === key
-                          }
-                          onToggle={() =>
-                            setOpenCategory((current) =>
-                              current?.hexId === selectedHexId &&
-                                current.category === key
-                                ? null
-                                : { hexId: selectedHexId, category: key },
-                            )
-                          }
-                        />
-                      );
-                    })}
+            </header>
+            <div className="assessment-summary" hidden={!selectedHexId}>
+              {selectedHexId ? (
+                <>
+                  <div className="panel-heading">
+                    <span className="selected-area-label">Вибрана ділянка</span>
+                    <button
+                      aria-label="Прибрати вибрану ділянку"
+                      onClick={() => {
+                        setSelectedHexId(null);
+                        onAddressChange(null);
+                      }}
+                    >
+                      ✕
+                    </button>
                   </div>
-                </details>
-              ) : (
-                <button
-                  className="inline-assessment-details"
-                  onClick={() => {
-                    setAssessmentExpanded(true);
-                    setExpanded(true);
-                    setPanelOpen(false);
-                  }}
-                >
-                  Докладніше про оцінку{" "}
-                  <Expand
-                    width={14}
-                    height={14}
-                    style={{ width: 14, height: 14 }}
-                    aria-hidden="true"
-                  />
-                </button>
-              ))}
+                  {showAssessmentSkeleton ? (
+                    <div className="text-block" role="status">
+                      Розраховуємо оцінку…
+                    </div>
+                  ) : isAssessmentError ? (
+                    <div role="alert">
+                      <div className="text-block">
+                        {assessmentError instanceof ApiError &&
+                        assessmentError.status === 404
+                          ? "Для цієї ділянки немає даних у базі. Оберіть іншу ділянку."
+                          : "Оцінка недоступна."}
+                      </div>
+                      <button onClick={() => void refetchAssessment()}>
+                        Спробувати знову
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="score">
+                      <strong>{assessmentData?.overall_rating ?? "—"}</strong>
+                      <div className="inline-text">
+                        Оцінка комфорту
+                        <br />з 100
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="assessment-details-toggle"
+                    aria-label="Оцінки категорій"
+                    aria-expanded={assessmentExpanded && chatOpen}
+                    onClick={() => {
+                      setAssessmentExpanded(!assessmentExpanded || !chatOpen);
+                      setChatOpen(true);
+                    }}
+                  >
+                    <span>Оцінки категорій</span>
+                    <ChevronDownIcon aria-hidden="true" />
+                  </button>
+                </>
+              ) : null}
+            </div>
+            <div
+              ref={setChatHost}
+              className="assessment-chat-host"
+              hidden={!chatOpen}
+            />
           </aside>
         )}
         <div className="map-legend">
@@ -672,9 +762,14 @@ export const Map = ({
             Оновлюємо оцінки…
           </div>
         )}
-        {comparisonIds.length > 0 && !panelOpen && (
+        {comparisonActive && !panelOpen && (
           <HexagonComparison
             ids={comparisonIds}
+            selectedId={selectedHexId}
+            onAdd={() => {
+              if (canAddToComparison && selectedHexId)
+                setComparisonIds([...comparisonIds, selectedHexId]);
+            }}
             weights={assessmentWeights}
             open={comparisonOpen}
             onToggle={() => {
