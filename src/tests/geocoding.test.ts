@@ -1,8 +1,8 @@
-import { clearAddressRequestCache } from "./addressRequests";
-import { formatStreetLabel, formatHouseNumber } from "./addressFormat";
+import { clearAddressRequestCache } from "../services/addressRequests";
+import { formatStreetLabel, formatHouseNumber } from "../services/addressFormat";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { getAddressParts } from "./addressValidation";
-import { searchAddresses, geocodeAddressSuggestion } from "./geocoding";
+import { getAddressParts } from "../services/addressValidation";
+import { searchAddresses, geocodeAddressSuggestion } from "../services/geocoding";
 
 beforeEach(() => clearAddressRequestCache());
 

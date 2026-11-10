@@ -1,13 +1,13 @@
 import { useId, type CSSProperties } from "react";
 import { useQueries } from "@tanstack/react-query";
-import type { AssessmentWeights } from "../lib/assessmentWeights";
+import type { AssessmentWeights } from "../../lib/assessmentWeights";
 import {
   categoryLabels,
   comparisonColors,
   comparisonLabels,
   hexagonAssessmentOptions,
-} from "../lib/hexagonAssessment";
-import { comfortColor } from "../lib/palette";
+} from "../../lib/hexagonAssessment";
+import { comfortColor } from "../../lib/palette";
 import "./HexagonComparison.css";
 
 interface HexagonComparisonProps {
@@ -21,7 +21,7 @@ interface HexagonComparisonProps {
 function ComparisonScore({ value }: { value: number }) {
   return (
     <div className="comparison-score">
-      <strong>{value}</strong>
+      <div className="inline-text">{value}</div>
       <meter
         min={0}
         max={100}
@@ -46,13 +46,13 @@ export function HexagonComparison({
   });
 
   return (
-    <aside
+    <div
       className="hex-comparison"
       data-open={open}
       aria-label="Порівняння ділянок"
     >
       <div className="hex-comparison-controls">
-        <strong>Порівняння · {ids.length}/3</strong>
+        <div className="inline-text">Порівняння · {ids.length}/3</div>
         <button
           type="button"
           disabled={ids.length < 2}
@@ -63,9 +63,9 @@ export function HexagonComparison({
           {open ? "Згорнути" : "Порівняти"}
         </button>
       </div>
-      <ul className="hex-comparison-selection" aria-label="Вибрані ділянки">
+      <div className="hex-comparison-selection">
         {ids.map((id, index) => (
-          <li key={id}>
+          <div key={id}>
             <button
               type="button"
               className="comparison-swatch"
@@ -77,10 +77,12 @@ export function HexagonComparison({
             >
               {comparisonLabels[index]} ×
             </button>
-          </li>
+          </div>
         ))}
-      </ul>
-      {ids.length === 1 && <p>Додайте ще одну ділянку на карті.</p>}
+      </div>
+      {ids.length === 1 && (
+        <div className="text-block">Додайте ще одну ділянку на карті.</div>
+      )}
       <div
         id={tableId}
         className="hex-comparison-scroll"
@@ -161,6 +163,6 @@ export function HexagonComparison({
           </table>
         )}
       </div>
-    </aside>
+    </div>
   );
 }
