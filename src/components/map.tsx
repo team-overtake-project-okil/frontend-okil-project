@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { Chat, type HexChatContext } from "./Chat";
+import { categoryLabels } from "../lib/hexagonAssessment";
 import type { AddressSuggestion } from "../services/geocoding";
 import { AssessmentCard } from "./map/AssessmentCard";
 import { HexagonComparison } from "./map/HexagonComparison";
@@ -20,10 +23,36 @@ export const Map = ({
   onAddressChange,
   clearSelectionKey,
 }: MapProps) => {
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatHost, setChatHost] = useState<HTMLDivElement | null>(null);
+  const [chatContext, setChatContext] = useState<HexChatContext | null>(null);
   const workspace = useMapWorkspace();
   const { sectionRef, expandRef, panelRef, toggleRef } = workspace.refs;
   const ratings = useMapRatings(workspace.selectedHexId);
 
+  const canAddContext = Boolean(
+    workspace.selectedHexId &&
+    ratings.assessmentData &&
+    !ratings.showAssessmentSkeleton &&
+    !ratings.isAssessmentError,
+  );
+  const addSelectedToChat = () => {
+    if (!canAddContext || !workspace.selectedHexId || !ratings.assessmentData)
+      return;
+    setChatContext({
+      id: workspace.selectedHexId,
+      score: ratings.assessmentData.overall_rating,
+      categories: ratings.assessmentData.categories
+        .filter((item) => item.enabled)
+        .map((item) => ({
+          title:
+            categoryLabels.find(([key]) => key === item.category)?.[1] ??
+            item.category,
+          score: item.score,
+        })),
+    });
+    setChatOpen(true);
+  };
   return (
     <div
       ref={sectionRef}
@@ -33,6 +62,15 @@ export const Map = ({
       aria-modal={workspace.expanded ? true : undefined}
       aria-labelledby="map-heading"
     >
+      <Chat
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        host={chatHost}
+        context={chatContext}
+        onRemoveContext={() => setChatContext(null)}
+        onAddContext={addSelectedToChat}
+        canAddContext={canAddContext}
+      />
       <div className="map-heading">
         <div>
           <div className="text-block eyebrow uppercase">досліджуйте місто</div>
@@ -111,6 +149,9 @@ export const Map = ({
         )}
         {workspace.selectedHexId && (
           <AssessmentCard
+            chatOpen={chatOpen}
+            onChatOpenChange={setChatOpen}
+            chatHostRef={setChatHost}
             hexId={workspace.selectedHexId}
             data={ratings.assessmentData}
             showSkeleton={ratings.showAssessmentSkeleton}
