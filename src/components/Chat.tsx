@@ -7,6 +7,7 @@ import {
 import "./Chat.css";
 import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { chatWebSocketUrl } from "../lib/chatUrl";
 
 export type HexChatContext = {
   id: string;
@@ -15,7 +16,7 @@ export type HexChatContext = {
 };
 
 const TOKEN_KEY = "okil.chat.token";
-const CHAT_URL = import.meta.env.VITE_CHAT_WS_URL;
+const CHAT_URL = chatWebSocketUrl();
 
 type Turn = {
   requestId: string;
