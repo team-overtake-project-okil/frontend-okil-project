@@ -100,9 +100,9 @@ export const TogglerCard = ({
         <div className="text-[11px] text-[#8E8E93]">{id}</div>
 
         <div className="flex flex-1 flex-col">
-          <div className="text-sm font-medium">{title}</div>
+          <div className="weight-category-title text-sm font-medium">{title}</div>
 
-          <div className="text-xs text-[#8E8E93]">{description}</div>
+          <div className="weight-category-description text-xs text-[#8E8E93]">{description}</div>
         </div>
 
         <div>

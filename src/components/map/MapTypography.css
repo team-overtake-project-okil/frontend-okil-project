@@ -1,0 +1,138 @@
+.map-section
+{
+  --map-type-heading: 16px;
+  --map-type-body: 13px;
+  --map-type-caption: 12px;
+  --map-type-control: 13px;
+  font-family: "Geist Variable", sans-serif;
+  font-size: var(--map-type-body);
+  line-height: 1.5;
+}
+.map-section :is(.map-toolbar, .weights-panel, .assessment-card, .hex-comparison, .map-legend)
+{
+  font-family: inherit;
+  font-size: var(--map-type-body);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: normal;
+}
+.map-section .weights-panel .heading-3,
+.map-section .assessment-card .assistant-panel-heading h2,
+.map-section .assessment-card .chat-welcome h3,
+.map-section .chat-panel-heading h2
+{
+  font-size: var(--map-type-heading);
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.015em;
+}
+.map-section .weights-panel .weight-category-title,
+.map-section .assessment-card .category-title
+{
+  font-size: var(--map-type-body);
+  font-weight: 500;
+  line-height: 1.5;
+}
+.map-section .assessment-card .category-value
+{
+  font-size: var(--map-type-body);
+  font-weight: 600;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.map-section .weights-panel :is(.weight-category-description, .panel-intro, .panel-actions .text-block, [data-slider] .inline-text, .locked-label),
+.map-section .assessment-card :is(.category-description, .chat-ai-mark, .chat-author, .chat-context, .chat-context-note, .chat-connection, .chat-typing-label),
+.map-section .map-legend .inline-text
+{
+  font-size: var(--map-type-caption);
+  font-weight: 400;
+  line-height: 1.5;
+}
+.map-section .weights-panel .weight-category-description
+{
+  color: var(--muted-ink);
+}
+.map-section .weights-panel :is(.stop-popup-kind, .stop-popup-route),
+.map-section .hex-comparison :is(.inline-text, .text-block, th, td)
+{
+  font-size: var(--map-type-body);
+  line-height: 1.5;
+}
+.map-section .hex-comparison :is(th, .hex-comparison-controls .inline-text)
+{
+  font-weight: 600;
+}
+.map-section .weights-panel .eyebrow
+{
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+}
+.map-section .assessment-card .score .inline-text
+{
+  max-width: 80px;
+  font-size: var(--map-type-caption);
+  font-weight: 400;
+  line-height: 1.5;
+}
+.map-section .assessment-card.with-chat .score .inline-text
+{
+  max-width: none;
+}
+.map-section .map-toolbar > :is(.secondary-button, .map-chat-toggle, .map-compare-toggle, .route-toggle),
+.map-section .weights-panel .panel-actions button,
+.map-section .hex-comparison button,
+.map-section .assessment-card :is(.assessment-ask, .chat-suggestions button, .chat-reconnect)
+{
+  font-size: var(--map-type-control);
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: normal;
+}
+.map-section .assessment-card .assessment-details-toggle
+{
+  font-size: var(--map-type-control);
+  font-weight: 500;
+  line-height: 1.5;
+}
+.map-section .assessment-card :is(.chat-welcome p, .chat-message p, .text-block)
+{
+  font-size: var(--map-type-body);
+  font-weight: 400;
+  line-height: 1.6;
+}
+.map-section .map-toolbar .address-search-field input,
+.map-section .assessment-card .chat-input-row textarea
+{
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+.map-section .map-toolbar .address-search-field input
+{
+  line-height: 1.5;
+}
+.map-section .map-toolbar .address-results :is(button, li, .text-block)
+{
+  font-size: var(--map-type-body);
+  line-height: 1.5;
+}
+.map-section .map-toolbar .address-results .inline-text
+{
+  font-size: var(--map-type-caption);
+  line-height: 1.5;
+}
+@media (max-width: 700px)
+{
+  .map-section
+  {
+    --map-type-control: 12px;
+  }
+  .map-section .map-toolbar .address-search-field input,
+  .map-section .assessment-card .chat-input-row textarea
+  {
+    font-size: 16px;
+  }
+}

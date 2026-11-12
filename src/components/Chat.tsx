@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   PaperAirplaneIcon,
   ArrowPathIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
 import "./Chat.css";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
 import { createPortal } from "react-dom";
 
 export type HexChatContext = {
@@ -35,13 +35,15 @@ export function Chat({
   onOpenChange: setOpen,
   host,
   selectedContext,
-  details,
+  attachedContext: context,
+  onContextChange,
 }: {
   open: boolean;
   onOpenChange: (value: boolean) => void;
   host: HTMLDivElement | null;
   selectedContext: HexChatContext | null;
-  details: ReactNode;
+  attachedContext: HexChatContext | null;
+  onContextChange: (context: HexChatContext | null) => void;
 }) {
   const [attempt, setAttempt] = useState(0);
   const [started, setStarted] = useState(false);
@@ -51,21 +53,30 @@ export function Chat({
   const socketRef = useRef<WebSocket | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
+  useLayoutEffect(() =>
+  {
+    const input = inputRef.current;
+    if (!open || !input) return;
+    const resize = () =>
+    {
+      input.style.height = "auto";
+      input.style.height = Math.min(128, Math.max(32, input.scrollHeight)) + "px";
+      input.style.overflowY = input.scrollHeight > 128 ? "auto" : "hidden";
+    };
+    resize();
+    if (typeof ResizeObserver === "undefined") return;
+    let width = input.getBoundingClientRect().width;
+    const observer = new ResizeObserver(([entry]) =>
+    {
+      if (entry.contentRect.width === width) return;
+      width = entry.contentRect.width;
+      resize();
+    });
+    observer.observe(input);
+    return () => observer.disconnect();
+  }, [text, open, host]);
   const [ready, setReady] = useState(false);
   const [waiting, setWaiting] = useState(false);
-  // A draft pins its context. A later map click only changes the next draft.
-  const [draftContext, setDraftContext] = useState<{
-    value: HexChatContext | null;
-  } | null>(null);
-  const [pendingContext, setPendingContext] = useState<{
-    value: HexChatContext | null;
-  } | null>(null);
-  const context = draftContext
-    ? draftContext.value
-    : waiting && pendingContext
-      ? pendingContext.value
-      : selectedContext;
-
   const [status, setStatus] = useState("Підключаємося…");
 
   useEffect(() => {
@@ -164,12 +175,6 @@ export function Chat({
     }
   }, [open, turns, waiting]);
 
-  const showingDetails = Boolean(details);
-  useEffect(() => {
-    if (showingDetails && messagesRef.current)
-      messagesRef.current.scrollTop = 0;
-  }, [showingDetails, selectedContext?.id]);
-
   function closePanel() {
     setOpen(false);
     if (host) {
@@ -219,8 +224,6 @@ export function Chat({
 
     setTurns((current) => [...current, { requestId, question: message }]);
     setText("");
-    setPendingContext({ value: context });
-    setDraftContext(null);
     setWaiting(true);
     setStatus("Надсилаємо…");
   }
@@ -267,8 +270,7 @@ export function Chat({
         aria-live="polite"
         aria-relevant="additions text"
       >
-        {details}
-        {turns.length === 0 && !showingDetails && (
+        {turns.length === 0 && (
           <div className="chat-welcome">
             <div className="chat-ai-mark">
               <span className="chat-ai-icon">
@@ -278,9 +280,33 @@ export function Chat({
             </div>
             <h3>Запитай про місто</h3>
             <p>
-              Про райони, транспорт і місця поруч. Вибрана на мапі ділянка
-              додається до запитання.
+              {context
+                ? "Запитай про оцінки й особливості прикріпленої ділянки."
+                : "Про райони, транспорт і місця поруч. Для запитання про ділянку скористайся кнопкою «Запитати про цю ділянку»."}
             </p>
+            <div className="chat-suggestions" aria-label="Приклади запитань">
+              {(context
+                ? [
+                    "Що найбільше впливає на цю оцінку?",
+                    "Які слабкі сторони цієї ділянки?",
+                    "Наскільки збалансовані оцінки категорій?",
+                  ]
+                : ["Як обрати ділянку для життя?", "Що означають оцінки категорій?"]
+              ).map((question) => (
+                <button
+                  key={question}
+                  type="button"
+                  disabled={waiting}
+                  onClick={() =>
+                  {
+                    setText(question);
+                    inputRef.current?.focus();
+                  }}
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {turns.map((turn) => (
@@ -312,18 +338,18 @@ export function Chat({
           <div className="chat-context">
             <div>
               <strong title={context.id}>
-                Про цю ділянку · {context.score}/100
+                Про цей гексагон: {context.score}/100
               </strong>
               <small>{context.id}</small>
             </div>
             <button
               type="button"
               aria-label="Прибрати ділянку з контексту"
-              onClick={() => setDraftContext({ value: null })}
+              onClick={() => onContextChange(null)}
             >
               ✕
             </button>
-            {draftContext && context.id !== selectedContext?.id && (
+            {context.id !== selectedContext?.id && (
               <span className="chat-context-note">
                 Контекст цього запитання збережено
               </span>
@@ -342,8 +368,6 @@ export function Chat({
             maxLength={4000}
             onChange={(event) => {
               const nextText = event.target.value;
-              if (!nextText) setDraftContext(null);
-              else if (!draftContext) setDraftContext({ value: context });
               setText(nextText);
             }}
             onKeyDown={(event) => {
