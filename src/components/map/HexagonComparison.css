@@ -35,6 +35,48 @@
 .hex-comparison-selection {
   padding: 0;
   margin: 8px 0 0;
+  flex-wrap: wrap;
+}
+
+.comparison-selection-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid #dce2de;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.comparison-selection-tag:hover {
+  background: #eef3ef;
+  border-color: var(--hex-color);
+}
+
+.comparison-selection-tag:focus-visible {
+  outline: 2px solid var(--hex-color);
+  outline-offset: 2px;
+}
+
+.comparison-selection-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--hex-color);
+}
+
+.comparison-selection-remove {
+  color: var(--muted-ink, #5b6c72);
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 400;
 }
 
 .hex-comparison-controls .inline-text {
@@ -45,7 +87,9 @@
   margin: 6px 0 0;
 }
 
-.hex-comparison button,
+.hex-comparison-controls button,
+.hex-comparison .comparison-add-selected,
+.hex-comparison-scroll td button,
 .assessment-card .comparison-add {
   padding: 4px 9px;
   border: 1px solid #d0dbd3;
@@ -63,7 +107,9 @@
   margin: 4px 0 8px;
 }
 
-.hex-comparison button:disabled,
+.hex-comparison-controls button:disabled,
+.hex-comparison .comparison-add-selected:disabled,
+.hex-comparison-scroll td button:disabled,
 .assessment-card .comparison-add:disabled {
   opacity: 0.65;
   cursor: default;
@@ -97,19 +143,8 @@
   background: #f8faf9;
 }
 
-.comparison-swatch {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.comparison-swatch::before {
-  content: "";
-  flex: 0 0 9px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--hex-color);
+.hex-comparison thead th:not(:first-child) {
+  text-align: center;
 }
 
 .mapboxgl-marker.comparison-map-label {

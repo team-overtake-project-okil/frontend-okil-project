@@ -8,6 +8,7 @@ import {
   hexagonAssessmentOptions,
 } from "../../lib/hexagonAssessment";
 import { comfortColor } from "../../lib/palette";
+import { Chip } from "../Chip/Chip";
 import "./HexagonComparison.css";
 
 interface HexagonComparisonProps {
@@ -86,23 +87,29 @@ export function HexagonComparison({
       {!selectedId && (
         <p>Виберіть ділянку на мапі, щоб додати її до порівняння.</p>
       )}
-      <div className="hex-comparison-selection">
-        {ids.map((id, index) => (
-          <div key={id}>
+      {!open && (
+        <div className="hex-comparison-selection">
+          {ids.map((id, index) => (
             <button
+              key={id}
               type="button"
-              className="comparison-swatch"
+              className="comparison-selection-tag"
               style={
                 { "--hex-color": comparisonColors[index] } as CSSProperties
               }
               aria-label={`Прибрати ділянку ${comparisonLabels[index]}`}
+              title={`Прибрати ділянку ${comparisonLabels[index]}`}
               onClick={() => onRemove(id)}
             >
-              {comparisonLabels[index]} ×
+              <span className="comparison-selection-dot" aria-hidden="true" />
+              <span>{comparisonLabels[index]}</span>
+              <span className="comparison-selection-remove" aria-hidden="true">
+                ×
+              </span>
             </button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
       {ids.length === 1 && (
         <div className="text-block">Додайте ще одну ділянку на карті.</div>
       )}
@@ -121,16 +128,11 @@ export function HexagonComparison({
                 <th scope="col">Показник</th>
                 {ids.map((id, index) => (
                   <th scope="col" key={id}>
-                    <span
-                      className="comparison-swatch"
-                      style={
-                        {
-                          "--hex-color": comparisonColors[index],
-                        } as CSSProperties
-                      }
-                    >
-                      {comparisonLabels[index]}
-                    </span>
+                    <Chip
+                      label={comparisonLabels[index]}
+                      color={comparisonColors[index]}
+                      onRemove={() => onRemove(id)}
+                    />
                   </th>
                 ))}
               </tr>
