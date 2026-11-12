@@ -1,3 +1,7 @@
+import { CategoryScore } from "./map/CategoryScore";
+import { useMemo, useState } from "react";
+import { Chat, type HexChatContext } from "./Chat";
+import { categoryLabels } from "../lib/hexagonAssessment";
 import type { AddressSuggestion } from "../services/geocoding";
 import { AssessmentCard } from "./map/AssessmentCard";
 import { HexagonComparison } from "./map/HexagonComparison";
@@ -20,19 +24,90 @@ export const Map = ({
   onAddressChange,
   clearSelectionKey,
 }: MapProps) => {
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatHost, setChatHost] = useState<HTMLDivElement | null>(null);
+  const [comparisonActive, setComparisonActive] = useState(false);
   const workspace = useMapWorkspace();
   const { sectionRef, expandRef, panelRef, toggleRef } = workspace.refs;
   const ratings = useMapRatings(workspace.selectedHexId);
 
+  const selectedChatContext = useMemo<HexChatContext | null>(() => {
+    if (
+      !workspace.selectedHexId ||
+      !ratings.assessmentData ||
+      ratings.showAssessmentSkeleton ||
+      ratings.isAssessmentError
+    )
+      return null;
+    return {
+      id: workspace.selectedHexId,
+      score: ratings.assessmentData.overall_rating,
+      categories: ratings.assessmentData.categories
+        .filter((item) => item.enabled)
+        .map((item) => ({
+          title:
+            categoryLabels.find(([key]) => key === item.category)?.[1] ??
+            item.category,
+          score: item.score,
+        })),
+    };
+  }, [
+    workspace.selectedHexId,
+    ratings.assessmentData,
+    ratings.showAssessmentSkeleton,
+    ratings.isAssessmentError,
+  ]);
+  const categoryDetails =
+    workspace.selectedHexId &&
+    workspace.assessmentExpanded &&
+    !ratings.showAssessmentSkeleton &&
+    !ratings.isAssessmentError ? (
+      <div className="assessment-category-body">
+        {workspace.selectedHexId &&
+          !ratings.showAssessmentSkeleton &&
+          !ratings.isAssessmentError && (
+            <div className="assessment-details">
+              <p className="text-block category-description">
+                Відстані по прямій від центру гексагону.
+              </p>
+              {categoryLabels.map(([key, title]) => {
+                const item = ratings.assessmentData?.categories.find(
+                  (c) => c.category === key,
+                );
+                return (
+                  <CategoryScore
+                    key={key}
+                    title={title}
+                    item={item}
+                    open={
+                      workspace.openCategory?.hexId ===
+                        workspace.selectedHexId &&
+                      workspace.openCategory.category === key
+                    }
+                    onToggle={() => workspace.onToggleCategory(key)}
+                  />
+                );
+              })}
+            </div>
+          )}
+      </div>
+    ) : null;
   return (
     <div
       ref={sectionRef}
       id="map"
-      className={`map-section ${workspace.expanded ? "map-expanded" : ""} ${workspace.panelOpen ? "panel-open" : ""}`}
+      className={`map-section ${workspace.expanded ? "map-expanded" : ""} ${workspace.panelOpen ? "panel-open" : ""} ${comparisonActive && workspace.comparisonOpen && !workspace.panelOpen ? "comparison-table-open" : ""}`}
       role={workspace.expanded ? "dialog" : undefined}
       aria-modal={workspace.expanded ? true : undefined}
       aria-labelledby="map-heading"
     >
+      <Chat
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        host={chatHost}
+        selectedContext={selectedChatContext}
+        details={categoryDetails}
+      />
       <div className="map-heading">
         <div>
           <div className="text-block eyebrow uppercase">досліджуйте місто</div>
@@ -52,6 +127,20 @@ export const Map = ({
       </div>
       <div className="map-workspace">
         <MapToolbar
+          chatOpen={chatOpen}
+          onToggleChat={() => {
+            if (!chatOpen) workspace.closePanel();
+            setChatOpen(!chatOpen);
+          }}
+          comparisonActive={comparisonActive && !workspace.panelOpen}
+          onToggleComparisonPanel={() => {
+            if (comparisonActive && !workspace.panelOpen) {
+              setComparisonActive(false);
+            } else {
+              workspace.closeMapPanelsForComparison();
+              setComparisonActive(true);
+            }
+          }}
           expanded={workspace.expanded}
           panelOpen={workspace.panelOpen}
           dirty={ratings.dirty}
@@ -71,7 +160,10 @@ export const Map = ({
             clearSelectionKey={clearSelectionKey}
             searchedLocation={searchedLocation}
             selectedHexId={workspace.selectedHexId}
-            onHexSelect={workspace.setSelectedHexId}
+            onHexSelect={(id) => {
+              workspace.setSelectedHexId(id);
+              if (id) setChatOpen(true);
+            }}
             onStopInPanel={workspace.takeStopInPanel}
             onStopPanelDismiss={workspace.clearStopPanel}
             routesEnabled={workspace.routesEnabled}
@@ -109,27 +201,21 @@ export const Map = ({
             onStopClose={workspace.clearStopPanel}
           />
         )}
-        {workspace.selectedHexId && (
+        {(workspace.selectedHexId || chatOpen) && (
           <AssessmentCard
-            hexId={workspace.selectedHexId}
-            data={ratings.assessmentData}
-            showSkeleton={ratings.showAssessmentSkeleton}
-            isError={ratings.isAssessmentError}
-            error={ratings.assessmentError}
-            expanded={workspace.expanded}
-            detailsOpen={workspace.assessmentExpanded}
-            openCategory={workspace.openCategory}
-            canAdd={workspace.canAddToComparison}
-            added={workspace.comparisonIds.includes(workspace.selectedHexId)}
-            atLimit={workspace.atComparisonLimit}
-            onClear={() => onAddressChange(null)}
-            onRetry={() => void ratings.refetchAssessment()}
-            onAdd={workspace.onAddToComparison}
-            onToggleDetails={() =>
-              workspace.setAssessmentExpanded((open) => !open)
-            }
-            onExpandForDetails={workspace.onExpandForDetails}
-            onToggleCategory={workspace.onToggleCategory}
+            selectedHexId={workspace.selectedHexId}
+            assessmentData={ratings.assessmentData}
+            showAssessmentSkeleton={ratings.showAssessmentSkeleton}
+            isAssessmentError={ratings.isAssessmentError}
+            assessmentError={ratings.assessmentError}
+            chatOpen={chatOpen}
+            assessmentExpanded={workspace.assessmentExpanded}
+            setChatOpen={setChatOpen}
+            setSelectedHexId={workspace.setSelectedHexId}
+            setAssessmentExpanded={workspace.setAssessmentExpanded}
+            onAddressChange={onAddressChange}
+            refetchAssessment={ratings.refetchAssessment}
+            setChatHost={setChatHost}
           />
         )}
         <div className="map-legend">
@@ -146,9 +232,11 @@ export const Map = ({
             Оновлюємо оцінки…
           </div>
         )}
-        {workspace.comparisonIds.length > 0 && !workspace.panelOpen && (
+        {comparisonActive && !workspace.panelOpen && (
           <HexagonComparison
             ids={workspace.comparisonIds}
+            selectedId={workspace.selectedHexId}
+            onAdd={workspace.onAddToComparison}
             weights={ratings.assessmentWeights}
             open={workspace.comparisonOpen}
             onToggle={workspace.onToggleComparison}

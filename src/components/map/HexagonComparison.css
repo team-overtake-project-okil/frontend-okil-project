@@ -88,6 +88,7 @@
 }
 
 .hex-comparison-controls button,
+.hex-comparison .comparison-add-selected,
 .hex-comparison-scroll td button,
 .assessment-card .comparison-add {
   padding: 4px 9px;
@@ -107,6 +108,7 @@
 }
 
 .hex-comparison-controls button:disabled,
+.hex-comparison .comparison-add-selected:disabled,
 .hex-comparison-scroll td button:disabled,
 .assessment-card .comparison-add:disabled {
   opacity: 0.65;
@@ -197,4 +199,10 @@
     width: calc(100% - 24px);
     bottom: 12px;
   }
+}
+
+.hex-comparison .comparison-add-selected {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 7px 11px;
 }

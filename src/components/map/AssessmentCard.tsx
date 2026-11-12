@@ -1,151 +1,121 @@
-// Картка вибраної ділянки: загальна оцінка, порівняння і розбивка по категоріях
-import Expand from "../../icons/arrows-pointing-out";
-import XMark from "../../icons/x-mark";
+import { ChevronDownIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { ApiError } from "../../lib/fetcher";
-import {
-  categoryLabels,
-  type CategoryRating,
-} from "../../lib/hexagonAssessment";
-import { CategoryScore } from "./CategoryScore";
-
-interface AssessmentData {
-  overall_rating: number;
-  categories: CategoryRating[];
-}
-
-interface OpenCategory {
-  hexId: string;
-  category: string;
-}
+import type { CategoryRating } from "../../lib/hexagonAssessment";
 
 interface AssessmentCardProps {
-  hexId: string;
-  data: AssessmentData | undefined;
-  showSkeleton: boolean;
-  isError: boolean;
-  error: unknown;
-  expanded: boolean;
-  detailsOpen: boolean;
-  openCategory: OpenCategory | null;
-  canAdd: boolean;
-  added: boolean;
-  atLimit: boolean;
-  onClear: () => void;
-  onRetry: () => void;
-  onAdd: () => void;
-  onToggleDetails: () => void;
-  onExpandForDetails: () => void;
-  onToggleCategory: (category: string) => void;
+  selectedHexId: string | null;
+  assessmentData:
+    { overall_rating: number; categories: CategoryRating[] } | undefined;
+  showAssessmentSkeleton: boolean;
+  isAssessmentError: boolean;
+  assessmentError: unknown;
+  chatOpen: boolean;
+  assessmentExpanded: boolean;
+  setChatOpen: (open: boolean) => void;
+  setSelectedHexId: (id: string | null) => void;
+  setAssessmentExpanded: (open: boolean) => void;
+  onAddressChange: (address: null) => void;
+  refetchAssessment: () => unknown;
+  setChatHost: (host: HTMLDivElement | null) => void;
 }
-
 export function AssessmentCard({
-  hexId,
-  data,
-  showSkeleton,
-  isError,
-  error,
-  expanded,
-  detailsOpen,
-  openCategory,
-  canAdd,
-  added,
-  atLimit,
-  onClear,
-  onRetry,
-  onAdd,
-  onToggleDetails,
-  onExpandForDetails,
-  onToggleCategory,
+  selectedHexId,
+  assessmentData,
+  showAssessmentSkeleton,
+  isAssessmentError,
+  assessmentError,
+  chatOpen,
+  assessmentExpanded,
+  setChatOpen,
+  setSelectedHexId,
+  setAssessmentExpanded,
+  onAddressChange,
+  refetchAssessment,
+  setChatHost,
 }: AssessmentCardProps) {
   return (
-    <div className="assessment-card" aria-label="Оцінка ділянки">
-      <div className="panel-heading">
-        <div className="text-block eyebrow uppercase">вибрана ділянка · львів</div>
-        <button type="button" aria-label="Скасувати вибір" onClick={onClear}>
-          <XMark aria-hidden="true" />
+    <aside
+      className={chatOpen ? "assessment-card with-chat" : "assessment-card"}
+      aria-label="Помічник Окіл"
+    >
+      <header className="assistant-panel-heading">
+        <SparklesIcon aria-hidden="true" />
+        <h2>Помічник Окіл</h2>
+        <button
+          type="button"
+          aria-label="Закрити чат"
+          onClick={() => {
+            setChatOpen(false);
+            setSelectedHexId(null);
+            onAddressChange(null);
+          }}
+        >
+          ✕
         </button>
-      </div>
-      {showSkeleton ? (
-        <div className="text-block" role="status">
-          Розраховуємо оцінку…
-        </div>
-      ) : isError ? (
-        <div role="alert">
-          <div className="text-block">
-            {error instanceof ApiError && error.status === 404
-              ? "Для цієї ділянки немає даних у базі. Оберіть іншу ділянку."
-              : "Оцінка недоступна."}
-          </div>
-          <button onClick={onRetry}>Спробувати знову</button>
-        </div>
-      ) : (
-        <div className="score">
-          <div className="score-value">{data?.overall_rating ?? "—"}</div>
-          <div className="inline-text">
-            Оцінка комфорту
-            <br />з 100
-          </div>
-        </div>
-      )}
-      <button
-        type="button"
-        className="comparison-add"
-        disabled={!canAdd}
-        onClick={() => {
-          if (canAdd) onAdd();
-        }}
-      >
-        {added
-          ? "Ділянку додано"
-          : atLimit
-            ? "Вибрано максимум ділянок"
-            : "Додати до порівняння"}
-      </button>
-      {!showSkeleton &&
-        !isError &&
-        (expanded ? (
+      </header>
+      <div className="assessment-summary" hidden={!selectedHexId}>
+        {selectedHexId ? (
           <>
-            <button
-              type="button"
-              className="assessment-more"
-              aria-expanded={detailsOpen}
-              onClick={onToggleDetails}
-            >
-              Докладніше про оцінку
-            </button>
-            {detailsOpen && (
-              <div className="assessment-details">
-                <div className="text-block category-description">
-                  Відстані по прямій від центру гексагону.
+            <div className="panel-heading">
+              <span className="selected-area-label">Вибрана ділянка</span>
+              <button
+                aria-label="Прибрати вибрану ділянку"
+                onClick={() => {
+                  setSelectedHexId(null);
+                  onAddressChange(null);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            {showAssessmentSkeleton ? (
+              <div className="text-block" role="status">
+                Розраховуємо оцінку…
+              </div>
+            ) : isAssessmentError ? (
+              <div role="alert">
+                <div className="text-block">
+                  {assessmentError instanceof ApiError &&
+                  assessmentError.status === 404
+                    ? "Для цієї ділянки немає даних у базі. Оберіть іншу ділянку."
+                    : "Оцінка недоступна."}
                 </div>
-                {categoryLabels.map(([key, title]) => {
-                  const item = data?.categories.find(
-                    (category) => category.category === key,
-                  );
-                  return (
-                    <CategoryScore
-                      key={key}
-                      title={title}
-                      item={item}
-                      open={
-                        openCategory?.hexId === hexId &&
-                        openCategory.category === key
-                      }
-                      onToggle={() => onToggleCategory(key)}
-                    />
-                  );
-                })}
+                <button onClick={() => void refetchAssessment()}>
+                  Спробувати знову
+                </button>
+              </div>
+            ) : (
+              <div className="score">
+                <div className="score-value">
+                  {assessmentData?.overall_rating ?? "—"}
+                </div>
+                <div className="inline-text">
+                  Оцінка комфорту
+                  <br />з 100
+                </div>
               </div>
             )}
+            <button
+              type="button"
+              className="assessment-details-toggle"
+              aria-label="Оцінки категорій"
+              aria-expanded={assessmentExpanded && chatOpen}
+              onClick={() => {
+                setAssessmentExpanded(!assessmentExpanded || !chatOpen);
+                setChatOpen(true);
+              }}
+            >
+              <span>Оцінки категорій</span>
+              <ChevronDownIcon aria-hidden="true" />
+            </button>
           </>
-        ) : (
-          <button
-            className="inline-assessment-details"
-            onClick={onExpandForDetails}
-          >
-            Докладніше про оцінку <Expand aria-hidden="true" />
-          </button>
-        ))}
-    </div>
+        ) : null}
+      </div>
+      <div
+        ref={setChatHost}
+        className="assessment-chat-host"
+        hidden={!chatOpen}
+      />
+    </aside>
   );
 }
