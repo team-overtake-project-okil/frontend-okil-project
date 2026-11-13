@@ -10,6 +10,7 @@ import { MapToolbar } from "./map/MapToolbar";
 import { WeightsPanel } from "./map/WeightsPanel";
 import { useMapRatings } from "../lib/useMapRatings";
 import { useMapWorkspace } from "../lib/useMapWorkspace";
+import "./map/MapTypography.css";
 
 export type { Hexagon, int } from "../lib/hexagonRating";
 
@@ -24,7 +25,9 @@ export const Map = ({
   onAddressChange,
   clearSelectionKey,
 }: MapProps) => {
-  const [chatOpen, setChatOpen] = useState(false);
+  const [panelMode, setPanelMode] = useState<"assessment" | "chat" | null>(null);
+  const [chatContext, setChatContext] = useState<HexChatContext | null>(null);
+  const chatOpen = panelMode === "chat";
   const [chatHost, setChatHost] = useState<HTMLDivElement | null>(null);
   const [comparisonActive, setComparisonActive] = useState(false);
   const workspace = useMapWorkspace();
@@ -57,6 +60,14 @@ export const Map = ({
     ratings.showAssessmentSkeleton,
     ratings.isAssessmentError,
   ]);
+  const setChatOpen = (open: boolean) =>
+  {
+    if (open) setChatContext(selectedChatContext);
+    setPanelMode(open ? "chat" : chatOpen && workspace.selectedHexId ? "assessment" : null);
+  };
+  const hideMapControls = chatOpen || (
+    panelMode === "assessment" && Boolean(workspace.selectedHexId) && workspace.assessmentExpanded
+  );
   const categoryDetails =
     workspace.selectedHexId &&
     workspace.assessmentExpanded &&
@@ -67,9 +78,6 @@ export const Map = ({
           !ratings.showAssessmentSkeleton &&
           !ratings.isAssessmentError && (
             <div className="assessment-details">
-              <p className="text-block category-description">
-                Відстані по прямій від центру гексагону.
-              </p>
               {categoryLabels.map(([key, title]) => {
                 const item = ratings.assessmentData?.categories.find(
                   (c) => c.category === key,
@@ -96,7 +104,7 @@ export const Map = ({
     <div
       ref={sectionRef}
       id="map"
-      className={`map-section ${workspace.expanded ? "map-expanded" : ""} ${workspace.panelOpen ? "panel-open" : ""} ${comparisonActive && workspace.comparisonOpen && !workspace.panelOpen ? "comparison-table-open" : ""}`}
+      className={`map-section ${hideMapControls ? "map-details-open" : ""} ${workspace.expanded ? "map-expanded" : ""} ${workspace.panelOpen ? "panel-open" : ""} ${comparisonActive && workspace.comparisonOpen && !workspace.panelOpen ? "comparison-table-open" : ""}`}
       role={workspace.expanded ? "dialog" : undefined}
       aria-modal={workspace.expanded ? true : undefined}
       aria-labelledby="map-heading"
@@ -106,7 +114,8 @@ export const Map = ({
         onOpenChange={setChatOpen}
         host={chatHost}
         selectedContext={selectedChatContext}
-        details={categoryDetails}
+        attachedContext={chatContext}
+        onContextChange={setChatContext}
       />
       <div className="map-heading">
         <div>
@@ -128,9 +137,17 @@ export const Map = ({
       <div className="map-workspace">
         <MapToolbar
           chatOpen={chatOpen}
-          onToggleChat={() => {
-            if (!chatOpen) workspace.closePanel();
-            setChatOpen(!chatOpen);
+          onToggleChat={() =>
+          {
+            if (chatOpen)
+            {
+              setChatOpen(false);
+            }
+            else
+            {
+              setChatContext(null);
+              setPanelMode("chat");
+            }
           }}
           comparisonActive={comparisonActive && !workspace.panelOpen}
           onToggleComparisonPanel={() => {
@@ -160,9 +177,10 @@ export const Map = ({
             clearSelectionKey={clearSelectionKey}
             searchedLocation={searchedLocation}
             selectedHexId={workspace.selectedHexId}
-            onHexSelect={(id) => {
+            onHexSelect={(id) =>
+            {
               workspace.setSelectedHexId(id);
-              if (id) setChatOpen(true);
+              setPanelMode((mode) => mode === "chat" ? "chat" : id ? "assessment" : null);
             }}
             onStopInPanel={workspace.takeStopInPanel}
             onStopPanelDismiss={workspace.clearStopPanel}
@@ -201,7 +219,7 @@ export const Map = ({
             onStopClose={workspace.clearStopPanel}
           />
         )}
-        {(workspace.selectedHexId || chatOpen) && (
+        {panelMode !== null && (
           <AssessmentCard
             selectedHexId={workspace.selectedHexId}
             assessmentData={ratings.assessmentData}
@@ -209,16 +227,16 @@ export const Map = ({
             isAssessmentError={ratings.isAssessmentError}
             assessmentError={ratings.assessmentError}
             chatOpen={chatOpen}
+            isHexAttached={chatOpen && chatContext?.id === workspace.selectedHexId}
+            details={categoryDetails}
             assessmentExpanded={workspace.assessmentExpanded}
             setChatOpen={setChatOpen}
-            setSelectedHexId={workspace.setSelectedHexId}
             setAssessmentExpanded={workspace.setAssessmentExpanded}
-            onAddressChange={onAddressChange}
             refetchAssessment={ratings.refetchAssessment}
             setChatHost={setChatHost}
           />
         )}
-        <div className="map-legend">
+        <div className="map-legend" hidden={hideMapControls}>
           <div className="inline-text">Оцінка комфорту</div>
           <div className="legend-ramp" />
           <div>

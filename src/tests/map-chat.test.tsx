@@ -1,18 +1,24 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Map } from "../components/map";
+import type { HexStopProperties } from "../lib/useStopsByHex";
 
 // Exercise the real panel lifecycle without requiring WebGL or a chat server.
 vi.mock("../components/MapboxMap", () => ({
   MapboxMap: ({
     onHexSelect,
+    onStopInPanel,
   }: {
     onHexSelect: (id: string | null) => void;
+    onStopInPanel: (stop: HexStopProperties) => boolean;
   }) => (
     <div>
+      <button onClick={() => onStopInPanel({ id: 1, name: "Тестова зупинка", in_hex: true, routes: [] })}>
+        Відкрити маршрути зупинки
+      </button>
       <button onClick={() => onHexSelect("selected-hex")}>
         Вибрати тестову ділянку
       </button>
@@ -76,93 +82,100 @@ function setup() {
   return userEvent.setup();
 }
 
-it("keeps the assistant and pinned draft context after deselecting the hexagon", async () => {
+it("opens assessments without opening the assistant", async () =>
+{
   const user = setup();
-  await user.click(
-    screen.getByRole("button", { name: "Вибрати тестову ділянку" }),
-  );
+  await user.click(screen.getByRole("button", { name: "Вибрати тестову ділянку" }));
   await screen.findByText("94", { selector: ".score-value" });
-  expect(screen.getByText("Про цю ділянку · 94/100")).toBeTruthy();
-  await user.type(screen.getByLabelText("Твоє запитання"), "Що тут поруч?");
-  await user.click(
-    screen.getByRole("button", { name: "Зняти тестовий вибір" }),
-  );
-  expect(screen.queryByText("94", { selector: ".score-value" })).toBeNull();
-  expect(
-    (screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value,
-  ).toBe("Що тут поруч?");
-  expect(screen.getByText("Про цю ділянку · 94/100")).toBeTruthy();
+  expect(screen.queryByRole("textbox", { name: "Твоє запитання" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Запитати за цей гексагон" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Категорії" }));
+  expect(screen.queryByRole("textbox", { name: "Твоє запитання" })).toBeNull();
+});
+
+it("preserves the draft between independent panel modes and after closing chat", async () =>
+{
+  const user = setup();
+  await user.click(screen.getByRole("button", { name: "Вибрати тестову ділянку" }));
+  await screen.findByText("94", { selector: ".score-value" });
+  await user.click(screen.getByRole("button", { name: "Запитати за цей гексагон" }));
+  await user.type(screen.getByLabelText("Твоє запитання"), "Моя чернетка");
+  await user.click(screen.getByRole("button", { name: "Вибрати тестову ділянку" }));
+  expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe("Моя чернетка");
   await user.click(screen.getByRole("button", { name: "Закрити чат" }));
-  await waitFor(() =>
-    expect(
-      screen.queryByRole("region", { name: "Чат із помічником" }),
-    ).toBeNull(),
-  );
+  expect(screen.queryByRole("textbox", { name: "Твоє запитання" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Запитати за цей гексагон" }));
+  expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe("Моя чернетка");
+  await user.click(screen.getByRole("button", { name: "Закрити чат" }));
+  expect(screen.queryByRole("region", { name: "Чат із помічником" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
-  expect(
-    (screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value,
-  ).toBe("Що тут поруч?");
+  expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe("Моя чернетка");
+  expect(screen.queryByRole("button", { name: "Оцінки ділянки" })).toBeNull();
 });
 
-it("expands categories without hiding the conversation or its draft", async () => {
+it("attaches an area only through the explicit assessment action", async () =>
+{
   const user = setup();
-  await user.click(
-    screen.getByRole("button", { name: "Вибрати тестову ділянку" }),
-  );
+  await user.click(screen.getByRole("button", { name: "Вибрати тестову ділянку" }));
   await screen.findByText("94", { selector: ".score-value" });
-  await user.type(screen.getByLabelText("Твоє запитання"), "Порівняй райони");
-  await user.click(screen.getByRole("button", { name: "Оцінки категорій" }));
-  expect(
-    screen.getByText("Відстані по прямій від центру гексагону."),
-  ).toBeTruthy();
-  expect(
-    (
-      screen.getByRole("textbox", {
-        name: "Твоє запитання",
-      }) as HTMLTextAreaElement
-    ).value,
-  ).toBe("Порівняй райони");
-  await user.click(screen.getByRole("button", { name: "Оцінки категорій" }));
-  expect(
-    screen.getByRole("region", { name: "Чат із помічником" }),
-  ).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Запитати за цей гексагон" }));
+  const question = "Які слабкі сторони цієї ділянки?";
+  await user.click(screen.getByRole("button", { name: question }));
+  expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe(question);
+  expect(screen.queryByText(question, { selector: ".chat-message p" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Вибрати іншу ділянку" }));
+  await screen.findByText("72", { selector: ".score-value" });
+  await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
+  await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
+  expect(screen.getByText("72", { selector: ".score-value" }).closest("[hidden]")).toBeNull();
+  expect(screen.queryByText("Про цей гексагон: 94/100")).toBeNull();
+  expect(screen.getByRole("button", { name: "Як обрати ділянку для життя?" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Закрити чат" }));
+  await user.click(screen.getByRole("button", { name: "Запитати за цей гексагон" }));
+  expect(screen.getByText("Про цей гексагон: 72/100")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Прибрати ділянку з контексту" }));
+  expect(screen.queryByText("Про цей гексагон: 72/100")).toBeNull();
 });
 
-it("follows selection while idle, pins context while typing, and allows opting out", async () => {
-  const user = setup();
-  await user.click(
-    screen.getByRole("button", { name: "Вибрати тестову ділянку" }),
-  );
-  await screen.findByText("Про цю ділянку · 94/100");
-  await user.click(
-    screen.getByRole("button", { name: "Вибрати іншу ділянку" }),
-  );
-  await screen.findByText("Про цю ділянку · 72/100");
-  await user.type(
-    screen.getByRole("textbox", { name: "Твоє запитання" }),
-    "Який транспорт?",
-  );
-  await user.click(
-    screen.getByRole("button", { name: "Вибрати тестову ділянку" }),
-  );
-  await screen.findByText("94", { selector: ".score-value" });
-  expect(screen.getByText("Про цю ділянку · 72/100")).toBeTruthy();
-  expect(screen.queryByText("Про цю ділянку · 94/100")).toBeNull();
-  await user.click(
-    screen.getByRole("button", { name: "Прибрати ділянку з контексту" }),
-  );
-  expect(screen.queryByText("Про цю ділянку · 72/100")).toBeNull();
-});
-
-it("does not silently attach a selection to a question already started without context", async () => {
+it("offers general questions when no area is attached", async () =>
+{
   const user = setup();
   await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
-  await user.type(screen.getByLabelText("Твоє запитання"), "Розкажи про Львів");
-  await user.click(
-    screen.getByRole("button", { name: "Вибрати тестову ділянку" }),
-  );
+  await user.click(screen.getByRole("button", { name: "Що означають оцінки категорій?" }));
+  expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe("Що означають оцінки категорій?");
+  await user.click(screen.getByRole("button", { name: "Вибрати тестову ділянку" }));
   await screen.findByText("94", { selector: ".score-value" });
-  expect(screen.queryByText("Про цю ділянку · 94/100")).toBeNull();
+  expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe("Що означають оцінки категорій?");
+  await user.click(screen.getByRole("button", { name: "Вибрати іншу ділянку" }));
+  await screen.findByText("72", { selector: ".score-value" });
+  expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe("Що означають оцінки категорій?");
+  expect(screen.queryByText("Про цей гексагон: 72/100")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Зняти тестовий вибір" }));
+  expect(screen.getByLabelText("Твоє запитання")).toBeTruthy();
+  expect(screen.queryByText("Про цей гексагон: 94/100")).toBeNull();
+});
+
+it("attaches the selected hexagon from the toolbar assistant without losing the draft", async () =>
+{
+  const user = setup();
+  await user.click(screen.getByRole("button", { name: "Вибрати тестову ділянку" }));
+  await screen.findByText("94", { selector: ".score-value" });
+  await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
+  await user.type(screen.getByLabelText("Твоє запитання"), "Моя чернетка");
+  expect(screen.queryByText("Про цей гексагон: 94/100")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Запитати за цей гексагон" }));
+  expect(screen.getByText("Про цей гексагон: 94/100")).toBeTruthy();
+  expect((screen.getByRole("button", { name: "Гексагон додано" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe("Моя чернетка");
+  expect(screen.queryByText("Моя чернетка", { selector: ".chat-message p" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Вибрати іншу ділянку" }));
+  await screen.findByText("72", { selector: ".score-value" });
+  await user.click(screen.getByRole("button", { name: "Запитати за цей гексагон" }));
+  expect(screen.getByText("Про цей гексагон: 72/100")).toBeTruthy();
+  expect(screen.queryByText("Про цей гексагон: 94/100")).toBeNull();
+  expect((screen.getByRole("button", { name: "Гексагон додано" }) as HTMLButtonElement).disabled).toBe(true);
+  await user.click(screen.getByRole("button", { name: "Прибрати ділянку з контексту" }));
+  expect((screen.getByRole("button", { name: "Запитати за цей гексагон" }) as HTMLButtonElement).disabled).toBe(false);
 });
 
 it("keeps all comparison actions in the separate comparison panel", async () => {
@@ -195,4 +208,78 @@ it("keeps all comparison actions in the separate comparison panel", async () => 
   expect(screen.getByText("Порівняння · 2/3")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Порівняти" }));
   expect(screen.getByRole("table")).toBeTruthy();
+});
+
+it("restores the selected assessment after toggling the assistant twice", async () =>
+{
+  const user = setup();
+  await user.click(screen.getByRole("button", { name: "Вибрати тестову ділянку" }));
+  await screen.findByText("94", { selector: ".score-value" });
+  await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
+  expect(screen.getByLabelText("Твоє запитання")).toBeTruthy();
+  expect(screen.queryByText("Про цей гексагон: 94/100")).toBeNull();
+  expect(screen.getByText("94", { selector: ".score-value" }).closest("[hidden]")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
+  expect(screen.queryByRole("textbox", { name: "Твоє запитання" })).toBeNull();
+  expect(screen.getByText("94", { selector: ".score-value" }).closest("[hidden]")).toBeNull();
+});
+
+it("grows the composer with text and shrinks it after clearing", async () =>
+{
+  const user = setup();
+  await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
+  const input = screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement;
+  let height = 78;
+  Object.defineProperty(input, "scrollHeight", { configurable: true, get: () => height });
+  await user.type(input, "Кілька рядків");
+  expect(input.style.height).toBe("78px");
+  height = 200;
+  await user.type(input, " і довше запитання");
+  expect(input.style.height).toBe("128px");
+  expect(input.style.overflowY).toBe("auto");
+  height = 30;
+  await user.clear(input);
+  expect(input.style.height).toBe("32px");
+  expect(input.style.overflowY).toBe("hidden");
+});
+
+it.each(["Пріоритети", "Відкрити маршрути зупинки"])("keeps the left panel open when opening the assistant from %s", async (name) =>
+{
+  const user = setup();
+  await user.click(screen.getByRole("button", { name }));
+  const panel = document.getElementById("weights-panel");
+  expect(panel).not.toBeNull();
+  const routesOpen = panel?.classList.contains("is-stop");
+  await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
+  expect(document.getElementById("weights-panel")).toBe(panel);
+  expect(panel?.classList.contains("is-stop")).toBe(routesOpen);
+  expect(screen.getByLabelText("Твоє запитання")).toBeTruthy();
+});
+
+it("hides the legend and zoom controls only while categories or chat are open", async () =>
+{
+  const user = setup();
+  const map = document.getElementById("map")!;
+  const legend = map.querySelector<HTMLElement>(".map-legend")!;
+  const check = (hidden: boolean) =>
+  {
+    expect(legend.hidden).toBe(hidden);
+    expect(map.classList.contains("map-details-open")).toBe(hidden);
+  };
+  check(false);
+  await user.click(screen.getByRole("button", { name: "Вибрати тестову ділянку" }));
+  await screen.findByText("94", { selector: ".score-value" });
+  check(false);
+  await user.click(screen.getByRole("button", { name: "Категорії" }));
+  check(true);
+  await user.click(screen.getByRole("button", { name: "Категорії" }));
+  check(false);
+  await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
+  check(true);
+  await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
+  check(false);
+  await user.click(screen.getByRole("button", { name: "Категорії" }));
+  check(true);
+  await user.click(screen.getByRole("button", { name: "Закрити оцінки" }));
+  check(false);
 });
