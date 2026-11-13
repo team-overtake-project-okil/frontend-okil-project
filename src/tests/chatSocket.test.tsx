@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Chat } from "../components/Chat";
+import type { HexChatContext } from "../components/Chat";
 
 vi.mock("../lib/chatUrl", () => ({ chatWebSocketUrl: () => "ws://localhost:8000/ws/chat" }));
 
@@ -28,8 +29,20 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); host.remove(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 
-function mount(context: { id: string; score: number; categories: { title: string; score: number }[] } | null = null) {
-  render(<Chat open onOpenChange={vi.fn()} host={host} selectedContext={context} details={null} />);
+function mount(
+  attachedContext: HexChatContext | null = null,
+  selectedContext: HexChatContext | null = attachedContext,
+) {
+  render(
+    <Chat
+      open
+      onOpenChange={vi.fn()}
+      host={host}
+      selectedContext={selectedContext}
+      attachedContext={attachedContext}
+      onContextChange={vi.fn()}
+    />,
+  );
   const socket = Socket.instances[0];
   act(() => socket.onopen?.());
   socket.event({ type: "session.ready", sessionToken: "test-session", history: [] });
@@ -48,11 +61,19 @@ it("uses the backend WebSocket, sends the existing envelope, and renders the AI 
   expect(screen.getByText("Жива відповідь AI")).toBeTruthy();
 });
 
-it("includes the selected hex in the message for the server's DB context", () => {
+it("includes the attached hex in the message for the server's DB context", () => {
   const socket = mount({ id: "891e7689e8fffff", score: 79, categories: [{ title: "Здоров'я", score: 93 }] });
   fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "Що тут поруч?" } });
   fireEvent.click(screen.getByRole("button", { name: "Надіслати запитання" }));
   expect(JSON.parse(socket.send.mock.calls[1][0]).text).toBe("Ділянка Львова (H3: 891e7689e8fffff). Оцінка комфорту: 79/100. Категорії: Здоров'я: 93/100.\n\nЩо тут поруч?");
+});
+
+it("does not send the selected hex until it is attached to the chat", () => {
+  const socket = mount(null, { id: "891e7689e8fffff", score: 79, categories: [] });
+  fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "Що таке OKIL?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Надіслати запитання" }));
+  expect(JSON.parse(socket.send.mock.calls[1][0]).text).toBe("Що таке OKIL?");
+  expect(screen.queryByRole("button", { name: "Прибрати ділянку з контексту" })).toBeNull();
 });
 
 it("shows a client-readable failure and allows another request", () => {
