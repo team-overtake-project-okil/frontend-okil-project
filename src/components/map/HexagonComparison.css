@@ -1,0 +1,208 @@
+.hex-comparison {
+  position: absolute;
+  z-index: 10;
+  top: 76px;
+  left: 16px;
+  width: min(300px, calc(100% - 32px));
+  max-height: calc(100% - 100px);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid #dce2de;
+  border-radius: 26px;
+  background: #f8faf9;
+  color: var(--ink);
+  box-shadow: 0 8px 24px #25392d14;
+  font-size: 13px;
+}
+
+.hex-comparison[data-open="true"] {
+  width: min(420px, 48%);
+}
+
+.hex-comparison-controls,
+.hex-comparison-selection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hex-comparison-controls {
+  justify-content: space-between;
+}
+
+.hex-comparison-selection {
+  padding: 0;
+  margin: 8px 0 0;
+  flex-wrap: wrap;
+}
+
+.comparison-selection-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid #dce2de;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.comparison-selection-tag:hover {
+  background: #eef3ef;
+  border-color: var(--hex-color);
+}
+
+.comparison-selection-tag:focus-visible {
+  outline: 2px solid var(--hex-color);
+  outline-offset: 2px;
+}
+
+.comparison-selection-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--hex-color);
+}
+
+.comparison-selection-remove {
+  color: var(--muted-ink, #5b6c72);
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+.hex-comparison-controls .inline-text {
+  font-weight: 700;
+}
+
+.hex-comparison > .text-block {
+  margin: 6px 0 0;
+}
+
+.hex-comparison-controls button,
+.hex-comparison .comparison-add-selected,
+.hex-comparison-scroll td button,
+.assessment-card .comparison-add {
+  padding: 4px 9px;
+  border: 1px solid #d0dbd3;
+  border-radius: 999px;
+  background: #eef3ef;
+  color: #405c4a;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.assessment-card .comparison-add {
+  display: block;
+  width: fit-content;
+  margin: 4px 0 8px;
+}
+
+.hex-comparison-controls button:disabled,
+.hex-comparison .comparison-add-selected:disabled,
+.hex-comparison-scroll td button:disabled,
+.assessment-card .comparison-add:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.hex-comparison-scroll {
+  margin-top: 8px;
+  overflow: auto;
+}
+
+.hex-comparison table {
+  width: 100%;
+  border-spacing: 0;
+}
+
+.hex-comparison th,
+.hex-comparison td {
+  padding: 6px;
+  text-align: left;
+  border-bottom: 1px solid #e1e7e2;
+}
+
+.hex-comparison td {
+  min-width: 64px;
+  font-size: 12px;
+}
+
+.hex-comparison th:first-child {
+  position: sticky;
+  left: 0;
+  background: #f8faf9;
+}
+
+.hex-comparison thead th:not(:first-child) {
+  text-align: center;
+}
+
+.mapboxgl-marker.comparison-map-label {
+  font:
+    800 var(--comparison-label-size, 18px)/1 system-ui,
+    sans-serif;
+  text-shadow:
+    0 0 0.22em color-mix(in srgb, currentColor 48%, transparent),
+    0 0 0.44em color-mix(in srgb, currentColor 28%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
+.comparison-score .inline-text {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.comparison-score meter {
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin-top: 3px;
+  appearance: none;
+  background: #e4eae5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.comparison-score meter::-webkit-meter-bar {
+  border: 0;
+  background: #e4eae5;
+}
+
+.comparison-score meter::-webkit-meter-optimum-value {
+  background: var(--score-color);
+}
+
+.comparison-score meter::-moz-meter-bar {
+  background: var(--score-color);
+}
+
+@media (max-width: 700px) {
+  .hex-comparison {
+    top: auto;
+    bottom: 82px;
+    left: 12px;
+    max-height: min(42%, 290px);
+  }
+
+  .hex-comparison[data-open="true"] {
+    width: calc(100% - 24px);
+    bottom: 12px;
+  }
+}
+
+.hex-comparison .comparison-add-selected {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 7px 11px;
+}
