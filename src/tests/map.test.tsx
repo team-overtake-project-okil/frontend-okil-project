@@ -7,8 +7,12 @@ import { Map } from "../components/map";
 
 // WebGL rendering is outside this test; retain the real controls, queries and fetcher.
 vi.mock("../components/MapboxMap", () => ({
-  MapboxMap: ({ hexagons }: { hexagons: { h3_id: string }[] }) => (
-    <div data-testid="map-data">
+  MapboxMap: ({
+    hexagons,
+  }: {
+    hexagons: { h3_id: string; overall_rating: number }[];
+  }) => (
+    <div data-testid="map-data" data-ratings={JSON.stringify(hexagons)}>
       {hexagons.map((hex) => hex.h3_id).join(",")}
     </div>
   ),
@@ -47,8 +51,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-async function openPreferences() {
-  const user = userEvent.setup();
+function renderMap() {
   render(
     <QueryClientProvider client={client}>
       <Map
@@ -58,6 +61,11 @@ async function openPreferences() {
       />
     </QueryClientProvider>,
   );
+}
+
+async function openPreferences() {
+  const user = userEvent.setup();
+  renderMap();
   await waitFor(() =>
     expect(screen.getByTestId("map-data").textContent).toBe("initial-hex"),
   );
@@ -68,6 +76,35 @@ async function openPreferences() {
   await user.click(screen.getByRole("button", { name: "Пріоритети" }));
   return user;
 }
+
+describe("hexagon map data", () => {
+  it("passes integer and zero ratings to the map layer", async () => {
+    const ratings = [
+      { h3_id: "891f2242c0fffff", overall_rating: 86.7 },
+      { h3_id: "891f2242c0bffff", overall_rating: 0 },
+    ];
+    fetchMock.mockResolvedValueOnce(Response.json(ratings));
+    renderMap();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("map-data").getAttribute("data-ratings")).toBe(
+        JSON.stringify([{ ...ratings[0], overall_rating: 86 }, ratings[1]]),
+      ),
+    );
+  });
+
+  it("shows a load error when the ratings response has an unexpected shape", async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ ratings: [] }));
+    renderMap();
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Не вдалося завантажити оцінки",
+    );
+    expect(screen.getByTestId("map-data").getAttribute("data-ratings")).toBe(
+      "[]",
+    );
+  });
+});
 
 describe("category filter API integration", () => {
   it("shows an updating state and retains previous map data while filters load", async () => {
