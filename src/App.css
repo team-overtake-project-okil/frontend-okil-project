@@ -2483,7 +2483,7 @@ input:focus-visible {
   font-weight: 600;
 }
 .map-toolbar > .route-toggle {
-  font-size: 13px !important;
+  font-size: var(--map-type-control, 13px) !important;
   font-weight: 450;
   gap: 8px;
 }
@@ -2623,7 +2623,7 @@ input:focus-visible {
     font-size: 11px;
   }
   .map-toolbar > .route-toggle {
-    font-size: 11px !important;
+    font-size: var(--map-type-control, 11px) !important;
   }
   .assessment-card,
   .map-expanded .assessment-card {
