@@ -9,7 +9,7 @@ import {
 } from "../../lib/hexagonAssessment";
 import { comfortColor } from "../../lib/palette";
 import { Chip } from "../Chip/Chip";
-import "./HexagonComparison.css";
+import "./HexagonComparison.scss";
 
 interface HexagonComparisonProps {
   selectedId: string | null;

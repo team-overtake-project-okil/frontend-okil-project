@@ -1,3 +1,5 @@
+@use "../../styles/abstracts/mixins" as media;
+
 .hex-comparison {
   position: absolute;
   z-index: 10;
@@ -187,7 +189,7 @@
   background: var(--score-color);
 }
 
-@media (max-width: 700px) {
+@include media.mobile {
   .hex-comparison {
     top: auto;
     bottom: 82px;

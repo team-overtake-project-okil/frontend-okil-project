@@ -1,4 +1,5 @@
 import "./App.css";
+import "./components/map/MapPanels.scss";
 import { useState } from "react";
 import type { AddressSuggestion } from "./services/geocoding";
 

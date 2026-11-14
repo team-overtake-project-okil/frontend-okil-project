@@ -13,3 +13,12 @@ $heading-sizes: (
   5: 1.25rem,
   6: 1rem,
 );
+
+// Existing map assistant palette; keep the current appearance during SCSS migration.
+$assistant-ink: #425c49;
+$assistant-ink-strong: #344d3c;
+$assistant-muted: #637167;
+$assistant-surface: #fafbf9;
+$assistant-border: #dce5de;
+$assistant-soft: #e6eee7;
+$assistant-hover: #edf2ee;

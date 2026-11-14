@@ -4,7 +4,7 @@ import {
   ArrowPathIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import "./Chat.css";
+import "./Chat.scss";
 import type { FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { chatWebSocketUrl } from "../lib/chatUrl";

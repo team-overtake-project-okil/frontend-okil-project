@@ -10,7 +10,7 @@ import { MapToolbar } from "./map/MapToolbar";
 import { WeightsPanel } from "./map/WeightsPanel";
 import { useMapRatings } from "../lib/useMapRatings";
 import { useMapWorkspace } from "../lib/useMapWorkspace";
-import "./map/MapTypography.css";
+import "./map/MapTypography.scss";
 
 export type { Hexagon, int } from "../lib/hexagonRating";
 
