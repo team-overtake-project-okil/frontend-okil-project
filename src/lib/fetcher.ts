@@ -9,6 +9,9 @@ export class ApiError extends Error {
 
 export async function fetcher(url: string, init?: RequestInit) {
   const base = (
+    (url.startsWith("/debug/")
+      ? import.meta.env.VITE_DEBUG_API_URL?.trim()
+      : undefined) ||
     import.meta.env.VITE_BACKEND_URL?.trim() ||
     import.meta.env.VITE_API_URL?.trim()
   )?.replace(/\/+$/, "");

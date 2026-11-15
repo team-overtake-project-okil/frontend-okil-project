@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ArrowUpRight from "../icons/arrow-up-right";
-import MapPinned from "../icons/map-pin";
 import headerLogo from "../assets/header_logo.png";
 import { scrollToSection } from "../lib/scroll";
 
@@ -8,6 +7,32 @@ const sectionIds = ["hero", "info", "map", "footer"] as const;
 
 export const Header = () => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  const [pill, setPill] = useState({ left: 4, width: 0, visible: false });
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const placePill = () => {
+      const current = nav.querySelector<HTMLButtonElement>("[aria-current]");
+      if (!current) {
+        setPill((prev) => ({ left: prev.left, width: 0, visible: false }));
+        return;
+      }
+      const navRect = nav.getBoundingClientRect();
+      const rect = current.getBoundingClientRect();
+      setPill({
+        left: rect.left - navRect.left,
+        width: rect.width,
+        visible: true,
+      });
+    };
+
+    placePill();
+    window.addEventListener("resize", placePill);
+    return () => window.removeEventListener("resize", placePill);
+  }, [activeSection]);
 
   useEffect(() => {
     const updateActiveSection = () => {
@@ -37,7 +62,7 @@ export const Header = () => {
   }, []);
 
   return (
-    <div className="site-header sticky top-0 z-50 w-full border-b border-[#3c3c4324] bg-white/72 backdrop-blur-[22px] backdrop-saturate-180">
+    <div className="site-header sticky top-0 z-50 w-full border-b border-[#3c3c4324]">
       <svg
         width="0"
         height="0"
@@ -64,28 +89,42 @@ export const Header = () => {
           />
         </button>
 
-        <nav className="section-nav" aria-label="Розділи сторінки">
-          {[
-            ["info", "Як це працює"],
-            ["map", "Карта"],
-            ["footer", "Про проєкт"],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              aria-current={activeSection === id ? "location" : undefined}
-              onClick={() => scrollToSection(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
+        <div ref={navRef} className="section-nav" aria-label="Розділи сторінки">
+          <div
+            className="section-nav-pill"
+            aria-hidden="true"
+            style={{
+              left: pill.left,
+              width: pill.width,
+              opacity: pill.visible ? 1 : 0,
+            }}
+          />
+          <button
+            aria-current={activeSection === "info" ? "location" : undefined}
+            onClick={() => scrollToSection("info")}
+          >
+            Як це працює
+          </button>
+          <button
+            aria-current={activeSection === "map" ? "location" : undefined}
+            onClick={() => scrollToSection("map")}
+          >
+            Карта
+          </button>
+          <button
+            aria-current={activeSection === "footer" ? "location" : undefined}
+            onClick={() => scrollToSection("footer")}
+          >
+            Про проєкт
+          </button>
+        </div>
 
         <button
           onClick={() => scrollToSection("map")}
-          className="header-map-button inline-flex cursor-pointer items-center justify-center rounded-full bg-[#007AFF] px-4 py-2 text-sm leading-4 font-semibold text-white transition-colors hover:bg-[#0066D6] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
+          className="header-map-button"
         >
-          <MapPinned width={16} height={16} style={{ width: 16, height: 16 }} aria-hidden="true" /> До карти{" "}
-          <ArrowUpRight width={15} height={15} style={{ width: 15, height: 15 }} aria-hidden="true" />
+          До карти
+          <ArrowUpRight strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
     </div>

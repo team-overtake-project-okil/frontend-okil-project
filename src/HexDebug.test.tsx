@@ -51,7 +51,7 @@ it("shows contributing POIs from every page and filters the map and list togethe
       return { token: "test-token", expires_at: Date.now() / 1000 + 900 };
     if (path === "/debug/config")
       return { types: [], categories: ["health"], batch_limit: 200 };
-    if (String(path).startsWith("/hexagons?") || path === "/debug/ratings")
+    if (String(path).startsWith("/debug/ratings?") || path === "/debug/ratings")
       return [{ h3_id: "891e768b2afffff", overall_rating: 50 }];
     if (
       String(path).includes("/hexagons/") &&

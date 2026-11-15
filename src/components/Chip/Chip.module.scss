@@ -1,0 +1,73 @@
+@use "../../styles/abstracts/variables" as tokens;
+
+.chip {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--chip-color, #{tokens.$color-primary});
+  vertical-align: middle;
+  font-family: tokens.$font-family;
+
+  &:is(button) {
+    cursor: pointer;
+    border-radius: 8px;
+  }
+
+  &:is(button):is(:hover, :focus-visible):not(:disabled) {
+    color: tokens.$color-muted;
+
+    .hexagon {
+      fill: color-mix(in srgb, currentColor 18%, transparent);
+    }
+
+    .label {
+      visibility: hidden;
+    }
+
+    .removeIcon {
+      visibility: visible;
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid tokens.$color-primary;
+    outline-offset: 3px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.hexagon {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: color-mix(in srgb, currentColor 9%, transparent);
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.label {
+  position: relative;
+  color: inherit;
+}
+
+.removeIcon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  visibility: hidden;
+  font-size: 26px;
+  line-height: 1;
+}

@@ -7,7 +7,7 @@ import {
   ArrowRightIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { AddressSearch } from "./components/AddressSearch";
+import { AddressSearch } from "./components/address/AddressSearch";
 import { fetcher } from "./lib/fetcher";
 import type { Dot } from "./DebugMap";
 import { coordsToH3 } from "./lib/h3";

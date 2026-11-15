@@ -18,7 +18,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Skeleton } from "./components/ui/skeleton";
-import { TogglerCard } from "./components/TogglerCard";
+import { TogglerCard } from "./components/map/TogglerCard";
 import {
   defaultTogglers,
   togglerIds,
@@ -42,7 +42,13 @@ type Step = {
   weight: number;
   score: number;
   contribution: number;
-  used: { id: number; distance: number; routes?: number[]; weight?: number }[];
+  used: {
+    id: number;
+    score?: number;
+    distance: number;
+    routes?: number[];
+    weight?: number;
+  }[];
   destinations?: Record<string, number>;
   penalty?: number;
   network_score?: number;
@@ -106,7 +112,7 @@ function describePoint(point: Point, detail?: Detail): Point {
   const category = detail.categories.fresh.find(
     (c) => c.category === point.category,
   );
-  let influence = "Вплив 0 — формула враховує ближчу точку цього типу.";
+  let influence = "Вплив 0 — формула враховує три найближчі точки цього типу.";
   if (point.kind === "stop")
     influence = "Вплив 0 — зупинка не вибрана транспортною формулою.";
   if (category?.weight === 0 || step?.weight === 0)
@@ -115,7 +121,7 @@ function describePoint(point: Point, detail?: Detail): Point {
     influence =
       point.kind === "stop"
         ? "Врахована у транспортній доступності. Внесок спільний із мережею зупинок."
-        : `Внесок у категорію «${categoryLabel}» — ${step.contribution.toFixed(2)} бала. Врахована як найближча точка цього типу.`;
+        : `Внесок у категорію «${categoryLabel}» — ${(point.contribution ?? ((step.used.find((p) => p.id === point.id)?.score ?? step.score) * step.weight) / step.used.length).toFixed(2)} бала. Врахована серед найближчих точок цього типу.`;
   return { ...point, categoryLabel, influence };
 }
 
@@ -284,7 +290,7 @@ function Inspector({ auth, config }: { auth: string; config: Config }) {
   const weightedRatings = useQuery<Cell[]>({
     queryKey: ["debug-weighted-map", weights],
     queryFn: ({ signal }) =>
-      fetcher("/hexagons" + weightsSearch(weights), {
+      fetcher("/debug/ratings" + weightsSearch(weights), {
         headers: { Authorization: auth },
         signal,
       }),
