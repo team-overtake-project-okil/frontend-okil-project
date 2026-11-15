@@ -1,0 +1,118 @@
+// Emit both stages in their original cascade positions.
+// The compact stage intentionally follows the short-viewport overrides.
+@mixin base {
+  .chat-composer {
+    flex: none;
+    padding: 10px 16px 12px;
+    border-top: 1px solid var(--border);
+    background: #fff;
+  }
+  .chat-attach {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 32px;
+    font-size: 13px;
+    color: var(--focus);
+  }
+  .chat-attach:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .chat-attach:disabled {
+    cursor: default;
+  }
+  .chat-input-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--muted-ink);
+  }
+  .chat-input-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid #bbc8be;
+    border-radius: 16px;
+  }
+  .chat-input-row:focus-within {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .chat-input-row textarea {
+    width: 100%;
+    min-width: 0;
+    resize: none;
+    padding: 4px;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1.5;
+    background: transparent;
+    border: 0;
+    outline: none;
+    max-height: 128px;
+    min-height: 32px;
+    box-sizing: border-box;
+    overflow-y: hidden;
+  }
+  .chat-input-row textarea::placeholder {
+    color: var(--muted-ink);
+    opacity: 1;
+  }
+  .chat-send {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border-radius: 12px;
+    background: var(--focus);
+    color: #fff;
+  }
+  .chat-composer-hint {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--muted-ink);
+    margin-top: 8px;
+  }
+}
+
+@mixin compact {
+  .chat-composer {
+    padding: 8px 12px 12px;
+  }
+  .chat-attach {
+    min-height: 26px;
+    font-size: 11px;
+  }
+  .chat-input-row {
+    gap: 6px;
+    padding: 6px;
+    border-radius: 13px;
+  }
+  .chat-input-row textarea {
+    padding: 3px 4px;
+    font-size: 14px;
+    line-height: 24px;
+    height: 32px;
+  }
+  .chat-send {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+  .chat-send svg {
+    width: 18px;
+    height: 18px;
+  }
+  .chat-input-row:focus-within {
+    outline-width: 2px;
+    outline-offset: 1px;
+  }
+}
