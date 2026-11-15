@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/admin/hex-debug",
+      "destination": "/index.html"
+    }
+  ]
+}
