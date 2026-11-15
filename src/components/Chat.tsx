@@ -1,13 +1,15 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import {
   PaperAirplaneIcon,
   ArrowPathIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
 import "./Chat.css";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { chatWebSocketUrl } from "../lib/chatUrl";
+import { ClearChatHistory } from "./ClearChatHistory";
+import type { ClearChatHistoryControls } from "./ClearChatHistory";
 
 export type HexChatContext = {
   id: string;
@@ -26,6 +28,7 @@ type Turn = {
 
 type ChatEvent =
   | { type: "session.ready"; sessionToken: string; history: Turn[] }
+  | { type: "session.cleared"; requestId: string; deleted: boolean }
   | { type: "message.accepted"; requestId: string }
   | { type: "answer.status"; requestId: string; stage: string }
   | { type: "answer.completed"; requestId: string; text: string }
@@ -38,6 +41,7 @@ export function Chat({
   selectedContext,
   attachedContext: context,
   onContextChange,
+  renderClearHistory,
 }: {
   open: boolean;
   onOpenChange: (value: boolean) => void;
@@ -45,6 +49,7 @@ export function Chat({
   selectedContext: HexChatContext | null;
   attachedContext: HexChatContext | null;
   onContextChange: (context: HexChatContext | null) => void;
+  renderClearHistory?: (controls: ClearChatHistoryControls) => ReactNode;
 }) {
   const [attempt, setAttempt] = useState(0);
   const [started, setStarted] = useState(false);
@@ -52,6 +57,13 @@ export function Chat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<WebSocket | null>(null);
+  const clearRef = useRef<{
+    requestId: string;
+    resolve: () => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const [clearing, setClearing] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
   useLayoutEffect(() =>
@@ -79,6 +91,7 @@ export function Chat({
   const [ready, setReady] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [status, setStatus] = useState("Підключаємося…");
+  const resetContext = useEffectEvent(() => onContextChange(null));
 
   useEffect(() => {
     if (!CHAT_URL || !started) return;
@@ -98,6 +111,36 @@ export function Chat({
 
     socket.onmessage = ({ data }) => {
       const event = JSON.parse(data) as ChatEvent;
+
+      if (event.type === "session.cleared") {
+        const pending = clearRef.current;
+        if (!pending || event.requestId !== pending.requestId) return;
+        clearTimeout(pending.timer);
+        clearRef.current = null;
+        sessionStorage.removeItem(TOKEN_KEY);
+        setTurns([]);
+        setText("");
+        resetContext();
+        setWaiting(false);
+        setClearing(false);
+        setReady(false);
+        setStatus("Створюємо нову сесію…");
+        pending.resolve();
+        socket.send(JSON.stringify({ type: "session.open" }));
+        return;
+      }
+
+      if (clearRef.current) {
+        if (event.type === "error" && event.requestId === clearRef.current.requestId) {
+          const pending = clearRef.current;
+          clearTimeout(pending.timer);
+          clearRef.current = null;
+          setClearing(false);
+          setStatus(event.message);
+          pending.reject(new Error(event.message));
+          return;
+        }
+      }
 
       switch (event.type) {
         case "session.ready":
@@ -132,6 +175,9 @@ export function Chat({
 
           if (event.code === "session_expired") {
             sessionStorage.removeItem(TOKEN_KEY);
+            setTurns([]);
+            setText("");
+            resetContext();
             setReady(false);
             setStatus("Створюємо нову сесію…");
             socket.send(JSON.stringify({ type: "session.open" }));
@@ -150,12 +196,14 @@ export function Chat({
     };
 
     socket.onclose = () => {
+      rejectClear("Зв’язок втрачено. Перепідключися та спробуй ще раз.");
       setReady(false);
       setWaiting(false);
       setStatus("Зв’язок втрачено. Спробуй підключитися знову.");
     };
 
     return () => {
+      rejectClear("Чат відключено. Спробуй ще раз після підключення.");
       socket.onopen = null;
       socket.onmessage = null;
       socket.onclose = null;
@@ -163,6 +211,38 @@ export function Chat({
       socket.close();
     };
   }, [attempt, started]);
+
+  function rejectClear(message: string) {
+    const pending = clearRef.current;
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    clearRef.current = null;
+    setClearing(false);
+    pending.reject(new Error(message));
+  }
+
+  function clearHistory(): Promise<void> {
+    const socket = socketRef.current;
+    const sessionToken = sessionStorage.getItem(TOKEN_KEY);
+    if (!ready || !sessionToken || clearRef.current || socket?.readyState !== WebSocket.OPEN) {
+      return Promise.reject(new Error("Чат ще не готовий до очищення."));
+    }
+    const requestId = crypto.randomUUID();
+    setClearing(true);
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        rejectClear("Немає підтвердження очищення. Перепідключися та спробуй ще раз.");
+        setReady(false);
+        socket.close();
+      }, 10_000);
+      clearRef.current = { requestId, resolve, reject, timer };
+      try {
+        socket.send(JSON.stringify({ type: "session.clear", requestId, sessionToken }));
+      } catch {
+        rejectClear("Не вдалося надіслати запит очищення. Спробуй ще раз.");
+      }
+    });
+  }
 
   useEffect(() => {
     if (open && host && !host.closest("[hidden]")) {
@@ -201,6 +281,8 @@ export function Chat({
 
     if (
       !ready ||
+      clearing ||
+      clearRef.current ||
       waiting ||
       !question ||
       socket?.readyState !== WebSocket.OPEN
@@ -254,6 +336,9 @@ export function Chat({
         }
       }}
     >
+      <ClearChatHistory clear={clearHistory} disabled={!ready || clearing}>
+        {renderClearHistory}
+      </ClearChatHistory>
       <div className={showError ? "chat-connection" : "sr-only"} role="status">
         <span>{CHAT_URL ? status : ""}</span>
         {disconnected && (
@@ -386,7 +471,7 @@ export function Chat({
             type="submit"
             className="chat-send"
             aria-label="Надіслати запитання"
-            disabled={!ready || waiting || !text.trim()}
+            disabled={!ready || waiting || clearing || !text.trim()}
           >
             <PaperAirplaneIcon aria-hidden="true" />
           </button>
