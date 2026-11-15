@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
 
 export type ScoringConfig = {
   point_types?: {
@@ -21,12 +22,27 @@ const names: Record<string, string> = {
   security: "Безпека",
 };
 
-export default function ScoringGuide({ config }: { config: ScoringConfig }) {
+export default function ScoringGuide({
+  config,
+  compact = false,
+}: {
+  config: ScoringConfig;
+  compact?: boolean;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   return (
     <>
-      <button onClick={() => dialog.current?.showModal()}>
-        Як рахується оцінка
+      <button
+        className={compact ? "debug-scoring-help" : undefined}
+        aria-label="Як рахується оцінка"
+        title="Як рахується оцінка"
+        onClick={() => dialog.current?.showModal()}
+      >
+        {compact ? (
+          <QuestionMarkCircleIcon aria-hidden="true" />
+        ) : (
+          "Як рахується оцінка"
+        )}
       </button>
       <dialog
         ref={dialog}

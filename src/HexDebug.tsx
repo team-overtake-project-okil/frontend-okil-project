@@ -1,21 +1,39 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { cellToLatLng, isValidCell } from "h3-js";
-import { fetcher } from "./lib/fetcher";
 import { coordsToH3 } from "./lib/h3";
-import { AddressSearch } from "./components/AddressSearch";
+import { isValidCell } from "h3-js";
+import DebugAccordion from "./DebugAccordion";
+import { ApiError, fetcher } from "./lib/fetcher";
+import DebugSearch from "./DebugSearch";
 import DebugMap, { type Camera, type Cell, type Dot } from "./DebugMap";
 import "./hex-debug.css";
+import DebugView from "./DebugView";
+import {
+  Squares2X2Icon,
+  CheckCircleIcon,
+  MinusCircleIcon,
+  CalculatorIcon,
+  MapPinIcon,
+  SparklesIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import { Skeleton } from "./components/ui/skeleton";
+import { TogglerCard } from "./components/TogglerCard";
+import {
+  defaultTogglers,
+  togglerIds,
+  lockedTogglerIds,
+  buildAssessmentWeights,
+  weightsSearch,
+} from "./lib/assessmentWeights";
+import { categoryLabels as weightLabels } from "./lib/hexagonAssessment";
+import SlidersHorizontal from "./icons/adjustments-horizontal";
 import ScoringGuide, { type ScoringConfig } from "./ScoringGuide";
 
 type Config = ScoringConfig & {
   types: string[];
   categories: string[];
   batch_limit: number;
-};
-type Weights = {
-  types: Record<string, number>;
-  categories: Record<string, number>;
 };
 type Step = {
   category: string;
@@ -60,13 +78,6 @@ type Point = Dot & {
   contribution: number | null;
 };
 const noCells: Cell[] = [];
-const empty: Weights = { types: {}, categories: {} };
-const labels = {
-  stored: "Збережене",
-  fresh: "Свіже",
-  experiment: "Експеримент",
-  difference: "Різниця",
-};
 const categoryLabels: Record<string, string> = {
   health: "Здоров’я",
   study: "Освіта",
@@ -92,7 +103,7 @@ function describePoint(point: Point, detail?: Detail): Point {
           : s.type === point.type),
     ),
   );
-  const category = detail.categories.experiment.find(
+  const category = detail.categories.fresh.find(
     (c) => c.category === point.category,
   );
   let influence = "Вплив 0 — формула враховує ближчу точку цього типу.";
@@ -105,12 +116,7 @@ function describePoint(point: Point, detail?: Detail): Point {
       point.kind === "stop"
         ? "Врахована у транспортній доступності. Внесок спільний із мережею зупинок."
         : `Внесок у категорію «${categoryLabel}» — ${step.contribution.toFixed(2)} бала. Врахована як найближча точка цього типу.`;
-  const [lat, lon] = cellToLatLng(detail.h3_id || point.h3_id);
-  const distance = Math.hypot(
-    (point.lat - lat) * 111139,
-    (point.lon - lon) * 111139 * Math.cos((49.84 * Math.PI) / 180),
-  );
-  return { ...point, categoryLabel, influence, distance };
+  return { ...point, categoryLabel, influence };
 }
 
 function url(values: Record<string, string>) {
@@ -122,50 +128,144 @@ function message(error: unknown) {
   return error instanceof Error ? error.message : "Помилка запиту";
 }
 
+const SESSION_KEY = "okil.debug.session";
+type DebugSession = { auth: string; expiresAt: number };
+function readSession(): DebugSession | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
+    if (
+      typeof saved?.auth === "string" &&
+      saved.auth.startsWith("Bearer ") &&
+      Number.isFinite(saved.expiresAt) &&
+      saved.expiresAt > Date.now()
+    )
+      return saved;
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* A fresh login also works when browser storage is unavailable. */
+  }
+  return null;
+}
+function storeSession(value: DebugSession | null) {
+  try {
+    if (value) sessionStorage.setItem(SESSION_KEY, JSON.stringify(value));
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* The active session remains usable in this page. */
+  }
+}
 export default function HexDebug() {
-  const [session, setSession] = useState<{
-      auth: string;
-      config: Config;
-    } | null>(null),
-    [error, setError] = useState("");
-  if (session) return <Inspector {...session} />;
+  const [saved] = useState(readSession);
+  const [session, setSession] = useState<
+    (DebugSession & { config: Config }) | null
+  >(null);
+  const [restoring, setRestoring] = useState(!!saved);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!saved) return;
+    const controller = new AbortController();
+    fetcher("/debug/config", {
+      headers: { Authorization: saved.auth },
+      signal: controller.signal,
+    })
+      .then((config) => {
+        if (!controller.signal.aborted && saved.expiresAt > Date.now())
+          setSession({ ...saved, config });
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) {
+          if (err instanceof ApiError && err.status === 401) storeSession(null);
+          setError("Не вдалося відновити сесію. Увійдіть знову.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRestoring(false);
+      });
+    return () => controller.abort();
+  }, [saved]);
+  const expiresAt = session?.expiresAt;
+  useEffect(() => {
+    if (!expiresAt) return;
+    function expire() {
+      if (Date.now() < expiresAt!) return;
+      storeSession(null);
+      setSession(null);
+      setError("Сесія завершилася. Увійдіть знову.");
+    }
+    const timer = setTimeout(expire, Math.max(0, expiresAt - Date.now()));
+    window.addEventListener("focus", expire);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", expire);
+    };
+  }, [expiresAt]);
+  if (session) return <Inspector auth={session.auth} config={session.config} />;
   return (
     <main className="hex-debug login">
       <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const data = new FormData(e.currentTarget);
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (busy) return;
+          setBusy(true);
+          setError("");
+          const data = new FormData(event.currentTarget);
           try {
             const bytes = new TextEncoder().encode(
               data.get("name") + ":" + data.get("password"),
             );
-            const auth =
+            const basic =
               "Basic " +
               btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join(""));
-            const config = await fetcher("/debug/config", {
-              headers: { Authorization: auth },
+            const issued = await fetcher("/debug/session", {
+              method: "POST",
+              headers: { Authorization: basic },
             });
-            setSession({ auth, config });
+            const next = {
+              auth: "Bearer " + issued.token,
+              expiresAt: issued.expires_at * 1000,
+            };
+            const config = await fetcher("/debug/config", {
+              headers: { Authorization: next.auth },
+            });
+            storeSession(next);
+            setSession({ ...next, config });
           } catch (err) {
-            setError(message(err));
+            setError(
+              err instanceof ApiError && err.status === 401
+                ? "Невірний логін або пароль"
+                : err instanceof ApiError && err.status === 429
+                  ? "Забагато невдалих спроб. Спробуйте знову через 15 хвилин."
+                  : message(err),
+            );
+          } finally {
+            setBusy(false);
           }
         }}
       >
-        <h1>Дебагер гексагонів</h1>
-        <label>
-          Логін
-          <input required name="name" autoComplete="username" />
-        </label>
-        <label>
-          Пароль
-          <input
-            required
-            name="password"
-            type="password"
-            autoComplete="current-password"
-          />
-        </label>
-        <button>Увійти</button>
+        <h1>Вхід</h1>
+        {restoring ? (
+          <p role="status" className="debug-login-status">
+            Відновлюємо сесію…
+          </p>
+        ) : (
+          <>
+            <label>
+              Логін
+              <input required name="name" autoComplete="username" />
+            </label>
+            <label>
+              Пароль
+              <input
+                required
+                name="password"
+                type="password"
+                autoComplete="current-password"
+              />
+            </label>
+            <button disabled={busy}>{busy ? "Входимо…" : "Увійти"}</button>
+          </>
+        )}
         {error && <p role="alert">{error}</p>}
       </form>
     </main>
@@ -174,481 +274,646 @@ export default function HexDebug() {
 
 function Inspector({ auth, config }: { auth: string; config: Config }) {
   const initial = new URLSearchParams(location.search).get("hex") || "";
-  const [id, setId] = useState(isValidCell(initial) ? initial : ""),
-    [search, setSearch] = useState(initial);
-  const [visible, setVisible] = useState<string[]>([]),
-    [mode, setMode] = useState<keyof typeof labels>("stored");
-  const [draft, setDraft] = useState<Weights>(empty),
-    [run, setRun] = useState<{ ids: string[]; weights: Weights } | null>(null);
-  const [tab, setTab] = useState("Точки"),
-    [offset, setOffset] = useState(0),
-    [where, setWhere] = useState(""),
-    [used, setUsed] = useState("");
+  const [id, setId] = useState(isValidCell(initial) ? initial : "");
+  const [viewOpen, setViewOpen] = useState(false);
+  const [weightsOpen, setWeightsOpen] = useState(false);
+  const [draft, setDraft] = useState(defaultTogglers);
+  const [applied, setApplied] = useState(defaultTogglers);
+  const weights = useMemo(() => buildAssessmentWeights(applied), [applied]);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(applied);
+  const weightedRatings = useQuery<Cell[]>({
+    queryKey: ["debug-weighted-map", weights],
+    queryFn: ({ signal }) =>
+      fetcher("/hexagons" + weightsSearch(weights), {
+        headers: { Authorization: auth },
+        signal,
+      }),
+  });
   const [category, setCategory] = useState("");
-  const [showAllPoints, setShowAllPoints] = useState(false);
-  const [focus, setFocus] = useState<Dot | null>(null),
-    [error, setError] = useState("");
+  const [pointType, setPointType] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const [used, setUsed] = useState("true");
+  const [tab, setTab] = useState("Точки");
+  const [expandedCategory, setExpandedCategory] = useState<{
+    hex: string;
+    category: string;
+  } | null>(null);
+  function toggleCategory(category: string) {
+    setExpandedCategory((current) =>
+      current?.hex === id && current.category === category
+        ? null
+        : { hex: id, category },
+    );
+  }
+  const [focus, setFocus] = useState<Dot | null>(null);
   const headers = { Authorization: auth };
   const cells = useQuery<Cell[]>({
     queryKey: ["debug-cells-category-scores"],
     queryFn: ({ signal }) => fetcher("/debug/ratings", { headers, signal }),
   });
   const details = useQuery<Detail>({
-    queryKey: ["debug-detail", id, run?.weights],
+    queryKey: ["debug-detail", id, weights],
     enabled: !!id,
-    queryFn: async ({ signal }) =>
-      run
-        ? (
-            await fetcher("/debug/recalculate", {
-              method: "POST",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ ids: [id], selected: id, ...run.weights }),
-              signal,
-            })
-          )[0]
-        : fetcher("/debug/hexagons/" + id, { headers, signal }),
-  });
-  const points = useQuery<{ rows: Point[]; total: number }>({
-    queryKey: ["debug-points", id, offset, where, used, category],
-    enabled: !!id,
-    queryFn: ({ signal }) =>
-      fetcher(
-        `/debug/hexagons/${id}/points?offset=${offset}${where ? "&location=" + where : ""}${used ? "&used=" + used : ""}${category ? "&category=" + encodeURIComponent(category) : ""}`,
-        { headers, signal },
-      ),
-  });
-  const results = useQuery<Detail[]>({
-    queryKey: ["debug-area", run],
-    enabled: !!run,
-    retry: false,
     queryFn: async ({ signal }) => {
-      const rows: Detail[] = [];
-      for (let i = 0; run && i < run.ids.length; i += config.batch_limit) {
-        rows.push(
-          ...(await fetcher("/debug/recalculate", {
-            method: "POST",
-            headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ids: run.ids.slice(i, i + config.batch_limit),
-              ...run.weights,
-            }),
-            signal,
-          })),
-        );
-      }
-      return rows;
-    },
-  });
-  const areaPoints = useQuery<Point[]>({
-    queryKey: ["debug-all-points", visible, category],
-    enabled: showAllPoints && visible.length > 0,
-    retry: false,
-    queryFn: async ({ signal }) => {
-      const rows: Point[] = [];
-      for (let index = 0; index < visible.length; index += config.batch_limit) {
-        const page = await fetcher("/debug/points", {
+      const categories = Object.fromEntries(
+        Object.entries(weights).map(([key, value]) => [
+          key.replace("weight_", ""),
+          value,
+        ]),
+      );
+      const result = (
+        await fetcher("/debug/recalculate", {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ids: visible.slice(index, index + config.batch_limit),
-            category: category || null,
-          }),
+          body: JSON.stringify({ ids: [id], selected: id, categories }),
           signal,
-        });
-        rows.push(
-          ...page.rows.map((point: Point) => ({
-            ...point,
-            inside: point.h3_id === id,
-          })),
+        })
+      )[0] as Detail;
+      return {
+        ...result,
+        fresh: result.experiment,
+        categories: {
+          ...result.categories,
+          fresh: result.categories.experiment,
+        },
+      };
+    },
+  });
+  const points = useQuery<Point[]>({
+    queryKey: ["debug-selected-points", id],
+    enabled: !!id,
+    queryFn: async ({ signal }) => {
+      const rows: Point[] = [];
+      let total = 1;
+      while (rows.length < total) {
+        const page = await fetcher(
+          `/debug/hexagons/${id}/points?offset=${rows.length}&limit=200`,
+          { headers, signal },
         );
+        rows.push(...page.rows);
+        total = page.total;
+        if (!page.rows.length) break;
       }
       return rows;
     },
   });
+  const allPoints = useQuery<Point[]>({
+    queryKey: ["debug-global-points", category, pointType],
+    enabled: showAll,
+    queryFn: async ({ signal }) => {
+      const rows: Point[] = [];
+      let offset: number | null = 0;
+      while (offset !== null) {
+        const query = new URLSearchParams({
+          offset: String(offset),
+          limit: "1000",
+        });
+        if (category) query.set("category", category);
+        if (pointType) query.set("type", pointType);
+        const page = await fetcher("/debug/points?" + query, {
+          headers,
+          signal,
+        });
+        rows.push(...page.rows);
+        offset = page.next_offset ?? null;
+      }
+      return rows;
+    },
+  });
+  function selectPoint(point: Dot) {
+    select(coordsToH3(point.lat, point.lon));
+    setFocus(point);
+    setTab("Точки");
+    setUsed("");
+    setWeightsOpen(false);
+  }
   function select(value: string) {
-    if (!isValidCell(value)) {
-      setError("Некоректний H3 ID");
-      return;
-    }
-    setError("");
     setId(value);
-    setSearch(value);
-    setOffset(0);
     setFocus(null);
     url({ hex: value });
   }
-  function view(ids: string[], cam: Camera) {
-    setVisible(ids);
+  function view(_ids: string[], cam: Camera) {
     url({ view: cam.map((n) => n.toFixed(5)).join(",") });
   }
-  const scores: Record<string, number> = {};
-  if (mode === "stored") {
-    for (const c of cells.data || []) {
-      const value = category ? c.category_scores?.[category] : c.overall_rating;
-      if (value !== undefined) scores[c.h3_id] = value;
-    }
-  } else {
-    for (const c of results.data || []) {
-      const fresh = category ? c.category_scores?.fresh[category] : c.fresh;
-      const experiment = category
-        ? c.category_scores?.experiment[category]
-        : c.experiment;
-      const value =
-        mode === "difference"
-          ? fresh !== undefined && experiment !== undefined
-            ? experiment - fresh
-            : undefined
-          : mode === "fresh"
-            ? fresh
-            : experiment;
-      if (value !== undefined) scores[c.h3_id] = value;
-    }
-  }
-  const d = details.data;
-  const mapPoints = useMemo(
-    () => (points.data?.rows || []).map((p) => describePoint(p, d)),
-    [points.data, d],
-  );
-  const allDots = useMemo(
+  const weightedScoreIndex = useMemo(
     () =>
-      (areaPoints.data || []).map((p) => ({
-        ...p,
-        categoryLabel: categoryLabels[p.category] || p.category,
-        influence: "Оберіть точку, щоб перевірити її вплив у її гексагоні.",
+      new Map(
+        (weightedRatings.data || []).map((cell) => [
+          cell.h3_id,
+          cell.overall_rating,
+        ]),
+      ),
+    [weightedRatings.data],
+  );
+  const scores = useMemo(
+    () =>
+      Object.fromEntries(
+        (cells.data || [])
+          .map((cell) => [
+            cell.h3_id,
+            category
+              ? cell.category_scores?.[category]
+              : (weightedScoreIndex.get(cell.h3_id) ?? cell.overall_rating),
+          ])
+          .filter((entry): entry is [string, number] => entry[1] !== undefined),
+      ),
+    [cells.data, category, weightedScoreIndex],
+  );
+  const mapPoints = useMemo(
+    () =>
+      (points.data || [])
+        .filter(
+          (point) =>
+            (!category || point.category === category) &&
+            (!pointType || point.type === pointType) &&
+            (!used || String(point.used) === used),
+        )
+        .map((point) => describePoint(point, details.data)),
+    [points.data, category, pointType, used, details.data],
+  );
+  const globalDots = useMemo(
+    () =>
+      (allPoints.data || []).map((point) => ({
+        ...point,
+        categoryLabel: categoryLabels[point.category] || point.category,
+        influence:
+          "Натисніть POI, щоб перевірити його вплив на оцінку гексагона.",
       })),
-    [areaPoints.data],
+    [allPoints.data],
   );
   const focusedPoint = useMemo(
-    () => (focus ? describePoint(focus as Point, d) : null),
-    [focus, d],
+    () => (focus ? describePoint(focus as Point, details.data) : null),
+    [focus, details.data],
   );
+  const d = details.data;
   return (
-    <main className="hex-debug">
-      <header>
-        <strong>Okil / Дебагер</strong>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            select(search.trim());
-          }}
-        >
-          <input
-            aria-label="H3 ID"
-            placeholder="H3 ID"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button>Знайти</button>
-        </form>
-        <AddressSearch
-          onLocationChange={(p) => {
-            if (p) select(coordsToH3(p.lat, p.lng));
-          }}
-        />
-        <select
-          aria-label="Забарвлення"
-          value={mode}
-          onChange={(e) => setMode(e.target.value as typeof mode)}
-        >
-          {Object.entries(labels).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
+    <main
+      className={`hex-debug ${viewOpen || weightsOpen ? "debug-view-open" : ""}`}
+    >
+      <header className="debug-header">
         <button
-          disabled={!visible.length}
+          className="debug-toolbar-button"
+          aria-expanded={viewOpen}
           onClick={() => {
-            setRun({ ids: visible, weights: draft });
-            setMode("experiment");
+            setViewOpen(!viewOpen);
+            setWeightsOpen(false);
           }}
         >
-          Перерахувати ({visible.length})
+          <Squares2X2Icon />
+          Вигляд
         </button>
-        <button
-          onClick={() => {
-            setDraft(empty);
-            setRun(null);
-            setMode("stored");
-          }}
-        >
-          Скинути ваги
-        </button>
-        <ScoringGuide config={config} />
-        <button
-          aria-pressed={showAllPoints}
-          onClick={() => {
-            setShowAllPoints(!showAllPoints);
-            setFocus(null);
-          }}
-        >
-          {showAllPoints ? "Точки вибраного гексагона" : "Усі точки на мапі"}
-        </button>
-        <select
-          aria-label="Категорія точок"
-          value={category}
-          onChange={(event) => {
-            setCategory(event.target.value);
-            setOffset(0);
-            setFocus(null);
-          }}
-        >
-          <option value="">Усі категорії</option>
-          {config.categories.map((name) => (
-            <option key={name} value={name}>
-              {categoryLabels[name] || name}
-            </option>
-          ))}
-        </select>
-      </header>
-      <section>
-        <DebugMap
-          cells={cells.data || noCells}
-          scores={scores}
-          difference={mode === "difference"}
-          selected={id}
-          dots={showAllPoints ? allDots : mapPoints}
-          focus={focusedPoint}
-          onPointSelect={(point) => {
-            const p = point as Point;
-            if (showAllPoints && p.h3_id !== id) select(p.h3_id);
-            setFocus(p);
-          }}
+        <DebugSearch
           onSelect={select}
-          onView={view}
+          auth={auth}
+          onPointSelect={(point) => {
+            setShowAll(false);
+            setCategory("");
+            setPointType("");
+            selectPoint(point);
+          }}
         />
-        <aside>
-          {showAllPoints && (
-            <p role="status">
-              {areaPoints.isFetching
-                ? "Завантаження точок видимих гексагонів…"
-                : `На мапі ${allDots.length} точок видимих гексагонів. Клікніть точку, щоб відкрити її гексагон.`}
-            </p>
-          )}
-          {showAllPoints && areaPoints.error && (
-            <p role="alert">{message(areaPoints.error)}</p>
-          )}
-          <small>
-            {category
-              ? `${categoryLabels[category] || category} · `
-              : "Загальна оцінка · "}
-            {mode === "difference"
-              ? "Експеримент − свіже · зелений + / червоний −"
-              : "Оцінка 0–100 · червоний → зелений"}{" "}
-            · сірий: немає результату
-          </small>
-          {results.isFetching && (
-            <p role="status">Перерахунок видимої області…</p>
-          )}
-          {mode !== "stored" &&
-            (!run || visible.some((x) => !run.ids.includes(x))) && (
-              <p>Для цієї області потрібен перерахунок.</p>
-            )}
-          {(error ||
-            cells.error ||
-            details.error ||
-            points.error ||
-            results.error) && (
-            <p role="alert">
-              {error ||
-                message(
-                  cells.error || details.error || points.error || results.error,
-                )}
-            </p>
-          )}
-          <h2>{id || "Виберіть гексагон"}</h2>
-          {d && (
-            <div className="debug-ratings">
-              {(["stored", "fresh", "experiment"] as const).map((k) => (
-                <div key={k}>
-                  {labels[k]}
-                  <b>{d[k]}</b>
-                </div>
-              ))}
-            </div>
-          )}
-          <nav>
-            {["Розрахунок", "Точки", "Ваги"].map((t) => (
-              <button
-                key={t}
-                aria-pressed={tab === t}
-                onClick={() => setTab(t)}
-              >
-                {t}
-              </button>
-            ))}
-          </nav>
-          {tab === "Розрахунок" && d && (
-            <>
-              <p>
-                Загальна оцінка = добуток балів активних категорій у степенях
-                їхніх нормалізованих ваг.
-              </p>
-              {d.categories.experiment.map((c, i) => (
-                <details key={c.category}>
-                  <summary>
-                    {categoryLabels[c.category] || c.category} ·{" "}
-                    {d.categories.stored[i].score} →{" "}
-                    {d.categories.fresh[i].score} → {c.score}
-                  </summary>
-                  <p>
-                    Вага {c.weight} · множник {c.adjusted_score ?? "вимкнено"}
-                  </p>
-                  {d.steps
-                    .filter((s) => s.category === c.category)
-                    .map((s) => (
-                      <article key={s.type}>
-                        <b>{s.type}</b>
-                        <p>Радіуси {s.radii.join(" / ")} м</p>
-                        <p>
-                          {s.score.toFixed(2)} × {s.weight.toFixed(3)} ={" "}
-                          {s.contribution.toFixed(2)}
-                        </p>
-                        {s.used.map((p) => (
-                          <div key={p.id}>
-                            #{p.id} · {p.distance.toFixed(0)} м{" "}
-                            {p.routes && " · маршрути " + p.routes.join(", ")}{" "}
-                            {p.weight !== undefined &&
-                              " · вага " + p.weight.toFixed(3)}
-                          </div>
-                        ))}
-                        {s.destinations && (
-                          <details>
-                            <summary>
-                              Транспорт · коефіцієнт {s.penalty} · бал мережі{" "}
-                              {s.network_score?.toFixed(2)}
-                            </summary>
-                            {Object.entries(s.destinations).map(([key, w]) => (
-                              <div key={key}>
-                                Зупинка #{key} · {w.toFixed(3)}
-                              </div>
-                            ))}
-                          </details>
-                        )}
-                      </article>
-                    ))}
-                </details>
-              ))}
-            </>
-          )}
-          {tab === "Точки" && (
-            <>
-              <select
-                aria-label="Розташування"
-                value={where}
-                onChange={(e) => {
-                  setWhere(e.target.value);
-                  setOffset(0);
-                }}
-              >
-                <option value="">Усі розташування</option>
-                <option value="inside">Внутрішні</option>
-                <option value="outside">Зовнішні</option>
-              </select>
-              <select
-                aria-label="Участь"
-                value={used}
-                onChange={(e) => {
-                  setUsed(e.target.value);
-                  setOffset(0);
-                }}
-              >
-                <option value="">Усі точки</option>
-                <option value="true">Враховані</option>
-                <option value="false">Невраховані</option>
-              </select>
-              {Array.from(new Set(mapPoints.map((p) => p.category))).map(
-                (name) => (
-                  <details
-                    className="debug-point-group"
-                    key={name || "unknown"}
-                    open
-                  >
-                    <summary>
-                      {categoryLabels[name] || name || "Без категорії"}
-                    </summary>
-                    {mapPoints
-                      .filter((p) => p.category === name)
-                      .map((p) => (
-                        <article key={p.kind + p.id}>
-                          <button onClick={() => setFocus({ ...p })}>
-                            {p.name || p.type}
-                          </button>
-                          <p>
-                            {p.categoryLabel} · {p.distance.toFixed(0)} м
-                          </p>
-                          <p className="debug-point-influence">{p.influence}</p>
-                          <details>
-                            <summary>Технічні деталі</summary>
-                            <p>
-                              {p.type} / {p.category} · {p.source} #
-                              {p.external_id}
-                            </p>
-                            <p>
-                              {p.lat}, {p.lon} · {p.distance.toFixed(0)} м ·{" "}
-                              {p.inside ? "внутрішня" : "зовнішня"}
-                            </p>
-                            <p>
-                              {p.h3_id}{" "}
-                              {p.mismatch &&
-                                "⚠ H3 не збігається з координатами"}
-                            </p>
-                            <p>
-                              {p.used ? "Врахована" : "Не вибрана формулою"} ·
-                              базова вага {p.weight.toFixed(3)} · внесок{" "}
-                              {p.contribution?.toFixed(2) ??
-                                (p.used ? "у транспортну мережу" : "0")}
-                            </p>
-                          </details>
-                        </article>
-                      ))}
-                  </details>
+        <button
+          className="debug-priorities debug-toolbar-button"
+          aria-expanded={weightsOpen}
+          onClick={() => {
+            setWeightsOpen(!weightsOpen);
+            setViewOpen(false);
+          }}
+        >
+          <SlidersHorizontal aria-hidden="true" />
+          Пріоритети
+        </button>
+      </header>
+      <section className="debug-workspace">
+        <div className="debug-map-area">
+          <DebugMap
+            cells={cells.data || noCells}
+            scores={scores}
+            difference={false}
+            selected={id}
+            dots={showAll ? globalDots : mapPoints}
+            focus={focusedPoint}
+            onPointSelect={showAll ? selectPoint : setFocus}
+            onSelect={select}
+            onView={view}
+          />
+        </div>
+        {viewOpen && (
+          <DebugView
+            categories={config.categories.map((name) => [
+              name,
+              categoryLabels[name] || name,
+            ])}
+            types={config.types.filter(
+              (type) =>
+                !category ||
+                config.point_types?.some(
+                  (point) => point.type === type && point.category === category,
                 ),
-              )}
-              {points.data?.total === 0 && (
-                <p>За цими фільтрами точок немає.</p>
-              )}
-              <button
-                disabled={!offset}
-                onClick={() => setOffset(offset - 100)}
-              >
-                Назад
-              </button>{" "}
-              {offset} / {points.data?.total ?? 0}{" "}
-              <button
-                disabled={offset + 100 >= (points.data?.total ?? 0)}
-                onClick={() => setOffset(offset + 100)}
-              >
-                Далі
-              </button>
-            </>
-          )}
-          {tab === "Ваги" &&
-            (["categories", "types"] as const).map((key) => (
-              <fieldset key={key}>
-                <legend>{key === "types" ? "Типи" : "Категорії"}</legend>
-                {config[key].map((name) => (
-                  <label key={name}>
-                    {name}
-                    <input
-                      type="number"
-                      min="0"
-                      max="5"
-                      step="0.1"
-                      value={draft[key][name] ?? 1}
-                      onChange={(e) => {
-                        const n = e.target.valueAsNumber;
-                        if (Number.isFinite(n) && n >= 0 && n <= 5)
-                          setDraft({
-                            ...draft,
-                            [key]: { ...draft[key], [name]: n },
-                          });
+            )}
+            category={category}
+            pointType={pointType}
+            showAll={showAll}
+            loading={allPoints.isFetching}
+            count={globalDots.length}
+            error={allPoints.error ? message(allPoints.error) : ""}
+            onCategory={(value) => {
+              setCategory(value);
+              setPointType("");
+              setFocus(null);
+            }}
+            onType={(value) => {
+              setPointType(value);
+              setFocus(null);
+            }}
+            onAll={(value) => {
+              setShowAll(value);
+              setFocus(null);
+            }}
+            onClose={() => setViewOpen(false)}
+          />
+        )}
+
+        {weightsOpen && (
+          <aside
+            className="debug-inspector showing-weights weights-panel"
+            aria-label="Персональна оцінка"
+          >
+            <div className="panel-deck">
+              <div className="panel-face weights-face">
+                <div className="panel-heading">
+                  <div>
+                    <p className="debug-eyebrow">Персональна оцінка</p>
+                    <h1>Що для вас важливо</h1>
+                  </div>
+                  <button
+                    aria-label="Закрити налаштування"
+                    onClick={() => setWeightsOpen(false)}
+                  >
+                    <XMarkIcon />
+                  </button>
+                </div>
+                <p className="panel-intro">
+                  Змініть важливість категорій. Карта оновиться після
+                  застосування.
+                </p>
+                <div className="weights-list">
+                  {weightLabels.map(([, title], index) => {
+                    const key = togglerIds[index];
+                    return (
+                      <TogglerCard
+                        key={key}
+                        id={key}
+                        title={title}
+                        description={
+                          [
+                            "Зупинки та транспорт",
+                            "Повсякденні послуги",
+                            "Медична інфраструктура",
+                            "Навчальні заклади",
+                            "Місця для відпочинку",
+                            "Спортивна інфраструктура",
+                            "Заклади харчування",
+                            "Завжди враховується",
+                          ][index]
+                        }
+                        locked={lockedTogglerIds.has(key)}
+                        {...draft[key]}
+                        onValueChange={(value) =>
+                          setDraft((current) => ({
+                            ...current,
+                            [key]: { ...current[key], value },
+                          }))
+                        }
+                        onOnChange={(on) =>
+                          setDraft((current) => ({
+                            ...current,
+                            [key]: { ...current[key], on },
+                          }))
+                        }
+                      />
+                    );
+                  })}
+                </div>
+                <div className="panel-actions">
+                  <p role="status">
+                    {dirty ? "Є незастосовані зміни" : "Пріоритети застосовано"}
+                  </p>
+                  <div>
+                    <button
+                      onClick={() => {
+                        setDraft(defaultTogglers());
+                        setApplied(defaultTogglers());
                       }}
-                    />
-                  </label>
-                ))}
-              </fieldset>
-            ))}
+                    >
+                      Скинути
+                    </button>
+                    <button
+                      className="primary-button"
+                      onClick={() => {
+                        setApplied(draft);
+                        setWeightsOpen(false);
+                      }}
+                    >
+                      Застосувати
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        )}
+        <aside className="debug-inspector" aria-label="Оцінка гексагону">
+          <>
+            {!id ? (
+              <div className="debug-empty">
+                <h1>Що впливає на оцінку?</h1>
+                <p>
+                  Натисніть на гексагон або знайдіть адресу, щоб побачити
+                  враховані POI та їхній внесок.
+                </p>
+              </div>
+            ) : (
+              <>
+                <header className="debug-assessment-heading">
+                  <SparklesIcon aria-hidden="true" />
+                  <h1>Оцінка гексагону</h1>
+                </header>
+                <div className="debug-selection" title={id}>
+                  <span>H3</span>
+                  <code>{id}</code>
+                  {points.data && (
+                    <span
+                      className="debug-poi-count"
+                      title="POI за обраними фільтрами"
+                    >
+                      {mapPoints.length} POI
+                    </span>
+                  )}
+                </div>
+                <div className="debug-score-toolbar">
+                  {details.isPending || details.isFetching ? (
+                    <div
+                      className="debug-score-skeleton"
+                      role="status"
+                      aria-label="Завантаження оцінки"
+                    >
+                      <Skeleton className="debug-skeleton-number" />
+                      <div>
+                        <Skeleton className="debug-skeleton-caption" />
+                        <Skeleton className="debug-skeleton-caption short" />
+                      </div>
+                    </div>
+                  ) : d ? (
+                    <div className="debug-score" aria-label="Індекс комфорту">
+                      <strong>{d.fresh}</strong>
+                      <span>
+                        Індекс
+                        <br />
+                        комфорту
+                        <br />
+                        зі 100
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="debug-score">
+                      <strong>—</strong>
+                    </div>
+                  )}
+                  <div className="debug-score-controls">
+                    <nav aria-label="Деталі гексагона">
+                      {[
+                        { name: "Точки", title: "Точки", icon: MapPinIcon },
+                        {
+                          name: "Розрахунок",
+                          title: "Бали",
+                          icon: CalculatorIcon,
+                        },
+                      ].map(({ name, title, icon: Icon }) => (
+                        <button
+                          key={name}
+                          aria-label={name}
+                          title={name}
+                          aria-pressed={tab === name}
+                          onClick={() => setTab(name)}
+                        >
+                          <Icon />
+                          {title}
+                        </button>
+                      ))}
+                    </nav>
+                    {tab === "Точки" && (
+                      <div
+                        className="debug-participation"
+                        role="group"
+                        aria-label="Участь у розрахунку"
+                      >
+                        {[
+                          {
+                            value: "true",
+                            title: "Враховані",
+                            icon: CheckCircleIcon,
+                          },
+                          { value: "", title: "Усі", icon: Squares2X2Icon },
+                          {
+                            value: "false",
+                            title: "Невраховані",
+                            icon: MinusCircleIcon,
+                          },
+                        ].map(({ value, title, icon: Icon }) => (
+                          <button
+                            key={value}
+                            title={title}
+                            aria-label={title}
+                            aria-pressed={used === value}
+                            onClick={() => {
+                              setUsed(value);
+                              setFocus(null);
+                            }}
+                          >
+                            <Icon />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {tab === "Розрахунок" && (
+                      <ScoringGuide config={config} compact />
+                    )}
+                  </div>
+                </div>
+                {(tab === "Точки" ? points.isFetching : details.isFetching) ? (
+                  <div
+                    className="debug-list-skeleton"
+                    role="status"
+                    aria-label={
+                      tab === "Точки"
+                        ? "Завантаження POI"
+                        : "Завантаження розрахунку"
+                    }
+                  >
+                    {[0, 1, 2].map((index) => (
+                      <div key={index}>
+                        <Skeleton className="debug-skeleton-title" />
+                        <Skeleton className="debug-skeleton-line" />
+                        <Skeleton className="debug-skeleton-line short" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  tab === "Точки" && (
+                    <>
+                      {Array.from(
+                        new Set(mapPoints.map((point) => point.category)),
+                      ).map((name) => (
+                        <DebugAccordion
+                          key={name || "unknown"}
+                          className="debug-point-group"
+                          title={categoryLabels[name] || "Без категорії"}
+                          value={
+                            mapPoints.filter((point) => point.category === name)
+                              .length
+                          }
+                          open={
+                            expandedCategory?.hex === id &&
+                            expandedCategory.category === name
+                          }
+                          onToggle={() => toggleCategory(name)}
+                        >
+                          {mapPoints
+                            .filter((point) => point.category === name)
+                            .map((point) => (
+                              <article
+                                key={point.kind + point.id}
+                                className={
+                                  focus?.kind === point.kind &&
+                                  focus.id === point.id
+                                    ? "is-focused"
+                                    : ""
+                                }
+                              >
+                                <button onClick={() => setFocus(point)}>
+                                  {point.name || point.type}
+                                </button>
+                                <p>
+                                  {point.distance.toFixed(0)} м від центра ·{" "}
+                                  {point.inside
+                                    ? "у гексагоні"
+                                    : "поруч із гексагоном"}
+                                </p>
+                                <p className="debug-point-influence">
+                                  {point.influence}
+                                </p>
+                                <details>
+                                  <summary>Дані POI</summary>
+                                  <p>
+                                    ID {point.id} · {point.type} ·{" "}
+                                    {point.source} #{point.external_id}
+                                  </p>
+                                  <p>
+                                    {point.lat}, {point.lon}
+                                  </p>
+                                  <p>
+                                    {point.h3_id}
+                                    {point.mismatch &&
+                                      " · H3 не збігається з координатами"}
+                                  </p>
+                                </details>
+                              </article>
+                            ))}
+                        </DebugAccordion>
+                      ))}
+                      {points.data && !mapPoints.length && (
+                        <p>За цими фільтрами POI немає.</p>
+                      )}
+                    </>
+                  )
+                )}
+                {tab === "Розрахунок" && d && !details.isFetching && (
+                  <>
+                    {d.categories.fresh
+                      .filter((c) => !category || c.category === category)
+                      .map((c) => (
+                        <DebugAccordion
+                          key={c.category}
+                          className="debug-score-group"
+                          title={categoryLabels[c.category] || c.category}
+                          value={Number(c.score.toFixed(2))}
+                          score={c.score}
+                          open={
+                            expandedCategory?.hex === id &&
+                            expandedCategory.category === c.category
+                          }
+                          onToggle={() => toggleCategory(c.category)}
+                        >
+                          {d.steps
+                            .filter((step) => step.category === c.category)
+                            .map((step) => (
+                              <article key={step.type}>
+                                <b>{step.type}</b>
+                                <p className="debug-point-influence">
+                                  Внесок у категорію —{" "}
+                                  {step.contribution.toFixed(2)} бала.
+                                </p>
+                                <dl className="debug-step-values">
+                                  <div>
+                                    <dt>Бал типу</dt>
+                                    <dd>{step.score.toFixed(2)}</dd>
+                                  </div>
+                                  <div>
+                                    <dt>Вага типу</dt>
+                                    <dd>{step.weight.toFixed(3)}</dd>
+                                  </div>
+                                  <div>
+                                    <dt>Радіуси, м</dt>
+                                    <dd>{step.radii.join(" / ")}</dd>
+                                  </div>
+                                </dl>
+                                {step.used.map((point) => (
+                                  <p key={point.id}>
+                                    POI #{point.id} ·{" "}
+                                    {point.distance.toFixed(0)} м
+                                    {point.routes &&
+                                      " · маршрути " + point.routes.join(", ")}
+                                  </p>
+                                ))}
+                                {step.destinations && (
+                                  <details>
+                                    <summary>Транспортна мережа</summary>
+                                    <p>
+                                      Коефіцієнт {step.penalty} · бал мережі{" "}
+                                      {step.network_score?.toFixed(2)}
+                                    </p>
+                                    {Object.entries(step.destinations).map(
+                                      ([key, weight]) => (
+                                        <p key={key}>
+                                          Зупинка #{key} · {weight.toFixed(3)}
+                                        </p>
+                                      ),
+                                    )}
+                                  </details>
+                                )}
+                              </article>
+                            ))}
+                        </DebugAccordion>
+                      ))}
+                  </>
+                )}
+              </>
+            )}
+            {(cells.error ||
+              details.error ||
+              points.error ||
+              weightedRatings.error) && (
+              <p role="alert">
+                {message(
+                  cells.error ||
+                    details.error ||
+                    points.error ||
+                    weightedRatings.error,
+                )}
+              </p>
+            )}
+          </>
         </aside>
       </section>
     </main>

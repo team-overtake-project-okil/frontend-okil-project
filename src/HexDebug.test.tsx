@@ -1,84 +1,84 @@
 // @vitest-environment jsdom
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  cleanup,
-} from "@testing-library/react";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 import HexDebug from "./HexDebug";
 import { fetcher } from "./lib/fetcher";
 import type { Dot } from "./DebugMap";
+vi.stubGlobal("PointerEvent", MouseEvent);
+vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 vi.mock("./lib/fetcher", () => ({ fetcher: vi.fn() }));
-vi.mock("./components/AddressSearch", () => ({ AddressSearch: () => null }));
 vi.mock("./DebugMap", () => ({
   default: ({
-    onView,
     dots,
-    onPointSelect,
-    focus,
-    scores,
+    onSelect,
   }: {
-    onView: (ids: string[], camera: number[]) => void;
     dots: Dot[];
-    onPointSelect: (point: Dot) => void;
-    focus: Dot | null;
-    scores: Record<string, number>;
+    onSelect: (id: string) => void;
   }) => (
-    <>
-      <output aria-label="Бали гексагонів">{JSON.stringify(scores)}</output>
-      <button onClick={() => onView(["8928308280bffff"], [24, 49, 13])}>
-        Видима область
+    <div>
+      <button onClick={() => onSelect("891e768b2afffff")}>
+        Обрати гексагон
       </button>
       {dots.map((p) => (
-        <button key={p.id} onClick={() => onPointSelect(p)}>
-          Маркер {p.name}
-        </button>
+        <span key={p.id}>Маркер {p.name}</span>
       ))}
-      {focus && (
-        <div role="dialog">
-          {focus.name} · {focus.categoryLabel} · {focus.influence}
-        </div>
-      )}
-    </>
+    </div>
   ),
 }));
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
   vi.clearAllMocks();
   history.replaceState(null, "", "/");
 });
-it("loads all visible hexagon points and reloads them when the category changes", async () => {
-  vi.mocked(fetcher).mockImplementation(async (path, init) => {
+it("shows contributing POIs from every page and filters the map and list together", async () => {
+  const point = (id: number, used = true) => ({
+    id,
+    used,
+    name: `POI ${id}`,
+    kind: "poi",
+    category: "health",
+    type: "hospital",
+    distance: 40,
+    inside: false,
+    weight: 1,
+    lat: 49.84,
+    lon: 24.03,
+  });
+  vi.mocked(fetcher).mockImplementation(async (path) => {
+    if (path === "/debug/session")
+      return { token: "test-token", expires_at: Date.now() / 1000 + 900 };
     if (path === "/debug/config")
       return { types: [], categories: ["health"], batch_limit: 200 };
-    if (path === "/debug/ratings")
-      return [
-        {
-          h3_id: "8928308280bffff",
-          overall_rating: 75,
-          category_scores: { health: 0 },
-        },
-      ];
-    if (path === "/debug/points") {
-      const category = JSON.parse(init?.body as string).category;
-      return {
-        rows: [
-          {
-            id: 1,
-            kind: "poi",
-            name: category ? "Лише здоров’я" : "Усі об’єкти",
-            category: "health",
-            lat: 49,
-            lon: 24,
-            h3_id: "8928308280bffff",
-          },
-        ],
-      };
+    if (String(path).startsWith("/hexagons?") || path === "/debug/ratings")
+      return [{ h3_id: "891e768b2afffff", overall_rating: 50 }];
+    if (
+      String(path).includes("/hexagons/") &&
+      String(path).includes("/points?offset=0")
+    )
+      return { rows: [point(1), point(2, false)], total: 3 };
+    if (
+      String(path).includes("/hexagons/") &&
+      String(path).includes("/points?offset=2")
+    )
+      return { rows: [point(3)], total: 3 };
+    if (String(path).startsWith("/debug/points?")) {
+      const query = new URLSearchParams(String(path).split("?")[1]);
+      return query.get("offset") === "0"
+        ? { rows: [point(4)], next_offset: 1 }
+        : { rows: [point(5)], next_offset: null };
     }
-    return [];
+    return [
+      {
+        experiment: 55,
+        h3_id: "891e768b2afffff",
+        stored: 50,
+        fresh: 55,
+        categories: { fresh: [], stored: [], experiment: [] },
+        steps: [],
+      },
+    ];
   });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -89,158 +89,41 @@ it("loads all visible hexagon points and reloads them when the category changes"
     </QueryClientProvider>,
   );
   fireEvent.change(screen.getByLabelText("Логін"), {
-    target: { value: "team" },
+    target: { value: "admin" },
   });
   fireEvent.change(screen.getByLabelText("Пароль"), {
-    target: { value: "example" },
+    target: { value: "test" },
   });
   fireEvent.click(screen.getByText("Увійти"));
-  fireEvent.click(await screen.findByText("Видима область"));
-  fireEvent.click(screen.getByRole("button", { name: "Усі точки на мапі" }));
-  expect(await screen.findByText("Маркер Усі об’єкти")).toBeDefined();
-  expect(screen.getByLabelText("Бали гексагонів").textContent).toContain(
-    '"8928308280bffff":75',
-  );
-  fireEvent.change(screen.getByLabelText("Категорія точок"), {
-    target: { value: "health" },
-  });
-  expect(await screen.findByText("Маркер Лише здоров’я")).toBeDefined();
-  expect(screen.getByLabelText("Бали гексагонів").textContent).toContain(
-    '"8928308280bffff":0',
-  );
+  fireEvent.click(await screen.findByText("Обрати гексагон"));
+  expect(await screen.findByText("Маркер POI 3")).toBeDefined();
+  expect(screen.getByText("Маркер POI 1")).toBeDefined();
+  expect(screen.queryByText("Маркер POI 2")).toBeNull();
+  expect(screen.queryByText("Експеримент")).toBeNull();
+  expect(screen.queryByText("Ваги")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Невраховані" }));
+  expect(await screen.findByText("Маркер POI 2")).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: /^Здоров’я/ }));
+  expect(screen.getByRole("button", { name: "POI 2" })).toBeDefined();
+  expect(screen.queryByText("Маркер POI 1")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Пріоритети" }));
   expect(
-    vi
-      .mocked(fetcher)
-      .mock.calls.filter(([path]) => path === "/debug/points")
-      .map(([, init]) => JSON.parse(init?.body as string)),
-  ).toEqual([
-    { ids: ["8928308280bffff"], category: null },
-    { ids: ["8928308280bffff"], category: "health" },
-  ]);
-  fireEvent.click(
-    screen.getByRole("button", { name: "Точки вибраного гексагона" }),
-  );
-  expect(screen.queryByText("Маркер Лише здоров’я")).toBeNull();
-  client.clear();
-});
-it("opens a named point with its category contribution from a map marker", async () => {
-  history.replaceState(null, "", "/?hex=8928308280bffff");
-  vi.mocked(fetcher).mockImplementation(async (path) => {
-    if (path === "/debug/config")
-      return { types: [], categories: [], batch_limit: 200 };
-    if (path.includes("/points?"))
-      return {
-        rows: [
-          {
-            id: 1,
-            kind: "poi",
-            name: "Аптека",
-            type: "pharmacy",
-            category: "health",
-            lat: 49,
-            lon: 24,
-            distance: 100,
-            weight: 0.5,
-            contribution: 50,
-            used: true,
-            source: "test",
-            external_id: "1",
-            h3_id: "8928308280bffff",
-            mismatch: false,
-            inside: true,
-          },
-        ],
-        total: 1,
-      };
-    if (path.includes("/debug/hexagons/"))
-      return {
-        stored: 80,
-        fresh: 80,
-        experiment: 80,
-        categories: {
-          stored: [{ score: 80 }],
-          fresh: [{ score: 80 }],
-          experiment: [{ category: "health", score: 80, weight: 1 }],
-        },
-        steps: [
-          {
-            category: "health",
-            type: "pharmacy",
-            weight: 0.5,
-            contribution: 50,
-            score: 100,
-            radii: [100, 200, 300],
-            used: [{ id: 1, distance: 100 }],
-          },
-        ],
-      };
-    return [];
-  });
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={client}>
-      <HexDebug />
-    </QueryClientProvider>,
-  );
-  fireEvent.change(screen.getByLabelText("Логін"), {
-    target: { value: "team" },
-  });
-  fireEvent.change(screen.getByLabelText("Пароль"), {
-    target: { value: "example" },
-  });
-  fireEvent.click(screen.getByText("Увійти"));
-  fireEvent.click(await screen.findByText("Маркер Аптека"));
-  await waitFor(() =>
-    expect(screen.getByRole("dialog").textContent).toContain(
-      "Внесок у категорію «Здоров’я» — 50.00 бала",
-    ),
-  );
-  client.clear();
-});
-it("applies edited weights to the visible IDs only after an explicit recalculation", async () => {
-  vi.mocked(fetcher).mockImplementation(async (path) =>
-    path === "/debug/config"
-      ? { types: ["cafe"], categories: ["food"], batch_limit: 200 }
-      : [],
-  );
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={client}>
-      <HexDebug />
-    </QueryClientProvider>,
-  );
-  fireEvent.change(screen.getByLabelText("Логін"), {
-    target: { value: "team" },
-  });
-  fireEvent.change(screen.getByLabelText("Пароль"), {
-    target: { value: "example" },
-  });
-  fireEvent.click(screen.getByText("Увійти"));
-  fireEvent.click(await screen.findByText("Видима область"));
-  fireEvent.click(screen.getByRole("button", { name: "Ваги" }));
-  fireEvent.change(screen.getByLabelText("cafe"), { target: { value: "2" } });
+    screen.getByRole("complementary", { name: "Персональна оцінка" }),
+  ).toBeDefined();
   expect(
-    vi.mocked(fetcher).mock.calls.some(([p]) => p === "/debug/recalculate"),
-  ).toBe(false);
-  fireEvent.click(screen.getByRole("button", { name: "Перерахувати (1)" }));
-  await waitFor(() =>
-    expect(
-      vi
-        .mocked(fetcher)
-        .mock.calls.find(([p]) => p === "/debug/recalculate")?.[1]?.body,
-    ).toBe(
-      JSON.stringify({
-        ids: ["8928308280bffff"],
-        types: { cafe: 2 },
-        categories: {},
-      }),
-    ),
-  );
-  fireEvent.click(screen.getByText("Скинути ваги"));
-  expect((screen.getByLabelText("cafe") as HTMLInputElement).value).toBe("1");
+    screen.getByRole("complementary", { name: "Оцінка гексагону" }),
+  ).toBeDefined();
+  expect(screen.getByRole("button", { name: "Точки" })).toBeDefined();
+  expect(
+    await screen.findByRole("switch", { name: "Мобільність" }),
+  ).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: "Застосувати" }));
+  expect(await screen.findByRole("button", { name: "POI 2" })).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: "Вигляд" }));
+  fireEvent.click(screen.getByRole("switch", { name: "Усі POI на карті" }));
+  expect(await screen.findByText("Маркер POI 5")).toBeDefined();
+  expect(screen.getByText("Маркер POI 4")).toBeDefined();
+  fireEvent.click(screen.getByRole("switch", { name: "Усі POI на карті" }));
+  expect(await screen.findByText("Маркер POI 2")).toBeDefined();
   client.clear();
 });
