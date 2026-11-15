@@ -5,20 +5,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("API configuration", () => {
-  it("uses the existing VITE_API_URL when the newer name is missing", async () => {
+  it("requires VITE_BACKEND_URL even when a legacy URL is set", async () => {
     vi.stubEnv("VITE_BACKEND_URL", undefined);
-    vi.stubEnv("VITE_API_URL", "https://api.example.test/");
-    const request = vi
-      .fn()
-      .mockResolvedValue(
-        new Response("[]", { headers: { "content-type": "application/json" } }),
-      );
+    vi.stubEnv("VITE_API_URL", "https://legacy.example.test");
+    const request = vi.fn();
     vi.stubGlobal("fetch", request);
-    expect(await fetcher("/hexagons")).toEqual([]);
-    expect(request).toHaveBeenCalledWith(
-      "https://api.example.test/hexagons",
-      undefined,
-    );
+    await expect(fetcher("/hexagons")).rejects.toThrow("Не налаштовано");
+    expect(request).not.toHaveBeenCalled();
   });
   it("prefers VITE_BACKEND_URL", async () => {
     vi.stubEnv("VITE_BACKEND_URL", "https://preferred.example.test");
@@ -57,7 +50,7 @@ describe("API configuration", () => {
   });
 });
 
-it("keeps debug credentials on the separate local debug backend", async () => {
+it("sends debug requests directly to VITE_BACKEND_URL", async () => {
   vi.stubEnv("VITE_BACKEND_URL", "https://public.example.test");
   vi.stubEnv("VITE_DEBUG_API_URL", "http://localhost:8000");
   const request = vi
@@ -67,7 +60,10 @@ it("keeps debug credentials on the separate local debug backend", async () => {
     );
   vi.stubGlobal("fetch", request);
   await fetcher("/debug/config", { headers: { Authorization: "Bearer test" } });
-  expect(request).toHaveBeenCalledWith("http://localhost:8000/debug/config", {
-    headers: { Authorization: "Bearer test" },
-  });
+  expect(request).toHaveBeenCalledWith(
+    "https://public.example.test/debug/config",
+    {
+      headers: { Authorization: "Bearer test" },
+    },
+  );
 });

@@ -12,6 +12,20 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      "/api/debug": {
+        target: "http://localhost:8000",
+        rewrite: (requestPath) => requestPath.replace(/^\/api/, ""),
+      },
+      "/api": {
+        target: "https://backend-okil-project.onrender.com",
+        changeOrigin: true,
+        ws: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/api/, ""),
+      },
+    },
+  },
   test: {
     globals: true,
   },
