@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Chat } from "../components/Chat";
 import type { HexChatContext } from "../components/Chat";
+import type { ClearChatHistoryControls } from "../components/ClearChatHistory";
 
 vi.mock("../lib/chatUrl", () => ({ chatWebSocketUrl: () => "ws://localhost:8000/ws/chat" }));
 
@@ -20,6 +21,7 @@ class Socket {
   event(data: object) { act(() => this.onmessage?.({ data: JSON.stringify(data) })); }
 }
 let host: HTMLDivElement;
+let controls: ClearChatHistoryControls;
 beforeEach(() => {
   Socket.instances = [];
   vi.stubGlobal("WebSocket", Socket);
@@ -27,11 +29,12 @@ beforeEach(() => {
   host = document.createElement("div");
   document.body.appendChild(host);
 });
-afterEach(() => { cleanup(); host.remove(); sessionStorage.clear(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); host.remove(); sessionStorage.clear(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 function mount(
   attachedContext: HexChatContext | null = null,
   selectedContext: HexChatContext | null = attachedContext,
+  withClearControl = false,
 ) {
   render(
     <Chat
@@ -41,6 +44,7 @@ function mount(
       selectedContext={selectedContext}
       attachedContext={attachedContext}
       onContextChange={vi.fn()}
+      renderClearHistory={withClearControl ? (state) => { controls = state; return null; } : undefined}
     />,
   );
   const socket = Socket.instances[0];
@@ -94,4 +98,101 @@ it("restores a session and opens a new one when it expired", () => {
   socket.event({ type: "error", requestId: null, code: "session_expired", message: "Expired" });
   expect(sessionStorage.getItem("okil.chat.token")).toBeNull();
   expect(JSON.parse(socket.send.mock.calls.at(-1)![0])).toEqual({ type: "session.open" });
+});
+
+function restoreHistory(socket: Socket) {
+  socket.event({ type: "session.ready", sessionToken: "old-token", history: [
+    { requestId: "old-request", question: "Старе питання", answer: "Стара відповідь" },
+  ] });
+}
+
+function beginClear(socket: Socket) {
+  act(() => controls.requestClear());
+  act(() => { void controls.confirm(); });
+  return JSON.parse(socket.send.mock.calls.at(-1)![0]);
+}
+
+it("renders no clear button by default", () => {
+  mount();
+  expect(screen.queryByRole("button", { name: /очист/i })).toBeNull();
+});
+
+it("requires confirmation, allows cancellation and prevents double submission", async () => {
+  const socket = mount(null, null, true);
+  await act(async () => controls.confirm());
+  expect(socket.send).toHaveBeenCalledTimes(1);
+  act(() => controls.requestClear());
+  expect(controls.confirmationRequired).toBe(true);
+  act(() => controls.cancel());
+  await act(async () => controls.confirm());
+  expect(socket.send).toHaveBeenCalledTimes(1);
+  const sent = beginClear(socket);
+  act(() => { void controls.confirm(); });
+  expect(socket.send).toHaveBeenCalledTimes(2);
+  expect(controls.clearing).toBe(true);
+  await act(async () => socket.event({ type: "session.cleared", requestId: sent.requestId, deleted: true }));
+  expect(controls.confirmationRequired).toBe(false);
+});
+
+it("waits for matching acknowledgement, removes old history and token, and starts a fresh session", async () => {
+  const socket = mount(null, null, true);
+  restoreHistory(socket);
+  fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "Чернетка" } });
+  const sent = beginClear(socket);
+  expect(sent).toMatchObject({ type: "session.clear", sessionToken: "old-token" });
+  expect(screen.getByText("Стара відповідь")).toBeTruthy();
+  expect(sessionStorage.getItem("okil.chat.token")).toBe("old-token");
+  socket.event({ type: "session.cleared", requestId: "different-request", deleted: true });
+  expect(controls.clearing).toBe(true);
+  await act(async () => socket.event({ type: "session.cleared", requestId: sent.requestId, deleted: true }));
+  expect(screen.queryByText("Старе питання")).toBeNull();
+  expect(screen.queryByText("Стара відповідь")).toBeNull();
+  expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe("");
+  expect(sessionStorage.getItem("okil.chat.token")).toBeNull();
+  expect(JSON.parse(socket.send.mock.calls.at(-1)![0])).toEqual({ type: "session.open" });
+  socket.event({ type: "answer.completed", requestId: "old-request", text: "Стара відповідь" });
+  socket.event({ type: "session.ready", sessionToken: "fresh-token", history: [] });
+  expect(sessionStorage.getItem("okil.chat.token")).toBe("fresh-token");
+  expect(screen.queryByText("Стара відповідь")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "Нове питання" } });
+  fireEvent.click(screen.getByRole("button", { name: "Надіслати запитання" }));
+  expect(JSON.parse(socket.send.mock.calls.at(-1)![0])).toMatchObject({ type: "message.send", text: "Нове питання" });
+});
+
+it("preserves history and token on deletion failure and exposes an error for retry", async () => {
+  const socket = mount(null, null, true);
+  restoreHistory(socket);
+  const sent = beginClear(socket);
+  await act(async () => socket.event({ type: "error", requestId: sent.requestId, code: "storage_unavailable", message: "Redis недоступний" }));
+  expect(controls.error).toBe("Redis недоступний");
+  expect(controls.clearing).toBe(false);
+  expect(screen.getByText("Стара відповідь")).toBeTruthy();
+  expect(sessionStorage.getItem("okil.chat.token")).toBe("old-token");
+  act(() => { void controls.confirm(); });
+  const retry = JSON.parse(socket.send.mock.calls.at(-1)![0]);
+  expect(retry.requestId).not.toBe(sent.requestId);
+  await act(async () => socket.event({ type: "session.cleared", requestId: retry.requestId, deleted: false }));
+  expect(screen.queryByText("Стара відповідь")).toBeNull();
+});
+
+it("rejects a pending clear on disconnect without losing local history", async () => {
+  const socket = mount(null, null, true);
+  restoreHistory(socket);
+  beginClear(socket);
+  await act(async () => socket.onclose?.());
+  expect(controls.clearing).toBe(false);
+  expect(controls.error).toContain("Зв’язок втрачено");
+  expect(sessionStorage.getItem("okil.chat.token")).toBe("old-token");
+  expect(screen.getByText("Стара відповідь")).toBeTruthy();
+});
+
+it("times out unacknowledged deletion and disconnects before reconciling on reconnect", async () => {
+  vi.useFakeTimers();
+  const socket = mount(null, null, true);
+  restoreHistory(socket);
+  beginClear(socket);
+  await act(async () => { vi.advanceTimersByTime(10_000); });
+  expect(controls.error).toContain("Немає підтвердження");
+  expect(socket.close).toHaveBeenCalled();
+  expect(sessionStorage.getItem("okil.chat.token")).toBe("old-token");
 });
