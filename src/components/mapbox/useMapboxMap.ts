@@ -24,6 +24,7 @@ import {
   lvivHexes,
   SELECTION_ZOOM,
 } from "./lvivGrid";
+import type { HexagonRoutes } from "../../lib/hexagonAssessment";
 
 export const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -37,6 +38,7 @@ interface UseMapboxMapArgs {
   onHexSelect?: (hexId: string | null) => void;
   clearSelectionKey?: number;
   routesEnabled: boolean;
+  assessmentRoutes: HexagonRoutes | null;
   onStopInPanel?: (stop: HexStopProperties) => boolean;
   onStopPanelDismiss?: () => void;
 }
@@ -49,6 +51,7 @@ export function useMapboxMap({
   onHexSelect,
   clearSelectionKey,
   routesEnabled,
+  assessmentRoutes,
   onStopInPanel,
   onStopPanelDismiss,
 }: UseMapboxMapArgs) {
@@ -227,6 +230,21 @@ export function useMapboxMap({
       source?.setData(data);
     });
   }, [routes, routesEnabled]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const data = assessmentRoutes ?? {
+      type: "FeatureCollection" as const,
+      features: [],
+    };
+    return whenMapSourceReady(map, "assessment-routes", () => {
+      const source = map.getSource("assessment-routes") as
+        mapboxgl.GeoJSONSource | undefined;
+      source?.setData(data);
+    });
+  }, [assessmentRoutes]);
 
   useEffect(() => {
     const next = new Map<number, HexStopProperties>();

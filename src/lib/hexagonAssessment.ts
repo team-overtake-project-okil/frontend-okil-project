@@ -13,10 +13,38 @@ export type CategoryRating = {
   explanation: string | null;
 };
 
-type HexagonAssessment = {
+export type HexagonRouteProperties = {
+  transport_mode: string;
+  mode: string;
+  section_type: string;
+  route_index: number;
+  section_index: number;
+  color: string;
+  line_style: string;
+  route_number?: string;
+  label?: string;
+  headsign?: string;
+};
+
+export type HexagonRouteFeature = {
+  type: "Feature";
+  properties: HexagonRouteProperties;
+  geometry: {
+    type: "LineString";
+    coordinates: [number, number][];
+  };
+};
+
+export type HexagonRoutes = {
+  type: "FeatureCollection";
+  features: HexagonRouteFeature[];
+};
+
+export type HexagonAssessment = {
   h3_id: string;
   overall_rating: number;
   categories: CategoryRating[];
+  routes: HexagonRoutes;
 };
 
 export const categoryLabels = [

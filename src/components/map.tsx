@@ -177,6 +177,7 @@ export const Map = ({
             clearSelectionKey={clearSelectionKey}
             searchedLocation={searchedLocation}
             selectedHexId={workspace.selectedHexId}
+            assessmentRoutes={ratings.assessmentData?.routes ?? null}
             onHexSelect={(id) =>
             {
               workspace.setSelectedHexId(id);
