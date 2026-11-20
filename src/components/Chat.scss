@@ -291,7 +291,7 @@
   background: #dfe9e1;
   color: var(--focus);
 }
-.chat-welcome h3 {
+.chat-welcome .chat-welcome-title {
   font-size: 20px;
   line-height: 1.25;
   letter-spacing: -0.025em;
@@ -299,7 +299,7 @@
   margin: 0 0 12px;
   max-width: 260px;
 }
-.chat-welcome p {
+.chat-welcome .chat-welcome-text {
   color: var(--muted-ink);
   line-height: 1.6;
   margin: 0;
@@ -316,7 +316,7 @@
   border-radius: 16px;
   overflow-wrap: anywhere;
 }
-.chat-message p {
+.chat-message .chat-message-text {
   margin: 4px 0 0;
   white-space: pre-wrap;
   line-height: 1.65;
@@ -375,11 +375,11 @@
   color: tokens.$assistant-muted;
   font-size: 11px;
 }
-.chat-context strong {
+.chat-context .chat-context-title {
   font-weight: 500;
 }
-.chat-context small,
-.chat-context p {
+.chat-context .chat-context-id,
+.chat-context .chat-context-hint {
   display: none;
 }
 .chat-context button {
@@ -577,11 +577,11 @@
   min-height: 100%;
   padding: 12px 0;
 }
-.chat-welcome h3 {
+.chat-welcome .chat-welcome-title {
   font-size: 18px;
   margin-bottom: 8px;
 }
-.chat-welcome p {
+.chat-welcome .chat-welcome-text {
   font-size: 12px;
   line-height: 1.6;
 }
@@ -706,6 +706,84 @@
   text-align: left;
   font-size: 12px;
   line-height: 1.5;
+}
+.chat-suggestions.chat-follow-up {
+  margin-top: 8px;
+}
+/* Follow-up: same family as the examples, but tinted, with a spark and a one-off shine. */
+.chat-suggestions.chat-follow-up button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  border-color: #b4cbb9;
+  background: linear-gradient(135deg, #f6faf7, #e3eee6);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    translate 150ms ease-out,
+    box-shadow 150ms ease-out,
+    border-color 150ms ease-out;
+}
+.chat-suggestions.chat-follow-up button svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--focus);
+}
+.chat-suggestions.chat-follow-up button:hover,
+.chat-suggestions.chat-follow-up button:focus-visible {
+  border-color: var(--focus);
+  background: linear-gradient(135deg, #eef5f0, #d9e8de);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chat-follow-up {
+    animation: chat-follow-in 300ms ease-out both;
+  }
+  .chat-suggestions.chat-follow-up button::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 35%,
+      rgb(255 255 255 / 0.85) 50%,
+      transparent 65%
+    );
+    translate: -100% 0;
+    animation: chat-follow-shine 900ms 250ms ease-out both;
+    pointer-events: none;
+  }
+  .chat-suggestions.chat-follow-up button:hover,
+  .chat-suggestions.chat-follow-up button:focus-visible {
+    translate: 0 -2px;
+    box-shadow: 0 6px 14px -6px rgb(40 70 50 / 0.35);
+  }
+  .chat-suggestions.chat-follow-up button:active {
+    translate: 0 0;
+    scale: 0.985;
+  }
+  .chat-suggestions.chat-follow-up button:hover svg {
+    animation: chat-follow-spark 500ms ease-out;
+  }
+}
+@keyframes chat-follow-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+@keyframes chat-follow-shine {
+  to {
+    translate: 100% 0;
+  }
+}
+@keyframes chat-follow-spark {
+  50% {
+    rotate: 20deg;
+    scale: 1.25;
+  }
 }
 .chat-suggestions button:hover,
 .assessment-ask:not(:disabled):hover {
