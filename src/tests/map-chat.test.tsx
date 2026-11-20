@@ -122,7 +122,7 @@ it("attaches an area only through the explicit assessment action", async () =>
   const question = "Які слабкі сторони цієї ділянки?";
   await user.click(screen.getByRole("button", { name: question }));
   expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe(question);
-  expect(screen.queryByText(question, { selector: ".chat-message p" })).toBeNull();
+  expect(screen.queryByText(question, { selector: ".chat-message .chat-message-text" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Вибрати іншу ділянку" }));
   await screen.findByText("72", { selector: ".score-value" });
   await user.click(screen.getByRole("button", { name: "Помічник Окіл" }));
@@ -167,7 +167,7 @@ it("attaches the selected hexagon from the toolbar assistant without losing the 
   expect(screen.getByText("Про цей гексагон: 94/100")).toBeTruthy();
   expect((screen.getByRole("button", { name: "Гексагон додано" }) as HTMLButtonElement).disabled).toBe(true);
   expect((screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement).value).toBe("Моя чернетка");
-  expect(screen.queryByText("Моя чернетка", { selector: ".chat-message p" })).toBeNull();
+  expect(screen.queryByText("Моя чернетка", { selector: ".chat-message .chat-message-text" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Вибрати іншу ділянку" }));
   await screen.findByText("72", { selector: ".score-value" });
   await user.click(screen.getByRole("button", { name: "Запитати за цей гексагон" }));

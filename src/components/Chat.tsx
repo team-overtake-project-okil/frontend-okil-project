@@ -368,7 +368,7 @@ export function Chat({
       "Надсилаємо…",
     ].includes(status);
   const panel = (
-    <section
+    <div
       id="okil-chat"
       className="chat-panel"
       role="region"
@@ -409,12 +409,14 @@ export function Chat({
               </span>
               <span>AI-помічник Окіл</span>
             </div>
-            <h3>Запитай про місто</h3>
-            <p>
+            <div role="heading" aria-level={3} className="chat-welcome-title">
+              Запитай про місто
+            </div>
+            <div className="text-block chat-welcome-text">
               {context
                 ? "Запитай про оцінки й особливості прикріпленої ділянки."
                 : "Про райони, транспорт і місця поруч. Для запитання про ділянку скористайся кнопкою «Запитати про цю ділянку»."}
-            </p>
+            </div>
             <div className="chat-suggestions" aria-label="Приклади запитань">
               {(context
                 ? [
@@ -450,12 +452,16 @@ export function Chat({
           >
             <div className="chat-message chat-message-user">
               <span className="chat-author">Ти</span>
-              <p>{turn.question}</p>
+              <div className="text-block chat-message-text">
+                {turn.question}
+              </div>
             </div>
             {turn.answer !== undefined && (
               <div className="chat-message chat-message-assistant">
                 <span className="chat-author">Помічник Окіл</span>
-                <p>{turn.answer}</p>
+                <div className="text-block chat-message-text">
+                  {turn.answer}
+                </div>
               </div>
             )}
           </div>
@@ -474,10 +480,10 @@ export function Chat({
         {context && (
           <div className="chat-context">
             <div>
-              <strong title={context.id}>
+              <span className="chat-context-title" title={context.id}>
                 Про цей гексагон: {context.score}/100
-              </strong>
-              <small>{context.id}</small>
+              </span>
+              <span className="chat-context-id">{context.id}</span>
             </div>
             <button
               type="button"
@@ -491,7 +497,9 @@ export function Chat({
                 Контекст цього запитання збережено
               </span>
             )}
-            <p>Дані цієї ділянки буде додано до запитання.</p>
+            <div className="text-block chat-context-hint">
+              Дані цієї ділянки буде додано до запитання.
+            </div>
           </div>
         )}
         <div className="chat-input-row">
@@ -520,7 +528,7 @@ export function Chat({
           />
           <button
             type="submit"
-            className="chat-send"
+            className="chat-send disabled:cursor-default!"
             aria-label="Надіслати запитання"
             disabled={!ready || waiting || clearing || !text.trim()}
           >
@@ -543,7 +551,7 @@ export function Chat({
           </div>
         )}
       </form>
-    </section>
+    </div>
   );
   return host ? createPortal(panel, host) : null;
 }
