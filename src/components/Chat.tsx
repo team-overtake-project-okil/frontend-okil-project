@@ -1,4 +1,10 @@
-import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   PaperAirplaneIcon,
   ArrowPathIcon,
@@ -24,6 +30,7 @@ type Turn = {
   requestId: string;
   question: string;
   answer?: string;
+  nextPrompt?: string;
 };
 
 type ChatEvent =
@@ -31,8 +38,27 @@ type ChatEvent =
   | { type: "session.cleared"; requestId: string; deleted: boolean }
   | { type: "message.accepted"; requestId: string }
   | { type: "answer.status"; requestId: string; stage: string }
-  | { type: "answer.completed"; requestId: string; text: string }
+  | {
+      type: "answer.completed";
+      requestId: string;
+      text: string;
+      nextPrompt?: unknown;
+    }
   | { type: "error"; requestId: string | null; code: string; message: string };
+
+function readNextPrompt(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function turnWithPrompt(turn: Turn, prompt: unknown): Turn {
+  const nextPrompt = readNextPrompt(prompt);
+  const next: Turn = {
+    requestId: turn.requestId,
+    question: turn.question,
+    ...(turn.answer !== undefined ? { answer: turn.answer } : {}),
+  };
+  return nextPrompt ? { ...next, nextPrompt } : next;
+}
 
 export function Chat({
   open,
@@ -66,21 +92,19 @@ export function Chat({
   const [clearing, setClearing] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
-  useLayoutEffect(() =>
-  {
+  useLayoutEffect(() => {
     const input = inputRef.current;
     if (!open || !input) return;
-    const resize = () =>
-    {
+    const resize = () => {
       input.style.height = "auto";
-      input.style.height = Math.min(128, Math.max(32, input.scrollHeight)) + "px";
+      input.style.height =
+        Math.min(128, Math.max(32, input.scrollHeight)) + "px";
       input.style.overflowY = input.scrollHeight > 128 ? "auto" : "hidden";
     };
     resize();
     if (typeof ResizeObserver === "undefined") return;
     let width = input.getBoundingClientRect().width;
-    const observer = new ResizeObserver(([entry]) =>
-    {
+    const observer = new ResizeObserver(([entry]) => {
       if (entry.contentRect.width === width) return;
       width = entry.contentRect.width;
       resize();
@@ -131,7 +155,10 @@ export function Chat({
       }
 
       if (clearRef.current) {
-        if (event.type === "error" && event.requestId === clearRef.current.requestId) {
+        if (
+          event.type === "error" &&
+          event.requestId === clearRef.current.requestId
+        ) {
           const pending = clearRef.current;
           clearTimeout(pending.timer);
           clearRef.current = null;
@@ -145,7 +172,9 @@ export function Chat({
       switch (event.type) {
         case "session.ready":
           sessionStorage.setItem(TOKEN_KEY, event.sessionToken);
-          setTurns(event.history);
+          setTurns(
+            event.history.map((turn) => turnWithPrompt(turn, turn.nextPrompt)),
+          );
           setReady(true);
           setStatus("Чат готовий");
           break;
@@ -162,7 +191,10 @@ export function Chat({
           setTurns((current) =>
             current.map((turn) =>
               turn.requestId === event.requestId
-                ? { ...turn, answer: event.text }
+                ? turnWithPrompt(
+                    { ...turn, answer: event.text },
+                    event.nextPrompt,
+                  )
                 : turn,
             ),
           );
@@ -224,20 +256,29 @@ export function Chat({
   function clearHistory(): Promise<void> {
     const socket = socketRef.current;
     const sessionToken = sessionStorage.getItem(TOKEN_KEY);
-    if (!ready || !sessionToken || clearRef.current || socket?.readyState !== WebSocket.OPEN) {
+    if (
+      !ready ||
+      !sessionToken ||
+      clearRef.current ||
+      socket?.readyState !== WebSocket.OPEN
+    ) {
       return Promise.reject(new Error("Чат ще не готовий до очищення."));
     }
     const requestId = crypto.randomUUID();
     setClearing(true);
     return new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
-        rejectClear("Немає підтвердження очищення. Перепідключися та спробуй ще раз.");
+        rejectClear(
+          "Немає підтвердження очищення. Перепідключися та спробуй ще раз.",
+        );
         setReady(false);
         socket.close();
       }, 10_000);
       clearRef.current = { requestId, resolve, reject, timer };
       try {
-        socket.send(JSON.stringify({ type: "session.clear", requestId, sessionToken }));
+        socket.send(
+          JSON.stringify({ type: "session.clear", requestId, sessionToken }),
+        );
       } catch {
         rejectClear("Не вдалося надіслати запит очищення. Спробуй ще раз.");
       }
@@ -311,6 +352,10 @@ export function Chat({
     setStatus("Надсилаємо…");
   }
 
+  const followUp =
+    ready && !waiting && !clearing && !text.trim()
+      ? turns.findLast((turn) => turn.answer !== undefined)?.nextPrompt
+      : undefined;
   const disconnected = !ready && !waiting && status.startsWith("Зв’язок");
   const showError =
     Boolean(CHAT_URL) &&
@@ -377,14 +422,16 @@ export function Chat({
                     "Які слабкі сторони цієї ділянки?",
                     "Наскільки збалансовані оцінки категорій?",
                   ]
-                : ["Як обрати ділянку для життя?", "Що означають оцінки категорій?"]
+                : [
+                    "Як обрати ділянку для життя?",
+                    "Що означають оцінки категорій?",
+                  ]
               ).map((question) => (
                 <button
                   key={question}
                   type="button"
                   disabled={waiting}
-                  onClick={() =>
-                  {
+                  onClick={() => {
                     setText(question);
                     inputRef.current?.focus();
                   }}
@@ -396,7 +443,11 @@ export function Chat({
           </div>
         )}
         {turns.map((turn) => (
-          <div key={turn.requestId} className="chat-turn">
+          <div
+            key={turn.requestId}
+            className="chat-turn"
+            data-next-prompt={turn.nextPrompt}
+          >
             <div className="chat-message chat-message-user">
               <span className="chat-author">Ти</span>
               <p>{turn.question}</p>
@@ -476,6 +527,21 @@ export function Chat({
             <PaperAirplaneIcon aria-hidden="true" />
           </button>
         </div>
+        {followUp && (
+          <div className="chat-suggestions chat-follow-up">
+            <button
+              type="button"
+              aria-label={`Підставити запитання: ${followUp}`}
+              onClick={() => {
+                setText(followUp);
+                inputRef.current?.focus();
+              }}
+            >
+              <SparklesIcon aria-hidden="true" />
+              <span>{followUp}</span>
+            </button>
+          </div>
+        )}
       </form>
     </section>
   );

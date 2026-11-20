@@ -65,6 +65,85 @@ it("uses the backend WebSocket, sends the existing envelope, and renders the AI 
   expect(screen.getByText("Жива відповідь AI")).toBeTruthy();
 });
 
+it("keeps a contextual next prompt from the completed answer and from restored history", () => {
+  const socket = mount();
+  fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "Що таке OKIL?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Надіслати запитання" }));
+  const sent = JSON.parse(socket.send.mock.calls[1][0]);
+  socket.event({
+    type: "answer.completed",
+    requestId: sent.requestId,
+    text: "Жива відповідь AI",
+    nextPrompt: "  Які категорії оцінює OKIL?  ",
+  });
+  expect(screen.getByText("Жива відповідь AI").closest(".chat-turn")?.getAttribute("data-next-prompt")).toBe(
+    "Які категорії оцінює OKIL?",
+  );
+  expect(screen.getByRole("button", { name: "Підставити запитання: Які категорії оцінює OKIL?" })).toBeTruthy();
+
+  socket.event({
+    type: "answer.completed",
+    requestId: sent.requestId,
+    text: "Жива відповідь AI",
+    nextPrompt: { text: "не рядок" },
+  });
+  expect(screen.getByText("Жива відповідь AI").closest(".chat-turn")?.hasAttribute("data-next-prompt")).toBe(false);
+  expect(screen.queryByRole("button", { name: /Підставити запитання/ })).toBeNull();
+
+  socket.event({
+    type: "session.ready",
+    sessionToken: "restored-session",
+    history: [
+      {
+        requestId: "old-request",
+        question: "Старе питання",
+        answer: "Стара відповідь",
+        nextPrompt: "Які місця є в цій ділянці?",
+      },
+      { requestId: "plain-request", question: "Без підказки", answer: "Звичайна відповідь" },
+    ],
+  });
+  expect(screen.getByText("Стара відповідь").closest(".chat-turn")?.getAttribute("data-next-prompt")).toBe(
+    "Які місця є в цій ділянці?",
+  );
+  expect(screen.getByText("Звичайна відповідь").closest(".chat-turn")?.hasAttribute("data-next-prompt")).toBe(false);
+  expect(screen.queryByRole("button", { name: /Підставити запитання/ })).toBeNull();
+});
+
+it("fills the composer from the latest follow-up and hides it while a draft or request is in progress", () => {
+  const socket = mount();
+  const ask = (question: string) => {
+    fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: question } });
+    fireEvent.click(screen.getByRole("button", { name: "Надіслати запитання" }));
+    return JSON.parse(socket.send.mock.calls.at(-1)![0]).requestId as string;
+  };
+  const first = ask("Перше");
+  socket.event({
+    type: "answer.completed",
+    requestId: first,
+    text: "Перша відповідь",
+    nextPrompt: "Стара підказка",
+  });
+  expect(screen.getByRole("button", { name: "Підставити запитання: Стара підказка" })).toBeTruthy();
+  const second = ask("Друге");
+  expect(screen.queryByRole("button", { name: /Підставити запитання/ })).toBeNull();
+  socket.event({
+    type: "answer.completed",
+    requestId: second,
+    text: "Друга відповідь",
+    nextPrompt: "Нова підказка",
+  });
+  expect(screen.queryByRole("button", { name: "Підставити запитання: Стара підказка" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Підставити запитання: Нова підказка" }));
+  const input = screen.getByLabelText("Твоє запитання") as HTMLTextAreaElement;
+  expect(input.value).toBe("Нова підказка");
+  expect(screen.queryByRole("button", { name: /Підставити запитання/ })).toBeNull();
+  fireEvent.change(input, { target: { value: "" } });
+  expect(screen.getByRole("button", { name: "Підставити запитання: Нова підказка" })).toBeTruthy();
+  fireEvent.change(input, { target: { value: "Своє" } });
+  expect(screen.queryByRole("button", { name: /Підставити запитання/ })).toBeNull();
+});
+
 it("includes the attached hex in the message for the server's DB context", () => {
   const socket = mount({ id: "891e7689e8fffff", score: 79, categories: [{ title: "Здоров'я", score: 93 }] });
   fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "Що тут поруч?" } });
