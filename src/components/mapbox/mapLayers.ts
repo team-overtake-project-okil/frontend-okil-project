@@ -176,6 +176,94 @@ export function installCityLayers(
       "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 16, 4],
     },
   });
+
+  map.addSource("assessment-routes", {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: [] },
+  });
+
+  map.addLayer({
+    id: "assessment-routes-solid-casing",
+    type: "line",
+    source: "assessment-routes",
+    filter: ["==", ["get", "line_style"], "solid"],
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#FFFFFF",
+      "line-opacity": 0.9,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4, 16, 9],
+    },
+  });
+
+  map.addLayer({
+    id: "assessment-routes-dashed-casing",
+    type: "line",
+    source: "assessment-routes",
+    filter: ["==", ["get", "line_style"], "dashed"],
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#FFFFFF",
+      "line-opacity": 0.9,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4, 16, 9],
+      "line-dasharray": [2, 1.5],
+    },
+  });
+
+  map.addLayer({
+    id: "assessment-routes-solid-line",
+    type: "line",
+    source: "assessment-routes",
+    filter: ["==", ["get", "line_style"], "solid"],
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": ["get", "color"],
+      "line-opacity": 0.95,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 16, 5],
+    },
+  });
+
+  map.addLayer({
+    id: "assessment-routes-dashed-line",
+    type: "line",
+    source: "assessment-routes",
+    filter: ["==", ["get", "line_style"], "dashed"],
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": ["get", "color"],
+      "line-opacity": 0.95,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 16, 5],
+      "line-dasharray": [2, 1.5],
+    },
+  });
+
+  map.addLayer({
+    id: "assessment-routes-labels",
+    type: "symbol",
+    source: "assessment-routes",
+    filter: ["any", ["has", "label"], ["has", "route_number"]],
+    layout: {
+      "symbol-placement": "line-center",
+      "text-field": [
+        "upcase",
+        [
+          "coalesce",
+          ["get", "label"],
+          ["get", "route_number"],
+          "",
+        ],
+      ],
+      "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+      "text-size": 13,
+      "text-allow-overlap": true,
+      "text-ignore-placement": true,
+    },
+    paint: {
+      "text-color": ["get", "color"],
+      "text-halo-color": "#FFFFFF",
+      "text-halo-width": 2,
+    },
+  });
+
   // Selection stays legible even where transit lines cross its boundary.
   map.moveLayer("h3-selected-glow");
   map.moveLayer("h3-hexes-selected");

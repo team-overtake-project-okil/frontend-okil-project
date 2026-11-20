@@ -2,6 +2,7 @@ import type { Hexagon } from "../lib/hexagonRating";
 import { RouteStatus } from "./mapbox/RouteStatus";
 import { mapboxToken, useMapboxMap } from "./mapbox/useMapboxMap";
 import type { HexStopProperties } from "../lib/useStopsByHex";
+import type { HexagonRoutes } from "../lib/hexagonAssessment";
 
 interface MapboxMapProps {
   hexagons: Hexagon[];
@@ -11,6 +12,7 @@ interface MapboxMapProps {
   onHexSelect?: (hexId: string | null) => void;
   clearSelectionKey?: number;
   routesEnabled?: boolean;
+  assessmentRoutes: HexagonRoutes | null;
   // Returns true when the open priorities panel takes the stop, so the map
   // card stays closed and the route list replaces the sliders.
   onStopInPanel?: (stop: HexStopProperties) => boolean;
@@ -27,6 +29,7 @@ export function MapboxMap({
   routesEnabled = true,
   onStopInPanel,
   onStopPanelDismiss,
+  assessmentRoutes,
 }: MapboxMapProps) {
   const map = useMapboxMap({
     hexagons,
@@ -38,6 +41,7 @@ export function MapboxMap({
     routesEnabled,
     onStopInPanel,
     onStopPanelDismiss,
+    assessmentRoutes,
   });
   const { containerRef } = map.refs;
 
