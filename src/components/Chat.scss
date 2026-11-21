@@ -332,6 +332,12 @@
   background: #eef2ed;
   border-bottom-left-radius: 4px;
 }
+.chat-turn-error {
+  margin: 8px 0 0;
+  color: #8c382f;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
 .chat-author {
   font-size: 12px;
   font-weight: 650;
@@ -601,7 +607,7 @@
 /* Keep the restored toolbar usable when its controls wrap on a phone. */
 @include media.mobile {
   .map-section.map-expanded {
-    --assistant-panel-top: 158px;
+    --assistant-panel-top: 168px;
   }
   .map-section.map-expanded .map-toolbar {
     display: grid;
@@ -822,6 +828,35 @@
   bottom: var(--panel-bottom-gap);
   height: auto;
   max-height: none;
+}
+
+/* Size the first row from the wrapped toolbar and overlay both rows on the map. */
+.map-section:not(.map-expanded) .map-workspace:has(.with-chat) {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+
+  > .map-canvas {
+    grid-area: 1 / 1 / 3 / 2;
+  }
+  > .map-toolbar {
+    position: relative;
+    inset: auto;
+    grid-area: 1 / 1;
+    margin: 16px 16px 0;
+  }
+  > .assessment-card.with-chat {
+    grid-area: 2 / 1;
+    top: 8px;
+    bottom: 12px;
+  }
+}
+@include media.mobile {
+  .map-section:not(.map-expanded) .map-workspace:has(.with-chat) {
+    min-height: 480px;
+    > .map-toolbar {
+      margin: 12px 12px 0;
+    }
+  }
 }
 .assessment-content {
   flex: 0 1 auto;

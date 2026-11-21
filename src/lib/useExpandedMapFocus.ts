@@ -45,7 +45,7 @@ export function useExpandedMapFocus({
       if (event.key !== "Tab") return;
       const elements = [
         ...sectionRef.current!.querySelectorAll<HTMLElement>(
-          'button,input,a[href],[tabindex="0"]',
+          'button,input,textarea,a[href],[tabindex="0"]',
         ),
       ].filter(
         (element) =>

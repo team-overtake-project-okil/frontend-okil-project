@@ -24,12 +24,12 @@ export type HexChatContext = {
 };
 
 const TOKEN_KEY = "okil.chat.token";
-const CHAT_URL = chatWebSocketUrl();
 
 type Turn = {
   requestId: string;
   question: string;
   answer?: string;
+  error?: string;
   nextPrompt?: string;
 };
 
@@ -78,6 +78,7 @@ export function Chat({
   renderClearHistory?: (controls: ClearChatHistoryControls) => ReactNode;
 }) {
   const [attempt, setAttempt] = useState(0);
+  const [chatUrl] = useState(chatWebSocketUrl);
   const [started, setStarted] = useState(false);
   if (open && !started) setStarted(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -115,12 +116,13 @@ export function Chat({
   const [ready, setReady] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [status, setStatus] = useState("Підключаємося…");
+  const [notice, setNotice] = useState("");
   const resetContext = useEffectEvent(() => onContextChange(null));
 
   useEffect(() => {
-    if (!CHAT_URL || !started) return;
+    if (!chatUrl || !started) return;
 
-    const socket = new WebSocket(CHAT_URL);
+    const socket = new WebSocket(chatUrl);
     socketRef.current = socket;
 
     socket.onopen = () => {
@@ -148,6 +150,7 @@ export function Chat({
         setWaiting(false);
         setClearing(false);
         setReady(false);
+        setNotice("");
         setStatus("Створюємо нову сесію…");
         pending.resolve();
         socket.send(JSON.stringify({ type: "session.open" }));
@@ -163,7 +166,7 @@ export function Chat({
           clearTimeout(pending.timer);
           clearRef.current = null;
           setClearing(false);
-          setStatus(event.message);
+          setNotice(event.message);
           pending.reject(new Error(event.message));
           return;
         }
@@ -176,6 +179,7 @@ export function Chat({
             event.history.map((turn) => turnWithPrompt(turn, turn.nextPrompt)),
           );
           setReady(true);
+          setNotice("");
           setStatus("Чат готовий");
           break;
 
@@ -211,17 +215,20 @@ export function Chat({
             setText("");
             resetContext();
             setReady(false);
+            setNotice("");
             setStatus("Створюємо нову сесію…");
             socket.send(JSON.stringify({ type: "session.open" }));
-          } else {
+          } else if (event.requestId) {
             setTurns((current) =>
-              current.filter(
-                (turn) =>
-                  turn.requestId !== event.requestId ||
-                  turn.answer !== undefined,
+              current.map((turn) =>
+                turn.requestId === event.requestId && turn.answer === undefined
+                  ? { ...turn, error: event.message }
+                  : turn,
               ),
             );
-            setStatus(event.message);
+            setStatus("Чат готовий");
+          } else {
+            setNotice(event.message);
           }
           break;
       }
@@ -231,7 +238,7 @@ export function Chat({
       rejectClear("Зв’язок втрачено. Перепідключися та спробуй ще раз.");
       setReady(false);
       setWaiting(false);
-      setStatus("Зв’язок втрачено. Спробуй підключитися знову.");
+      setNotice("Зв’язок втрачено. Спробуй підключитися знову.");
     };
 
     return () => {
@@ -242,7 +249,7 @@ export function Chat({
       socketRef.current = null;
       socket.close();
     };
-  }, [attempt, started]);
+  }, [attempt, started, chatUrl]);
 
   function rejectClear(message: string) {
     const pending = clearRef.current;
@@ -310,6 +317,7 @@ export function Chat({
   function reconnect() {
     setReady(false);
     setWaiting(false);
+    setNotice("");
     setStatus("Підключаємося…");
     setAttempt((value) => value + 1);
   }
@@ -337,7 +345,7 @@ export function Chat({
       : "";
     const message = contextText + question;
     if (message.length > 4000) {
-      setStatus(
+      setNotice(
         "Запитання разом із даними ділянки перевищує 4000 символів. Скороти текст.",
       );
       return;
@@ -349,24 +357,14 @@ export function Chat({
     setTurns((current) => [...current, { requestId, question: message }]);
     setText("");
     setWaiting(true);
+    setNotice("");
     setStatus("Надсилаємо…");
   }
 
   const followUp =
     ready && !waiting && !clearing && !text.trim()
-      ? turns.findLast((turn) => turn.answer !== undefined)?.nextPrompt
+      ? turns.at(-1)?.nextPrompt
       : undefined;
-  const disconnected = !ready && !waiting && status.startsWith("Зв’язок");
-  const showError =
-    Boolean(CHAT_URL) &&
-    ![
-      "Підключаємося…",
-      "Чат готовий",
-      "Запит прийнято",
-      "Готуємо відповідь…",
-      "Створюємо нову сесію…",
-      "Надсилаємо…",
-    ].includes(status);
   const panel = (
     <div
       id="okil-chat"
@@ -384,9 +382,9 @@ export function Chat({
       <ClearChatHistory clear={clearHistory} disabled={!ready || clearing}>
         {renderClearHistory}
       </ClearChatHistory>
-      <div className={showError ? "chat-connection" : "sr-only"} role="status">
-        <span>{CHAT_URL ? status : ""}</span>
-        {disconnected && (
+      <div className={!ready || notice ? "chat-connection" : "sr-only"} role="status">
+        <span>{chatUrl ? notice || status : "Чат недоступний. Підключення до сервісу не налаштовано."}</span>
+        {!ready && chatUrl && notice && (
           <button type="button" onClick={reconnect} className="chat-reconnect">
             <ArrowPathIcon aria-hidden="true" /> Перепідключити
           </button>
@@ -415,7 +413,7 @@ export function Chat({
             <div className="text-block chat-welcome-text">
               {context
                 ? "Запитай про оцінки й особливості прикріпленої ділянки."
-                : "Про райони, транспорт і місця поруч. Для запитання про ділянку скористайся кнопкою «Запитати про цю ділянку»."}
+                : "Про райони, транспорт і місця поруч. Щоб запитати про ділянку, вибери її на карті й натисни «Запитати»."}
             </div>
             <div className="chat-suggestions" aria-label="Приклади запитань">
               {(context
@@ -464,6 +462,7 @@ export function Chat({
                 </div>
               </div>
             )}
+            {turn.error && <p className="chat-turn-error">{turn.error}</p>}
           </div>
         ))}
         {waiting && (

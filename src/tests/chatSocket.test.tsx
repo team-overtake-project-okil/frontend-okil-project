@@ -5,7 +5,8 @@ import { Chat } from "../components/Chat";
 import type { HexChatContext } from "../components/Chat";
 import type { ClearChatHistoryControls } from "../components/ClearChatHistory";
 
-vi.mock("../lib/chatUrl", () => ({ chatWebSocketUrl: () => "ws://localhost:8000/ws/chat" }));
+const chatUrl = vi.hoisted(() => vi.fn<() => string | undefined>());
+vi.mock("../lib/chatUrl", () => ({ chatWebSocketUrl: chatUrl }));
 
 class Socket {
   static OPEN = 1;
@@ -23,6 +24,7 @@ class Socket {
 let host: HTMLDivElement;
 let controls: ClearChatHistoryControls;
 beforeEach(() => {
+  chatUrl.mockReturnValue("ws://localhost:8000/ws/chat");
   Socket.instances = [];
   vi.stubGlobal("WebSocket", Socket);
   sessionStorage.clear();
@@ -31,7 +33,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); host.remove(); sessionStorage.clear(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
-function mount(
+function renderChat(
   attachedContext: HexChatContext | null = null,
   selectedContext: HexChatContext | null = attachedContext,
   withClearControl = false,
@@ -47,6 +49,10 @@ function mount(
       renderClearHistory={withClearControl ? (state) => { controls = state; return null; } : undefined}
     />,
   );
+}
+
+function mount(...props: Parameters<typeof renderChat>) {
+  renderChat(...props);
   const socket = Socket.instances[0];
   act(() => socket.onopen?.());
   socket.event({ type: "session.ready", sessionToken: "test-session", history: [] });
@@ -63,6 +69,24 @@ it("uses the backend WebSocket, sends the existing envelope, and renders the AI 
   expect(sent).toMatchObject({ type: "message.send", text: "Що таке OKIL?" });
   socket.event({ type: "answer.completed", requestId: sent.requestId, text: "Жива відповідь AI" });
   expect(screen.getByText("Жива відповідь AI")).toBeTruthy();
+});
+
+it("displays the connection status until the session is ready", () => {
+  renderChat();
+  const socket = Socket.instances[0];
+  const status = screen.getByRole("status");
+  expect(status.textContent).toMatch(/Підключаємося/);
+  expect(status.classList.contains("sr-only")).toBe(false);
+  socket.event({ type: "session.ready", sessionToken: "ready", history: [] });
+  expect(status.classList.contains("sr-only")).toBe(true);
+});
+
+it("explains why chat is unavailable without a configured endpoint", () => {
+  chatUrl.mockReturnValue(undefined);
+  renderChat();
+  expect(Socket.instances).toHaveLength(0);
+  expect(screen.getByRole("status").textContent).toMatch(/недоступний/);
+  expect(screen.getByRole("status").classList.contains("sr-only")).toBe(false);
 });
 
 it("keeps a contextual next prompt from the completed answer and from restored history", () => {
@@ -161,11 +185,17 @@ it("does not send the selected hex until it is attached to the chat", () => {
 
 it("shows a client-readable failure and allows another request", () => {
   const socket = mount();
+  socket.event({ type: "session.ready", sessionToken: "test-session", history: [
+    { requestId: "previous", question: "Перше", answer: "Відповідь", nextPrompt: "Стара підказка" },
+  ] });
   fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "OKIL" } });
   fireEvent.click(screen.getByRole("button", { name: "Надіслати запитання" }));
   const sent = JSON.parse(socket.send.mock.calls[1][0]);
   socket.event({ type: "error", requestId: sent.requestId, code: "ai_failed", message: "AI тимчасово недоступний" });
-  expect(screen.getByText("AI тимчасово недоступний")).toBeTruthy();
+  const turn = screen.getByText("OKIL").closest(".chat-turn");
+  expect(turn?.contains(screen.getByText("AI тимчасово недоступний"))).toBe(true);
+  expect(screen.queryByText("Запитай про місто")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Підставити запитання/ })).toBeNull();
   fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "Спроба знову" } });
   expect((screen.getByRole("button", { name: "Надіслати запитання" }) as HTMLButtonElement).disabled).toBe(false);
 });
