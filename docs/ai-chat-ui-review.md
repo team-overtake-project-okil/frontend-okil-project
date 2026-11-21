@@ -1,20 +1,38 @@
-# AI chat UI review (#121)
+# Перевірка інтерфейсу чату «Помічник Окіл» (#121)
 
-Reviewed the map assistant in Chrome at 1440 × 900 and 390 × 844 CSS pixels, with the map embedded and expanded. The browser used the application UI and controlled WebSocket events for reproducible timing and failures.
+Чат перевірено в Chrome на вбудованій і розгорнутій карті за двох розмірів області перегляду — 1440 × 900 і 390 × 844 CSS-пікселів. Під час перевірки браузер отримував тестові події WebSocket. Це дозволило відтворити затримку підключення, очікування відповіді та помилку для конкретного запитання.
 
-| Reproduction | Verified result |
+## Сценарії та результати
+
+| Як відтворити | Що відбулося після виправлення |
 | --- | --- |
-| Open an empty chat and delay `session.ready`. | The panel shows “Підключаємося…”. Once ready, the status clears and the welcome screen offers example questions. |
-| Select an example and press Enter. Delay the answer, then return `answer.completed` with a follow-up. | One question appears, sending is disabled while waiting, and the answer appears beneath the question. Selecting the follow-up fills the composer. |
-| Send the follow-up and return an `error` with its request ID. | The question stays in the conversation with its error. The previous suggestion stays hidden and the composer accepts another question. |
-| Disconnect, reconnect, enter a draft, close with Escape and reopen. | Reconnect opens a session, Escape returns focus to the assistant toggle, and the draft survives closing the panel. |
-| Open the embedded assistant where the toolbar wraps. | The panel starts below the last row of map controls at both viewport sizes. |
-| In the expanded map, press Tab from the last example while the composer is empty. | Focus moves into the textarea, so a keyboard user can type a question. |
+| Відкрити порожній чат і затримати подію `session.ready`. | Панель показує «Підключаємося…». Коли сесія готова, повідомлення зникає. На вітальному екрані можна вибрати приклад запитання. |
+| Вибрати приклад і натиснути `Enter`. Після затримки надіслати подію `answer.completed` із підказкою для наступного запитання. | Запитання з’являється в історії один раз. Під час очікування кнопка надсилання неактивна. Відповідь з’являється під запитанням. Натискання на підказку переносить її текст у поле вводу. |
+| Надіслати запропоноване запитання й повернути подію `error` з його ідентифікатором `requestId`. | Запитання залишається в історії, а під ним з’являється повідомлення про помилку. Попередня підказка не з’являється повторно. Можна ввести й надіслати інше запитання. |
+| Розірвати з’єднання, натиснути «Перепідключити» й набрати чернетку. Закрити чат клавішею `Escape` і відкрити знову. | Після перепідключення відкривається сесія. Клавіша `Escape` повертає фокус на кнопку «Помічник Окіл». Після повторного відкриття чернетка залишається в полі вводу. |
+| На вбудованій карті відкрити чат, коли кнопки панелі інструментів займають кілька рядків. | За обох розмірів екрана верхній край чату розташований нижче останнього ряду кнопок карти. |
+| На розгорнутій карті залишити поле вводу порожнім, перевести фокус на останній приклад запитання й натиснути `Tab`. | Фокус переходить у поле вводу. Запитання можна набрати з клавіатури. |
 
-The socket tests also cover a missing chat endpoint, restoring history and sending attached area context.
+Автоматичні тести WebSocket також охоплюють відсутність налаштованої адреси сервісу чату, відновлення історії та надсилання запитання з даними прикріпленої ділянки.
 
-[Mobile layout while connecting](ai-chat-ui/mobile-390x844.png) · [Desktop conversation after a failed follow-up](ai-chat-ui/desktop-1440x900.png). Images are cropped to the map workspace and chat panel respectively.
+## Скриншоти
 
-## Separate test issue
+**Мобільний екран, 390 × 844.** На знімку робочої області карти видно, що кнопки залишаються над відкритим чатом, а в панелі відображається стан «Підключаємося…».
 
-Run `node node_modules/vitest/vitest.mjs run src/HexDebug.test.tsx`. The test assertions pass, then the debug accordion's animation callback calls `panel.scrollTo`. jsdom lacks that method and Vitest reports an unhandled rejection. The expected result is a clean exit after the accordion test. This also affected the full frontend suite.
+![Чат під кнопками карти зі статусом «Підключаємося…»](ai-chat-ui/mobile-390x844.png)
+
+**Настільний екран, 1440 × 900.** На знімку панелі чату видно відповідь на перше запитання. Друге запитання залишається в історії разом із повідомленням про помилку.
+
+![Історія чату з відповіддю на перше запитання та помилкою під другим](ai-chat-ui/desktop-1440x900.png)
+
+## Окремий збій у тесті HexDebug
+
+Щоб відтворити збій, виконайте команду в корені фронтенду.
+
+```sh
+node node_modules/vitest/vitest.mjs run src/HexDebug.test.tsx
+```
+
+**Фактичний результат.** Усі перевірки тесту проходять. Після анімації розгортання панелі налагодження її обробник викликає `panel.scrollTo`. У jsdom цей метод відсутній, тож Vitest реєструє необроблену помилку `TypeError: panel.scrollTo is not a function`. Цей самий збій виникає під час запуску всього набору тестів фронтенду.
+
+**Очікуваний результат.** Після перевірки панелі Vitest завершує роботу з кодом 0.
