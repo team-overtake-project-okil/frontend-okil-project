@@ -25,11 +25,15 @@ export const Map = ({
   onAddressChange,
   clearSelectionKey,
 }: MapProps) => {
-  const [panelMode, setPanelMode] = useState<"assessment" | "chat" | null>(null);
+  const [panelMode, setPanelMode] = useState<"assessment" | "chat" | null>(
+    null,
+  );
   const [chatContext, setChatContext] = useState<HexChatContext | null>(null);
   const chatOpen = panelMode === "chat";
   const [chatHost, setChatHost] = useState<HTMLDivElement | null>(null);
   const [comparisonActive, setComparisonActive] = useState(false);
+  const [pickingAnchor, setPickingAnchor] = useState<string | null>(null);
+  const [pickingAnchorLabel, setPickingAnchorLabel] = useState("");
   const workspace = useMapWorkspace();
   const { sectionRef, expandRef, panelRef, toggleRef } = workspace.refs;
   const ratings = useMapRatings(workspace.selectedHexId);
@@ -60,14 +64,17 @@ export const Map = ({
     ratings.showAssessmentSkeleton,
     ratings.isAssessmentError,
   ]);
-  const setChatOpen = (open: boolean) =>
-  {
+  const setChatOpen = (open: boolean) => {
     if (open) setChatContext(selectedChatContext);
-    setPanelMode(open ? "chat" : chatOpen && workspace.selectedHexId ? "assessment" : null);
+    setPanelMode(
+      open ? "chat" : chatOpen && workspace.selectedHexId ? "assessment" : null,
+    );
   };
-  const hideMapControls = chatOpen || (
-    panelMode === "assessment" && Boolean(workspace.selectedHexId) && workspace.assessmentExpanded
-  );
+  const hideMapControls =
+    chatOpen ||
+    (panelMode === "assessment" &&
+      Boolean(workspace.selectedHexId) &&
+      workspace.assessmentExpanded);
   const categoryDetails =
     workspace.selectedHexId &&
     workspace.assessmentExpanded &&
@@ -137,14 +144,10 @@ export const Map = ({
       <div className="map-workspace">
         <MapToolbar
           chatOpen={chatOpen}
-          onToggleChat={() =>
-          {
-            if (chatOpen)
-            {
+          onToggleChat={() => {
+            if (chatOpen) {
               setChatOpen(false);
-            }
-            else
-            {
+            } else {
               setChatContext(null);
               setPanelMode("chat");
             }
@@ -177,16 +180,50 @@ export const Map = ({
             clearSelectionKey={clearSelectionKey}
             searchedLocation={searchedLocation}
             selectedHexId={workspace.selectedHexId}
-            assessmentRoutes={ratings.assessmentData?.routes ?? null}
-            onHexSelect={(id) =>
-            {
+            assessmentRoutes={
+              ratings.personalRoutesEnabled && ratings.appliedRoutesEnabled
+                ? (ratings.assessmentData?.routes ?? null)
+                : null
+            }
+            anchorPoints={ratings.personalRoutesEnabled ? ratings.anchors : []}
+            onAnchorPick={
+              pickingAnchor !== null
+                ? ({ lat, lng }) => {
+                    const previous = ratings.anchors.find(
+                      (point) => point.id === pickingAnchor,
+                    );
+                    ratings.saveAnchor({
+                      id: previous?.id ?? crypto.randomUUID(),
+                      label:
+                        pickingAnchorLabel ||
+                        previous?.label ||
+                        `Місце на карті ${ratings.anchors.length + 1}`,
+                      lat,
+                      lng,
+                      source: "map",
+                    });
+                    setPickingAnchor(null);
+                  }
+                : null
+            }
+            onHexSelect={(id) => {
               workspace.setSelectedHexId(id);
-              setPanelMode((mode) => mode === "chat" ? "chat" : id ? "assessment" : null);
+              setPanelMode((mode) =>
+                mode === "chat" ? "chat" : id ? "assessment" : null,
+              );
             }}
             onStopInPanel={workspace.takeStopInPanel}
             onStopPanelDismiss={workspace.clearStopPanel}
             routesEnabled={workspace.routesEnabled}
           />
+          {pickingAnchor !== null && (
+            <div className="anchor-map-hint" role="status">
+              Оберіть місце на карті
+              <button type="button" onClick={() => setPickingAnchor(null)}>
+                Скасувати
+              </button>
+            </div>
+          )}
           {ratings.showSkeleton && (
             <div className="map-data-status" role="status">
               Завантажуємо оцінки…
@@ -206,8 +243,22 @@ export const Map = ({
             </div>
           )}
         </div>
-        {workspace.panelOpen && (
+        {workspace.panelOpen && pickingAnchor === null && (
           <WeightsPanel
+            selectedPresetId={ratings.selectedPresetId}
+            presetModified={ratings.presetModified}
+            onSelectPreset={ratings.selectPreset}
+            personalRoutesEnabled={ratings.personalRoutesEnabled}
+            onPersonalRoutesChange={ratings.setPersonalRoutesEnabled}
+            canApply={ratings.canApply}
+            anchors={ratings.anchors}
+            onSaveAnchor={ratings.saveAnchor}
+            onRemoveAnchor={ratings.removeAnchor}
+            pickingAnchor={pickingAnchor}
+            onPickAnchor={(id, label = "") => {
+              setPickingAnchor(id);
+              setPickingAnchorLabel(label);
+            }}
             panelRef={panelRef}
             stop={workspace.panelStop}
             faceStop={workspace.faceStop}
@@ -228,7 +279,9 @@ export const Map = ({
             isAssessmentError={ratings.isAssessmentError}
             assessmentError={ratings.assessmentError}
             chatOpen={chatOpen}
-            isHexAttached={chatOpen && chatContext?.id === workspace.selectedHexId}
+            isHexAttached={
+              chatOpen && chatContext?.id === workspace.selectedHexId
+            }
             details={categoryDetails}
             assessmentExpanded={workspace.assessmentExpanded}
             setChatOpen={setChatOpen}
@@ -257,6 +310,7 @@ export const Map = ({
             selectedId={workspace.selectedHexId}
             onAdd={workspace.onAddToComparison}
             weights={ratings.assessmentWeights}
+            anchors={ratings.appliedAnchors}
             open={workspace.comparisonOpen}
             onToggle={workspace.onToggleComparison}
             onRemove={workspace.onRemoveComparison}

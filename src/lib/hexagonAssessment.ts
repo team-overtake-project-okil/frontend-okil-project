@@ -1,8 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
-import { weightsSearch, type AssessmentWeights } from "./assessmentWeights";
+import { type AssessmentWeights } from "./assessmentWeights";
+import { assessmentSearch, type MobilityAnchor } from "./mobilityAnchors";
 import { fetcher } from "./fetcher";
-
-
 
 export type CategoryRating = {
   category: string;
@@ -61,16 +60,20 @@ export const categoryLabels = [
 export function hexagonAssessmentOptions(
   hexId: string | null,
   weights: AssessmentWeights | null,
+  anchors?: readonly MobilityAnchor[],
 ) {
   return queryOptions({
-    queryKey: ["hexagon-assessment", hexId, weights] as const,
+    queryKey: ["hexagon-assessment", hexId, weights, anchors] as const,
     enabled: hexId !== null,
     queryFn: async () => {
       if (hexId === null) throw new Error("A hexagon must be selected.");
       const assessment = (await fetcher(
-        `/hexagons/${encodeURIComponent(hexId)}${weightsSearch(weights)}`,
+        `/hexagons/${encodeURIComponent(hexId)}${assessmentSearch(weights, anchors)}`,
       )) as HexagonAssessment;
-      return { ...assessment, overall_rating: Math.trunc(assessment.overall_rating) };
+      return {
+        ...assessment,
+        overall_rating: Math.trunc(assessment.overall_rating),
+      };
     },
   });
 }
@@ -82,18 +85,16 @@ export const comparisonColors = ["#b26782", "#827eae", "#ad8053"] as const;
 export function categoryExplanation(
   category: CategoryRating | undefined,
 ): string {
-  return (
-    category?.explanation?.trim() ||
-    "Дані для пояснення поки відсутні."
-  );
+  return category?.explanation?.trim() || "Дані для пояснення поки відсутні.";
 }
 
 export function getHexagonRatings(
   weights: AssessmentWeights | null,
   signal?: AbortSignal,
+  anchors?: readonly MobilityAnchor[],
 ): Promise<{ h3_id: string; overall_rating: number }[]> {
   return fetcher(
-    `/hexagons${weightsSearch(weights)}`,
+    `/hexagons${assessmentSearch(weights, anchors)}`,
     signal ? { signal } : undefined,
   );
 }
@@ -102,9 +103,10 @@ export function getHexagonAssessment(
   id: string,
   weights: AssessmentWeights | null,
   signal?: AbortSignal,
+  anchors?: readonly MobilityAnchor[],
 ): Promise<HexagonAssessment> {
   return fetcher(
-    `/hexagons/${encodeURIComponent(id)}${weightsSearch(weights)}`,
+    `/hexagons/${encodeURIComponent(id)}${assessmentSearch(weights, anchors)}`,
     signal ? { signal } : undefined,
   );
 }

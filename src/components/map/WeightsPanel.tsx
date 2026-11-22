@@ -11,6 +11,7 @@ import {
 import { categoryLabels } from "../../lib/hexagonAssessment";
 import type { HexStopProperties } from "../../lib/useStopsByHex";
 import { StopRoutesFace } from "./StopRoutesFace";
+import { AnchorPoints, type AnchorPointsProps } from "./AnchorPoints";
 import { TogglerCard } from "./TogglerCard";
 
 const faceEase = [0.22, 0.82, 0.24, 1] as const;
@@ -32,7 +33,7 @@ const categoryDescriptions = [
   "Завжди враховується",
 ];
 
-interface WeightsPanelProps {
+interface WeightsPanelProps extends AnchorPointsProps {
   panelRef: Ref<HTMLDivElement>;
   stop: HexStopProperties | null;
   faceStop: HexStopProperties | null;
@@ -43,6 +44,7 @@ interface WeightsPanelProps {
   onReset: () => void;
   onApply: () => void;
   onStopClose: () => void;
+  canApply: boolean;
 }
 
 export function WeightsPanel({
@@ -56,6 +58,17 @@ export function WeightsPanel({
   onReset,
   onApply,
   onStopClose,
+  anchors,
+  onSaveAnchor,
+  onRemoveAnchor,
+  pickingAnchor,
+  onPickAnchor,
+  personalRoutesEnabled,
+  onPersonalRoutesChange,
+  canApply,
+  selectedPresetId,
+  presetModified,
+  onSelectPreset,
 }: WeightsPanelProps) {
   return (
     <div
@@ -99,33 +112,60 @@ export function WeightsPanel({
             <div className="text-block panel-intro">
               Змініть важливість категорій. Карта оновиться після застосування
             </div>
-            <div className="weights-list">
-              {categoryLabels.map(([, title], index) => {
-                const id = togglerIds[index];
-                return (
-                  <TogglerCard
-                    key={id}
-                    id={id}
-                    locked={lockedTogglerIds.has(id)}
-                    value={togglers[id].value}
-                    on={togglers[id].on}
-                    title={title}
-                    description={categoryDescriptions[index]}
-                    onValueChange={(value) => onTogglerChange(id, { value })}
-                    onOnChange={(on) => onTogglerChange(id, { on })}
-                  />
-                );
-              })}
+            <div className="weights-scroll">
+              <AnchorPoints
+                mobilityValue={togglers["01"].value}
+                onMobilityValueChange={(value) =>
+                  onTogglerChange("01", { value, on: true })
+                }
+                selectedPresetId={selectedPresetId}
+                presetModified={presetModified}
+                onSelectPreset={onSelectPreset}
+                personalRoutesEnabled={personalRoutesEnabled}
+                onPersonalRoutesChange={onPersonalRoutesChange}
+                anchors={anchors}
+                onSaveAnchor={onSaveAnchor}
+                onRemoveAnchor={onRemoveAnchor}
+                pickingAnchor={pickingAnchor}
+                onPickAnchor={onPickAnchor}
+              />
+              <div className="weights-list">
+                {categoryLabels.map(([, title], index) => {
+                  if (index === 0) return null;
+                  const id = togglerIds[index];
+                  return (
+                    <TogglerCard
+                      key={id}
+                      id={id}
+                      locked={lockedTogglerIds.has(id)}
+                      value={togglers[id].value}
+                      on={togglers[id].on}
+                      title={title}
+                      description={categoryDescriptions[index]}
+                      onValueChange={(value) => onTogglerChange(id, { value })}
+                      onOnChange={(on) => onTogglerChange(id, { on })}
+                    />
+                  );
+                })}
+              </div>
             </div>
             <div className="panel-actions">
               <div className="text-block" role="status">
-                {dirty ? "Є незастосовані зміни" : "Пріоритети застосовано"}
+                {!canApply
+                  ? "Додайте місце для своїх маршрутів"
+                  : dirty
+                    ? "Є незастосовані зміни"
+                    : "Пріоритети застосовано"}
               </div>
               <div>
                 <button className="secondary-button" onClick={onReset}>
                   Скинути
                 </button>
-                <button className="primary-button" onClick={onApply}>
+                <button
+                  className="primary-button"
+                  onClick={onApply}
+                  disabled={!canApply}
+                >
                   Застосувати
                 </button>
               </div>

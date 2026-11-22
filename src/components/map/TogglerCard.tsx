@@ -28,7 +28,7 @@ function levelLabel(value: number) {
   return LEVELS[snapped];
 }
 
-function LevelLabel({ label }: { label: string }) {
+export function LevelLabel({ label }: { label: string }) {
   const [current, setCurrent] = useState(label);
   const [previous, setPrevious] = useState<string | null>(null);
   const currentRef = useRef(label);
@@ -78,18 +78,6 @@ export const TogglerCard = ({
   onOnChange,
 }: TogglerCardProps) => {
   const disabled = !locked && !on;
-  const label = levelLabel(value);
-
-  const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled) return;
-    const THUMB = 12; // size-3
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = Math.min(
-      1,
-      Math.max(0, (e.clientX - rect.left - THUMB / 2) / (rect.width - THUMB)),
-    );
-    onValueChange(Math.max(locked ? 20 : 0, Math.round(ratio * 5) * 20));
-  };
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3.5">
@@ -100,9 +88,13 @@ export const TogglerCard = ({
         <div className="text-[11px] text-[#8E8E93]">{id}</div>
 
         <div className="flex flex-1 flex-col">
-          <div className="weight-category-title text-sm font-medium">{title}</div>
+          <div className="weight-category-title text-sm font-medium">
+            {title}
+          </div>
 
-          <div className="weight-category-description text-xs text-[#8E8E93]">{description}</div>
+          <div className="weight-category-description text-xs text-[#8E8E93]">
+            {description}
+          </div>
         </div>
 
         <div>
@@ -118,34 +110,71 @@ export const TogglerCard = ({
         </div>
       </div>
 
-      <div
-        data-slider
-        className="flex items-center justify-between gap-6 pr-2 pl-7"
-      >
-        <div className="min-w-0 flex-1" onPointerDown={handleTrackPointerDown}>
-          <Slider
-            className="w-full"
-            value={value}
-            onValueChange={(next) => {
-              onValueChange(Array.isArray(next) ? next[0] : next);
-            }}
-            max={100}
-            step={20}
-            min={locked ? 20 : 0}
-            aria-label={`Важливість: ${title}`}
-            disabled={disabled}
-          />
-        </div>
-
-        <div
-          className={cn(
-            "w-22 shrink-0 text-xs font-light whitespace-nowrap",
-            disabled && "opacity-50",
-          )}
-        >
-          <LevelLabel label={label} />
-        </div>
-      </div>
+      <CategoryWeightSlider
+        value={value}
+        disabled={disabled}
+        locked={locked}
+        title={title}
+        onValueChange={onValueChange}
+      />
     </div>
   );
 };
+
+export function CategoryWeightSlider({
+  value,
+  disabled,
+  locked = false,
+  title,
+  onValueChange,
+}: {
+  value: number;
+  disabled: boolean;
+  locked?: boolean;
+  title: string;
+  onValueChange: (value: number) => void;
+}) {
+  const label = levelLabel(value);
+
+  const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    const THUMB = 12; // size-3
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(
+      1,
+      Math.max(0, (e.clientX - rect.left - THUMB / 2) / (rect.width - THUMB)),
+    );
+    onValueChange(Math.max(locked ? 20 : 0, Math.round(ratio * 5) * 20));
+  };
+
+  return (
+    <div
+      data-slider
+      className="category-weight-slider flex items-center justify-between gap-6 pr-2 pl-7"
+    >
+      <div className="min-w-0 flex-1" onPointerDown={handleTrackPointerDown}>
+        <Slider
+          className="w-full"
+          value={value}
+          onValueChange={(next) => {
+            onValueChange(Array.isArray(next) ? next[0] : next);
+          }}
+          max={100}
+          step={20}
+          min={locked ? 20 : 0}
+          aria-label={`Важливість: ${title}`}
+          disabled={disabled}
+        />
+      </div>
+
+      <div
+        className={cn(
+          "w-22 shrink-0 text-xs font-light whitespace-nowrap",
+          disabled && "opacity-50",
+        )}
+      >
+        <LevelLabel label={label} />
+      </div>
+    </div>
+  );
+}
