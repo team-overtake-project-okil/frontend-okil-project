@@ -16,6 +16,7 @@ import { createPortal } from "react-dom";
 import { chatWebSocketUrl } from "../lib/chatUrl";
 import { ClearChatHistory } from "./ClearChatHistory";
 import type { ClearChatHistoryControls } from "./ClearChatHistory";
+import { ClearChatHistoryButton } from "./ClearChatHistoryButton";
 
 export type HexChatContext = {
   id: string;
@@ -382,7 +383,13 @@ export function Chat({
       }}
     >
       <ClearChatHistory clear={clearHistory} disabled={!ready || clearing}>
-        {renderClearHistory}
+        {renderClearHistory ??
+          ((controls) => (
+            <ClearChatHistoryButton
+              {...controls}
+              visible={turns.some((turn) => turn.answer !== undefined)}
+            />
+          ))}
       </ClearChatHistory>
       <div className={showError ? "chat-connection" : "sr-only"} role="status">
         <span>{CHAT_URL ? status : ""}</span>
