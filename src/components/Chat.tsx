@@ -17,6 +17,7 @@ import { chatWebSocketUrl } from "../lib/chatUrl";
 import { ClearChatHistory } from "./ClearChatHistory";
 import type { ClearChatHistoryControls } from "./ClearChatHistory";
 import { ClearChatHistoryButton } from "./ClearChatHistoryButton";
+import { ChatAnswer } from "./ChatAnswer";
 
 export type HexChatContext = {
   id: string;
@@ -467,7 +468,7 @@ export function Chat({
               <div className="chat-message chat-message-assistant">
                 <span className="chat-author">Помічник Окіл</span>
                 <div className="text-block chat-message-text">
-                  {turn.answer}
+                  <ChatAnswer content={turn.answer} />
                 </div>
               </div>
             )}
