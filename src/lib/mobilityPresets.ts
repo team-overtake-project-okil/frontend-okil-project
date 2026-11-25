@@ -15,32 +15,23 @@ export type MobilityPreset = {
   points: readonly MobilityPresetPoint[];
 };
 
-// Campus addresses checked against the institutions' directories on 2026-11-22.
-// Coordinates resolved with Geoapify and checked against the Lviv city boundary.
-// https://lpnu.ua/adresy-korpusiv
-// https://lnu.edu.ua/structure/faculties/
-// https://www.lnulibrary.lviv.ua/about/departments/lb-edu/
-// https://events.ucu.org.ua/about
-// https://new.meduniv.lviv.ua/pidrozdily/stomatologichnyj-medychnyj-tsentr/
-// https://lviv.travel/ua/places/attractions/vezha-ratushi
-// https://www.cpk.lviv.ua/contact/
 export const mobilityPresets: readonly MobilityPreset[] = [
   {
     id: "polytechnic",
-    title: "Студент Політехніки",
+    title: "Студент НУ «ЛП»",
     kind: "study",
     description: "Головний та 4-й навчальний корпуси",
     points: [
       {
         id: "main",
-        label: "Політехніка · головний корпус",
+        label: "Політехніка, Головний корпус",
         address: "вул. Степана Бандери, 12",
         lat: 49.8354222,
         lng: 24.0141767,
       },
       {
         id: "building-4",
-        label: "Політехніка · 4-й корпус",
+        label: "Політехніка, 4-й корпус",
         address: "вул. Митрополита Андрея, 5",
         lat: 49.836856,
         lng: 24.0112871,
@@ -49,27 +40,27 @@ export const mobilityPresets: readonly MobilityPreset[] = [
   },
   {
     id: "franko",
-    title: "Студент Франка",
+    title: "Студент ЛНУ",
     kind: "study",
     description: "Головний корпус, фізичний факультет і бібліотека",
     points: [
       {
         id: "main",
-        label: "ЛНУ · головний корпус",
+        label: "ЛНУ, головний корпус",
         address: "вул. Університетська, 1",
         lat: 49.8402167,
         lng: 24.0222881,
       },
       {
         id: "physics",
-        label: "ЛНУ · фізичний факультет",
+        label: "ЛНУ, фізичний факультет",
         address: "вул. Кирила і Мефодія, 8",
         lat: 49.8318805,
         lng: 24.0300819,
       },
       {
         id: "library",
-        label: "ЛНУ · наукова бібліотека",
+        label: "ЛНУ, наукова бібліотека",
         address: "вул. Михайла Драгоманова, 5",
         lat: 49.8341112,
         lng: 24.0306256,
@@ -84,14 +75,14 @@ export const mobilityPresets: readonly MobilityPreset[] = [
     points: [
       {
         id: "kozelnytska",
-        label: "УКУ · Козельницька",
+        label: "УКУ, Козельницька",
         address: "вул. Козельницька, 2А",
         lat: 49.8170878,
         lng: 24.023469,
       },
       {
         id: "sventsitskoho",
-        label: "УКУ · Свєнціцького",
+        label: "УКУ, Свєнціцького",
         address: "вул. Іларіона Свєнціцького, 17",
         lat: 49.8230992,
         lng: 24.0375259,
@@ -100,20 +91,20 @@ export const mobilityPresets: readonly MobilityPreset[] = [
   },
   {
     id: "medical",
-    title: "Студент медичного",
+    title: "Студент ЛНМУ",
     kind: "study",
     description: "Головний корпус і стоматологічний центр",
     points: [
       {
         id: "main",
-        label: "ЛНМУ · головний корпус",
+        label: "ЛНМУ, головний корпус",
         address: "вул. Пекарська, 69",
         lat: 49.8359823,
         lng: 24.0486606,
       },
       {
         id: "dentistry",
-        label: "ЛНМУ · стоматологічний центр",
+        label: "ЛНМУ, стоматологічний центр",
         address: "вул. Пекарська, 69А",
         lat: 49.8364325,
         lng: 24.0492764,
@@ -128,7 +119,7 @@ export const mobilityPresets: readonly MobilityPreset[] = [
     points: [
       {
         id: "rynok",
-        label: "Площа Ринок · Ратуша",
+        label: "Площа Ринок, Ратуша",
         address: "пл. Ринок, 1",
         lat: 49.8416393,
         lng: 24.0318273,

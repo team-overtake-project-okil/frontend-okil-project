@@ -1,5 +1,8 @@
 import mapboxgl from "mapbox-gl";
-import type { MobilityAnchor } from "../../lib/mobilityAnchors";
+import type {
+  MobilityAnchor,
+  MobilityAnchorMarker,
+} from "../../lib/mobilityAnchors";
 import { anchorMarkerSize, groupAnchorPositions } from "./mobilityAnchorLayout";
 
 type AnchorMarker = {
@@ -19,8 +22,11 @@ const overlaps = (a: LabelRect, b: LabelRect) =>
 
 export function mountMobilityAnchors(
   map: mapboxgl.Map,
-  anchors: readonly MobilityAnchor[],
+  anchors: readonly MobilityAnchorMarker[],
 ) {
+  const routeColors = new Map(
+    anchors.map(({ id, routeColor }) => [id, routeColor]),
+  );
   const markers = new Map<string, AnchorMarker>();
   const retiring = new Set<AnchorMarker>();
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -96,6 +102,9 @@ export function mountMobilityAnchors(
         dot.setAttribute("aria-hidden", "true");
         if (count > 1) dot.textContent = String(count);
         visual.append(label, dot);
+        const routeColor = count === 1 && routeColors.get(group[0].anchor.id);
+        if (routeColor)
+          element.style.setProperty("--anchor-route-color", routeColor);
         element.append(visual);
         element.setAttribute(
           "aria-label",

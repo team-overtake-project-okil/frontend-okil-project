@@ -65,78 +65,83 @@ export function MobilityPresetPicker({
           <XMarkIcon />
         </button>
       </div>
-      <div
-        className="anchor-preset-options"
-        role="group"
-        aria-label="Набори місць"
-      >
-        {mobilityPresets.map((item) => {
-          const Icon =
-            item.kind === "study"
-              ? AcademicCapIcon
-              : item.kind === "city"
-                ? BuildingOffice2Icon
-                : GlobeAltIcon;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className="anchor-preset-option"
-              aria-pressed={choice === item.id}
-              onClick={() => setChoice(item.id)}
-            >
-              <Icon className="anchor-preset-symbol" aria-hidden="true" />
-              <span>
-                <strong>{item.title}</strong>
-                <small>{item.description}</small>
-              </span>
-              {choice === item.id && (
-                <CheckIcon className="anchor-preset-check" aria-hidden="true" />
-              )}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          className="anchor-preset-option anchor-preset-custom"
-          aria-pressed={choice === "custom"}
-          onClick={() => setChoice("custom")}
+      <div className="anchor-preset-body">
+        <div
+          className="anchor-preset-options"
+          role="group"
+          aria-label="Набори місць"
         >
-          <AdjustmentsHorizontalIcon
-            className="anchor-preset-symbol"
-            aria-hidden="true"
-          />
-          <span>
-            <strong>Власний вибір</strong>
-            <small>
-              {hasPlaces
-                ? "Залиште поточні точки та налаштуйте під себе"
-                : "Дім, робота та інші важливі для вас місця"}
-            </small>
-          </span>
-          {choice === "custom" && (
-            <CheckIcon className="anchor-preset-check" aria-hidden="true" />
-          )}
-        </button>
-      </div>
-      {preset && (
-        <div className="anchor-preset-preview">
-          <h4>Місця в наборі · {preset.points.length}</h4>
-          <ul>
-            {preset.points.map((point) => (
-              <li key={point.id}>
-                <strong>{point.label}</strong>
-                <span>{point.address}</span>
-              </li>
-            ))}
-          </ul>
+          {mobilityPresets.map((item) => {
+            const Icon =
+              item.kind === "study"
+                ? AcademicCapIcon
+                : item.kind === "city"
+                  ? BuildingOffice2Icon
+                  : GlobeAltIcon;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className="anchor-preset-option"
+                aria-pressed={choice === item.id}
+                onClick={() => setChoice(item.id)}
+              >
+                <Icon className="anchor-preset-symbol" aria-hidden="true" />
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>{item.description}</small>
+                </span>
+                {choice === item.id && (
+                  <CheckIcon
+                    className="anchor-preset-check"
+                    aria-hidden="true"
+                  />
+                )}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            className="anchor-preset-option anchor-preset-custom"
+            aria-pressed={choice === "custom"}
+            onClick={() => setChoice("custom")}
+          >
+            <AdjustmentsHorizontalIcon
+              className="anchor-preset-symbol"
+              aria-hidden="true"
+            />
+            <span>
+              <strong>Власний вибір</strong>
+              <small>
+                {hasPlaces
+                  ? "Залиште поточні точки та налаштуйте під себе"
+                  : "Дім, робота та інші важливі для вас місця"}
+              </small>
+            </span>
+            {choice === "custom" && (
+              <CheckIcon className="anchor-preset-check" aria-hidden="true" />
+            )}
+          </button>
         </div>
-      )}
-      <p className="anchor-preset-help">
-        {hasPlaces && preset
-          ? "Цей набір замінить поточні точки. Після вибору їх можна змінити."
-          : "Кожну точку можна змінити чи видалити, а також додати свої."}
-      </p>
+        {preset && (
+          <div className="anchor-preset-preview">
+            <h4>Місця в наборі · {preset.points.length}</h4>
+            <ul>
+              {preset.points.map((point) => (
+                <li key={point.id}>
+                  <strong>{point.label}</strong>
+                  <span>{point.address}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <p className="anchor-preset-help">
+          {hasPlaces && preset
+            ? "Цей набір замінить поточні точки. Після вибору їх можна змінити."
+            : "Кожну точку можна змінити чи видалити, а також додати свої."}
+        </p>
+      </div>
       <div className="anchor-editor-actions">
         <button
           type="button"

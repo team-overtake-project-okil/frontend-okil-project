@@ -1,7 +1,7 @@
 import { CategoryScore } from "./map/CategoryScore";
 import { useMemo, useState } from "react";
 import { Chat, type HexChatContext } from "./Chat";
-import { categoryLabels } from "../lib/hexagonAssessment";
+import { anchorRouteColors, categoryLabels } from "../lib/hexagonAssessment";
 import type { AddressSuggestion } from "../services/geocoding";
 import { AssessmentCard } from "./map/AssessmentCard";
 import { HexagonComparison } from "./map/HexagonComparison";
@@ -37,6 +37,30 @@ export const Map = ({
   const workspace = useMapWorkspace();
   const { sectionRef, expandRef, panelRef, toggleRef } = workspace.refs;
   const ratings = useMapRatings(workspace.selectedHexId);
+
+  const assessmentRoutes =
+    ratings.personalRoutesEnabled && ratings.appliedRoutesEnabled
+      ? (ratings.assessmentData?.routes ?? null)
+      : null;
+  const anchorPoints = useMemo(() => {
+    if (!ratings.personalRoutesEnabled) return [];
+    const colors = anchorRouteColors(assessmentRoutes);
+    if (colors.size === 0) return ratings.anchors;
+    return ratings.anchors.map((anchor) => {
+      const index = ratings.appliedAnchors.findIndex(
+        (applied) =>
+          applied.id === anchor.id &&
+          applied.lat === anchor.lat &&
+          applied.lng === anchor.lng,
+      );
+      return { ...anchor, routeColor: colors.get(index) };
+    });
+  }, [
+    assessmentRoutes,
+    ratings.anchors,
+    ratings.appliedAnchors,
+    ratings.personalRoutesEnabled,
+  ]);
 
   const selectedChatContext = useMemo<HexChatContext | null>(() => {
     if (
@@ -180,12 +204,8 @@ export const Map = ({
             clearSelectionKey={clearSelectionKey}
             searchedLocation={searchedLocation}
             selectedHexId={workspace.selectedHexId}
-            assessmentRoutes={
-              ratings.personalRoutesEnabled && ratings.appliedRoutesEnabled
-                ? (ratings.assessmentData?.routes ?? null)
-                : null
-            }
-            anchorPoints={ratings.personalRoutesEnabled ? ratings.anchors : []}
+            assessmentRoutes={assessmentRoutes}
+            anchorPoints={anchorPoints}
             onAnchorPick={
               pickingAnchor !== null
                 ? ({ lat, lng }) => {

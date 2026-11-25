@@ -25,7 +25,7 @@ import {
   lvivHexes,
   SELECTION_ZOOM,
 } from "./lvivGrid";
-import type { MobilityAnchor } from "../../lib/mobilityAnchors";
+import type { MobilityAnchorMarker } from "../../lib/mobilityAnchors";
 import type { HexagonRoutes } from "../../lib/hexagonAssessment";
 import { isInLviv } from "../../services/lvivBoundary";
 
@@ -42,7 +42,7 @@ interface UseMapboxMapArgs {
   clearSelectionKey?: number;
   routesEnabled: boolean;
   assessmentRoutes: HexagonRoutes | null;
-  anchorPoints?: readonly MobilityAnchor[];
+  anchorPoints?: readonly MobilityAnchorMarker[];
   onAnchorPick?: ((location: { lat: number; lng: number }) => void) | null;
   onStopInPanel?: (stop: HexStopProperties) => boolean;
   onStopPanelDismiss?: () => void;

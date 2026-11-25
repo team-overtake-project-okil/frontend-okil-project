@@ -16,6 +16,7 @@ export type HexagonRouteProperties = {
   transport_mode: string;
   mode: string;
   section_type: string;
+  anchor_index?: number;
   route_index: number;
   section_index: number;
   color: string;
@@ -38,6 +39,30 @@ export type HexagonRoutes = {
   type: "FeatureCollection";
   features: HexagonRouteFeature[];
 };
+
+export function anchorRouteColors(routes: HexagonRoutes | null) {
+  const sections = new Map<number, HexagonRouteProperties>();
+  for (const { properties } of routes?.features ?? []) {
+    const index = properties.anchor_index;
+    if (index === undefined || !/^#[0-9a-f]{6}$/i.test(properties.color))
+      continue;
+
+    const current = sections.get(index);
+    const solid = properties.line_style === "solid";
+    const currentSolid = current?.line_style === "solid";
+    if (
+      !current ||
+      (solid && !currentSolid) ||
+      (solid === currentSolid &&
+        properties.section_index > current.section_index)
+    ) {
+      sections.set(index, properties);
+    }
+  }
+  return new Map(
+    Array.from(sections, ([index, section]) => [index, section.color]),
+  );
+}
 
 export type HexagonAssessment = {
   h3_id: string;

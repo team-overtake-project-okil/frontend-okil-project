@@ -2094,8 +2094,10 @@ input:focus-visible {
   padding: 0 16px 12px;
 }
 :is(.weights-list > div, .anchor-section) {
-  padding: 12px 16px;
-  gap: 8px;
+  --category-block-padding: 12px;
+  --category-gap: 8px;
+  padding: var(--category-block-padding) 16px;
+  gap: var(--category-gap);
 }
 :is(.weights-list [data-slider], .category-weight-slider) {
   gap: 12px;
@@ -2123,7 +2125,8 @@ input:focus-visible {
 }
 @media (max-width: 700px) {
   :is(.weights-list > div, .anchor-section) {
-    padding: 10px 14px;
+    --category-block-padding: 10px;
+    padding-inline: 14px;
   }
 }
 

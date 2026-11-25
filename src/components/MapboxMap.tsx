@@ -2,7 +2,7 @@ import type { Hexagon } from "../lib/hexagonRating";
 import { RouteStatus } from "./mapbox/RouteStatus";
 import { mapboxToken, useMapboxMap } from "./mapbox/useMapboxMap";
 import type { HexStopProperties } from "../lib/useStopsByHex";
-import type { MobilityAnchor } from "../lib/mobilityAnchors";
+import type { MobilityAnchorMarker } from "../lib/mobilityAnchors";
 import type { HexagonRoutes } from "../lib/hexagonAssessment";
 
 interface MapboxMapProps {
@@ -14,7 +14,7 @@ interface MapboxMapProps {
   clearSelectionKey?: number;
   routesEnabled?: boolean;
   assessmentRoutes: HexagonRoutes | null;
-  anchorPoints?: readonly MobilityAnchor[];
+  anchorPoints?: readonly MobilityAnchorMarker[];
   onAnchorPick?: ((location: { lat: number; lng: number }) => void) | null;
   // Returns true when the open priorities panel takes the stop, so the map
   // card stays closed and the route list replaces the sliders.

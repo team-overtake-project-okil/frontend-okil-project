@@ -6,7 +6,9 @@ import {
 } from "../ui/tooltip";
 import { CategoryWeightSlider } from "./TogglerCard";
 import { useState } from "react";
+import { cn } from "cn";
 import {
+  ArrowRightIcon,
   MapPinIcon,
   PlusIcon,
   PencilSquareIcon,
@@ -53,7 +55,7 @@ export function AnchorPoints({
 }: AnchorPointsProps) {
   const [editing, setEditing] = useState<string | null>(null);
   const [choosingPreset, setChoosingPreset] = useState(false);
-  const [enablingWithPicker, setEnablingWithPicker] = useState(false);
+  const needsSetup = selectedPresetId === null && anchors.length === 0;
   const presetTitle =
     selectedPresetId === "custom"
       ? "Власний вибір"
@@ -99,11 +101,14 @@ export function AnchorPoints({
   };
   return (
     <section
-      className={`anchor-section ${personalRoutesEnabled ? "is-enabled" : ""}`}
+      className={needsSetup ? "anchor-section needs-setup" : "anchor-section"}
       aria-labelledby="anchor-heading"
     >
       <div
-        className={`anchor-heading ${!personalRoutesEnabled ? "opacity-50" : ""}`}
+        className={cn(
+          "anchor-heading",
+          !needsSetup && !personalRoutesEnabled && "opacity-50",
+        )}
       >
         <div>
           <h3 id="anchor-heading" className="weight-category-title">
@@ -144,23 +149,23 @@ export function AnchorPoints({
               </Tooltip>
             </TooltipProvider>
           )}
-          <Switch
-            checked={personalRoutesEnabled}
-            onCheckedChange={(enabled) => {
-              onPersonalRoutesChange(enabled);
-              if (
-                enabled &&
-                selectedPresetId === null &&
-                anchors.length === 0
-              ) {
-                setEnablingWithPicker(true);
-                setChoosingPreset(true);
-              }
-            }}
-            aria-labelledby="anchor-heading"
-            aria-describedby="anchor-description"
-            className="anchor-feature-switch"
-          />
+          {needsSetup ? (
+            <button
+              type="button"
+              className="assessment-ask assessment-ask-inline"
+              aria-haspopup="dialog"
+              onClick={() => setChoosingPreset(true)}
+            >
+              Обрати <ArrowRightIcon aria-hidden="true" />
+            </button>
+          ) : (
+            <Switch
+              checked={personalRoutesEnabled}
+              onCheckedChange={onPersonalRoutesChange}
+              aria-labelledby="anchor-heading"
+              aria-describedby="anchor-description"
+            />
+          )}
         </div>
       </div>
       <CategoryWeightSlider
@@ -169,26 +174,22 @@ export function AnchorPoints({
         title="Мобільність"
         onValueChange={(value) => onMobilityValueChange?.(value)}
       />
+      {choosingPreset && (
+        <MobilityPresetPicker
+          selectedPresetId={selectedPresetId}
+          hasPlaces={anchors.length > 0}
+          onClose={() => setChoosingPreset(false)}
+          onSelect={(id) => {
+            onSelectPreset(id);
+            if (needsSetup) onPersonalRoutesChange(true);
+            setChoosingPreset(false);
+            setEditing(null);
+            onPickAnchor(null);
+          }}
+        />
+      )}
       {personalRoutesEnabled ? (
         <div className="anchor-feature-content">
-          {choosingPreset && (
-            <MobilityPresetPicker
-              selectedPresetId={selectedPresetId}
-              hasPlaces={anchors.length > 0}
-              onClose={() => {
-                setChoosingPreset(false);
-                if (enablingWithPicker) onPersonalRoutesChange(false);
-                setEnablingWithPicker(false);
-              }}
-              onSelect={(id) => {
-                onSelectPreset(id);
-                setEnablingWithPicker(false);
-                setChoosingPreset(false);
-                setEditing(null);
-                onPickAnchor(null);
-              }}
-            />
-          )}
           <div className="anchor-locations-heading">
             <button
               type="button"

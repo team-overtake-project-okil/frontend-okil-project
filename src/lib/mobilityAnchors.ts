@@ -9,6 +9,8 @@ export type MobilityAnchor = {
   address?: string;
 };
 
+export type MobilityAnchorMarker = MobilityAnchor & { routeColor?: string };
+
 export const MAX_ANCHORS = 5;
 export const defaultAnchors = (): MobilityAnchor[] => [];
 
