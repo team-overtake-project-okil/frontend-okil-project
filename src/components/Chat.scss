@@ -1005,7 +1005,7 @@
 .assessment-card .assessment-category-body {
   margin-bottom: 0;
 }
-.assessment-card .assessment-ask {
+.map-section .assessment-ask {
   min-height: 38px;
   margin: 8px 16px 16px;
   padding: 8px 12px;
@@ -1019,9 +1019,11 @@
   color: #737b76;
   opacity: 1;
 }
-.map-section .assessment-card .assessment-ask.assessment-ask-inline {
+.map-section .assessment-card .assessment-ask-inline {
   grid-column: 2;
   grid-row: 1;
+}
+.map-section .assessment-ask.assessment-ask-inline {
   display: inline-flex;
   align-items: center;
   justify-content: center;

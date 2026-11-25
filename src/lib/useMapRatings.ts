@@ -13,18 +13,42 @@ import {
   getHexagonRatings,
   hexagonAssessmentOptions,
 } from "./hexagonAssessment";
+import {
+  defaultAnchors,
+  sameAnchors,
+  validAnchors,
+  type MobilityAnchor,
+} from "./mobilityAnchors";
 import { withIntegerRating } from "./hexagonRating";
+import { mobilityPresets, presetAnchors } from "./mobilityPresets";
 
 export function useMapRatings(selectedHexId: string | null) {
+  const [anchors, setAnchors] = useState(defaultAnchors);
+  const [appliedAnchors, setAppliedAnchors] = useState(defaultAnchors);
+  const [personalRoutesEnabled, setPersonalRoutesEnabled] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const selectedPreset = mobilityPresets.find(
+    (preset) => preset.id === selectedPresetId,
+  );
+  const [appliedRoutesEnabled, setAppliedRoutesEnabled] = useState(false);
+  const activeAnchors = useMemo(
+    () => (appliedRoutesEnabled ? appliedAnchors : []),
+    [appliedRoutesEnabled, appliedAnchors],
+  );
+  const anchorsDirty =
+    personalRoutesEnabled !== appliedRoutesEnabled ||
+    (personalRoutesEnabled && !sameAnchors(anchors, appliedAnchors));
   const [togglers, setTogglers] = useState(defaultTogglers);
-  // null means the user has not applied weights yet, so the API defaults stay.
+  // Keep draft priorities separate from the values used by the map.
   const [appliedTogglers, setAppliedTogglers] = useState<TogglerStates | null>(
     null,
   );
   const assessmentWeights = useMemo(
-    () =>
-      appliedTogglers === null ? null : buildAssessmentWeights(appliedTogglers),
-    [appliedTogglers],
+    () => ({
+      ...buildAssessmentWeights(appliedTogglers ?? defaultTogglers()),
+      ...(!appliedRoutesEnabled ? { weight_mobility: 0 } : {}),
+    }),
+    [appliedTogglers, appliedRoutesEnabled],
   );
   const {
     data: hexagonsData = [],
@@ -33,30 +57,38 @@ export function useMapRatings(selectedHexId: string | null) {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["hexagons", assessmentWeights],
+    queryKey: ["hexagons", assessmentWeights, activeAnchors],
     placeholderData: keepPreviousData,
     queryFn: async ({ queryKey, signal }) => {
       const weights = queryKey[1] as AssessmentWeights | null;
-      const hexagons = await getHexagonRatings(weights, signal);
+      const hexagons = await getHexagonRatings(weights, signal, activeAnchors);
       return hexagons.map(withIntegerRating);
     },
   });
   const assessment = useQuery(
-    hexagonAssessmentOptions(selectedHexId, assessmentWeights),
+    hexagonAssessmentOptions(selectedHexId, assessmentWeights, activeAnchors),
   );
-  const dirty = !sameWeights(
-    buildAssessmentWeights(togglers),
-    assessmentWeights ?? buildAssessmentWeights(defaultTogglers()),
-  );
+  const dirty =
+    anchorsDirty ||
+    !sameWeights(
+      buildAssessmentWeights(togglers),
+      buildAssessmentWeights(appliedTogglers ?? defaultTogglers()),
+    );
   const updateToggler = (id: string, patch: Partial<TogglerState>) =>
     setTogglers((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   const handleApply = () => {
+    if (personalRoutesEnabled && !validAnchors(anchors)) return;
+    setAppliedAnchors(anchors.map((point) => ({ ...point })));
+    setAppliedRoutesEnabled(personalRoutesEnabled);
     const nextAppliedTogglers = { ...togglers };
-    const nextWeights = buildAssessmentWeights(nextAppliedTogglers);
+    const nextWeights = {
+      ...buildAssessmentWeights(nextAppliedTogglers),
+      ...(!personalRoutesEnabled ? { weight_mobility: 0 } : {}),
+    };
     const weightsUnchanged = sameWeights(assessmentWeights, nextWeights);
 
     setAppliedTogglers(nextAppliedTogglers);
-    if (weightsUnchanged) {
+    if (weightsUnchanged && !anchorsDirty) {
       void refetch();
       if (selectedHexId) void assessment.refetch();
     }
@@ -75,10 +107,43 @@ export function useMapRatings(selectedHexId: string | null) {
     assessmentError: assessment.error,
     refetchAssessment: assessment.refetch,
     assessmentWeights,
+    anchors,
+    appliedAnchors: activeAnchors,
+    personalRoutesEnabled,
+    appliedRoutesEnabled,
+    setPersonalRoutesEnabled,
+    selectedPresetId,
+    presetModified: Boolean(
+      selectedPreset && !sameAnchors(anchors, presetAnchors(selectedPreset)),
+    ),
+    selectPreset: (id: string) => {
+      if (id === "custom") {
+        setSelectedPresetId(id);
+        return;
+      }
+      const preset = mobilityPresets.find((item) => item.id === id);
+      if (!preset) return;
+      setAnchors(presetAnchors(preset));
+      setSelectedPresetId(id);
+    },
+    canApply: !personalRoutesEnabled || validAnchors(anchors),
+    saveAnchor: (point: MobilityAnchor) =>
+      setAnchors((prev) => {
+        if (prev.some((item) => item.id === point.id))
+          return prev.map((item) => (item.id === point.id ? point : item));
+        return prev.length < 5 ? [...prev, point] : prev;
+      }),
+    removeAnchor: (id: string) =>
+      setAnchors((prev) => prev.filter((point) => point.id !== id)),
     togglers,
     dirty,
     updateToggler,
     handleApply,
-    handleReset: () => setTogglers(defaultTogglers()),
+    handleReset: () => {
+      setTogglers(defaultTogglers());
+      setAnchors(defaultAnchors());
+      setPersonalRoutesEnabled(false);
+      setSelectedPresetId(null);
+    },
   };
 }

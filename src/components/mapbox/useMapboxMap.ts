@@ -14,6 +14,7 @@ import type { Hexagon } from "../../lib/hexagonRating";
 import { handleMapClick } from "./mapClick";
 import { installCityLayers } from "./mapLayers";
 import { mountComparison } from "./syncComparison";
+import { mountMobilityAnchors } from "./syncMobilityAnchors";
 import { whenMapSourceReady } from "./whenMapSourceReady";
 import {
   cityBounds,
@@ -24,7 +25,9 @@ import {
   lvivHexes,
   SELECTION_ZOOM,
 } from "./lvivGrid";
+import type { MobilityAnchorMarker } from "../../lib/mobilityAnchors";
 import type { HexagonRoutes } from "../../lib/hexagonAssessment";
+import { isInLviv } from "../../services/lvivBoundary";
 
 export const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -39,6 +42,8 @@ interface UseMapboxMapArgs {
   clearSelectionKey?: number;
   routesEnabled: boolean;
   assessmentRoutes: HexagonRoutes | null;
+  anchorPoints?: readonly MobilityAnchorMarker[];
+  onAnchorPick?: ((location: { lat: number; lng: number }) => void) | null;
   onStopInPanel?: (stop: HexStopProperties) => boolean;
   onStopPanelDismiss?: () => void;
 }
@@ -52,12 +57,18 @@ export function useMapboxMap({
   clearSelectionKey,
   routesEnabled,
   assessmentRoutes,
+  anchorPoints,
+  onAnchorPick,
   onStopInPanel,
   onStopPanelDismiss,
 }: UseMapboxMapArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const onHexSelectRef = useRef(onHexSelect);
+  const anchorPickRef = useRef(onAnchorPick);
+  useEffect(() => {
+    anchorPickRef.current = onAnchorPick;
+  }, [onAnchorPick]);
   const onStopInPanelRef = useRef(onStopInPanel);
   const onStopPanelDismissRef = useRef(onStopPanelDismiss);
   const hexScoresRef = useRef(new Map<string, number | undefined>());
@@ -179,6 +190,11 @@ export function useMapboxMap({
     );
 
     map.on("click", (event) => {
+      if (anchorPickRef.current) {
+        const { lat, lng } = event.lngLat;
+        if (isInLviv(lng, lat)) anchorPickRef.current({ lat, lng });
+        return;
+      }
       handleMapClick(map, event, {
         stopsByIdRef,
         stopPopupRef,
@@ -214,6 +230,12 @@ export function useMapboxMap({
     if (!map) return;
     return mountComparison(map, comparisonIds);
   }, [comparisonIds]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    return mountMobilityAnchors(map, anchorPoints ?? []);
+  }, [anchorPoints]);
 
   // Push the routes of the selected hexagon into the map (empty when nothing is selected).
   useEffect(() => {

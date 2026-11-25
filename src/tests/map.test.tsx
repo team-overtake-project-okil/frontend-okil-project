@@ -70,9 +70,10 @@ async function openPreferences() {
     expect(screen.getByTestId("map-data").textContent).toBe("initial-hex"),
   );
   expect(fetchMock).toHaveBeenCalledTimes(1);
-  expect(String(fetchMock.mock.calls[0][0])).toBe(
-    "https://ratings.example.test/hexagons",
-  );
+  const initialRequest = new URL(String(fetchMock.mock.calls[0][0]));
+  expect(initialRequest.pathname).toBe("/hexagons");
+  expect(initialRequest.searchParams.get("weight_mobility")).toBe("0");
+  expect(initialRequest.searchParams.has("anchor_lat")).toBe(false);
   await user.click(screen.getByRole("button", { name: "Пріоритети" }));
   return user;
 }
@@ -133,7 +134,6 @@ describe("category filter API integration", () => {
   it.each([
     ["Освіта", "weight_study"],
     ["Здоров'я", "weight_health"],
-    ["Мобільність", "weight_mobility"],
     ["Щоденні потреби", "weight_daily"],
     ["Дозвілля", "weight_enjoyment"],
     ["Спорт", "weight_sport"],
@@ -157,9 +157,10 @@ describe("category filter API integration", () => {
       const params = new URL(String(fetchMock.mock.calls[1][0])).searchParams;
       expect(params.get(parameter)).toBe("0");
       expect(params.get("weight_security")).toBe("1");
+      expect(params.get("weight_mobility")).toBe("0");
       expect(
         [...params.entries()]
-          .filter(([key]) => key !== parameter)
+          .filter(([key]) => key !== parameter && key !== "weight_mobility")
           .every(([, value]) => value === "1"),
       ).toBe(true);
       await user.click(toggle);

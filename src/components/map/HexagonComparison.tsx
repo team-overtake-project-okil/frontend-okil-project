@@ -1,3 +1,4 @@
+import type { MobilityAnchor } from "../../lib/mobilityAnchors";
 import { useId, type CSSProperties } from "react";
 import { useQueries } from "@tanstack/react-query";
 import type { AssessmentWeights } from "../../lib/assessmentWeights";
@@ -16,6 +17,7 @@ interface HexagonComparisonProps {
   onAdd: () => void;
   ids: readonly string[];
   weights: AssessmentWeights | null;
+  anchors?: readonly MobilityAnchor[];
   open: boolean;
   onToggle: () => void;
   onRemove: (id: string) => void;
@@ -41,13 +43,16 @@ export function HexagonComparison({
   onAdd,
   ids,
   weights,
+  anchors,
   open,
   onToggle,
   onRemove,
 }: HexagonComparisonProps) {
   const tableId = useId();
   const columns = useQueries({
-    queries: open ? ids.map((id) => hexagonAssessmentOptions(id, weights)) : [],
+    queries: open
+      ? ids.map((id) => hexagonAssessmentOptions(id, weights, anchors))
+      : [],
   });
 
   return (

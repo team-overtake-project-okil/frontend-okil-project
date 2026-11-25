@@ -18,6 +18,15 @@ import type {
 } from "../lib/hexagonAssessment";
 import type { HexStopProperties } from "../lib/useStopsByHex";
 
+// jsdom does not implement the native dialog lifecycle.
+vi.mock("../lib/useAnimatedDialog", () => ({
+  useAnimatedDialog: () => ({
+    dialogRef: (dialog: HTMLDialogElement | null) =>
+      dialog?.setAttribute("open", ""),
+    closeDialog: (onClose: () => void) => onClose(),
+  }),
+}));
+
 const PRIMARY_HEX_ID = "891e76883c3ffff";
 const SECONDARY_HEX_ID = "891e76883afffff";
 
@@ -314,7 +323,7 @@ describe("rating weights & hexagon details API integration", () => {
     expect(weightedListUrl.searchParams.get("weight_health")).toBe("4");
     expect(weightedListUrl.searchParams.get("weight_study")).toBe("3");
     expect(weightedListUrl.searchParams.get("weight_sport")).toBe("0");
-    expect(weightedListUrl.searchParams.get("weight_mobility")).toBe("1");
+    expect(weightedListUrl.searchParams.get("weight_mobility")).toBe("0");
     expect(weightedListUrl.searchParams.get("weight_security")).toBe("1");
 
     const detailRequests = getRequestsByPath(
@@ -325,6 +334,7 @@ describe("rating weights & hexagon details API integration", () => {
     expect(detailRequests[1].searchParams.get("weight_health")).toBe("4");
     expect(detailRequests[1].searchParams.get("weight_study")).toBe("3");
     expect(detailRequests[1].searchParams.get("weight_sport")).toBe("0");
+    expect(detailRequests[1].searchParams.get("weight_mobility")).toBe("0");
 
     // Resetting restores default weights after applying.
     await user.click(screen.getByRole("button", { name: "Скинути" }));
@@ -372,14 +382,42 @@ describe("rating weights & hexagon details API integration", () => {
 
     await user.click(screen.getByRole("button", { name: "Select primary hex" }));
 
-    // Overall truncated rating and routes GeoJSON forwarded to map layer
+    // Even when the API returns geometry, the map hides it until mobility is applied.
     expect(await screen.findByText("84")).toBeTruthy();
-    expect(screen.getByTestId("map-layer").getAttribute("data-selected-hex")).toBe(
-      PRIMARY_HEX_ID,
+    expect(
+      screen.getByTestId("map-layer").getAttribute("data-selected-hex"),
+    ).toBe(PRIMARY_HEX_ID);
+    const mapLayer = screen.getByTestId("map-layer");
+    expect(mapLayer.getAttribute("data-routes")).toBe("null");
+
+    await user.click(screen.getByRole("button", { name: "Пріоритети" }));
+    await user.click(screen.getByRole("button", { name: "Обрати" }));
+    const picker = within(
+      screen.getByRole("dialog", { name: "Куди ви найчастіше їздите?" }),
     );
-    expect(screen.getByTestId("map-layer").getAttribute("data-routes")).toBe(
-      JSON.stringify(SAMPLE_ROUTES),
+    await user.click(picker.getByRole("button", { name: /Часто в центрі/ }));
+    await user.click(picker.getByRole("button", { name: "Використати набір" }));
+
+    expect(mapLayer.getAttribute("data-routes")).toBe("null");
+    expect(
+      getRequestsByPath(fetchMock, `/hexagons/${PRIMARY_HEX_ID}`),
+    ).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Застосувати" }));
+    await waitFor(() =>
+      expect(mapLayer.getAttribute("data-routes")).toBe(
+        JSON.stringify(SAMPLE_ROUTES),
+      ),
     );
+    for (const path of ["/hexagons", `/hexagons/${PRIMARY_HEX_ID}`]) {
+      const [initial, applied] = getRequestsByPath(fetchMock, path);
+      expect(initial.searchParams.get("weight_mobility")).toBe("0");
+      expect(initial.searchParams.has("anchor_lat")).toBe(false);
+      expect(initial.searchParams.has("anchor_lon")).toBe(false);
+      expect(applied.searchParams.get("weight_mobility")).toBe("1");
+      expect(applied.searchParams.getAll("anchor_lat")).toHaveLength(3);
+      expect(applied.searchParams.getAll("anchor_lon")).toHaveLength(3);
+    }
 
     // Open detailed category breakdown
     await user.click(screen.getByRole("button", { name: "Категорії" }));

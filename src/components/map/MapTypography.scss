@@ -106,9 +106,8 @@
   ),
 .map-section .weights-panel .panel-actions button,
 .map-section .hex-comparison button,
-.map-section
-  .assessment-card
-  :is(.assessment-ask, .chat-suggestions button, .chat-reconnect) {
+.map-section .assessment-ask,
+.map-section .assessment-card :is(.chat-suggestions button, .chat-reconnect) {
   font-size: var(--map-type-control);
   font-weight: 500;
   line-height: 1.5;
