@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Chat } from "../components/Chat";
 import type { HexChatContext } from "../components/Chat";
 import type { ClearChatHistoryControls } from "../components/ClearChatHistory";
+import { buildAssessmentWeights, defaultTogglers } from "../lib/assessmentWeights";
 
 vi.mock("../lib/chatUrl", () => ({ chatWebSocketUrl: () => "ws://localhost:8000/ws/chat" }));
 
@@ -35,9 +37,11 @@ function mount(
   attachedContext: HexChatContext | null = null,
   selectedContext: HexChatContext | null = attachedContext,
   withClearControl = false,
+  assessment: Pick<React.ComponentProps<typeof Chat>, "assessmentWeights" | "appliedAnchors"> = {},
 ) {
   render(
     <Chat
+      {...assessment}
       open
       onOpenChange={vi.fn()}
       host={host}
@@ -53,19 +57,28 @@ function mount(
   return socket;
 }
 
-it("uses the backend WebSocket, sends the existing envelope, and renders the AI answer", () => {
+it("uses the backend WebSocket, sends the existing envelope, and renders the AI answer", async () => {
   const socket = mount();
   expect(socket.url).toBe("ws://localhost:8000/ws/chat");
   expect(JSON.parse(socket.send.mock.calls[0][0])).toEqual({ type: "session.open" });
   fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "Що таке OKIL?" } });
   fireEvent.click(screen.getByRole("button", { name: "Надіслати запитання" }));
   const sent = JSON.parse(socket.send.mock.calls[1][0]);
+  expect(screen.getByText("Звіряємо дані проєкту…")).toBeTruthy();
+  expect(sent.stream).toBe(true);
+  socket.event({ type: "answer.delta", requestId: sent.requestId, text: "First" });
+  expect(screen.getByText("First")).toBeTruthy();
+  socket.event({ type: "answer.delta", requestId: sent.requestId, text: " part" });
+  expect(screen.queryByText("Звіряємо дані проєкту…")).toBeNull();
+  expect(screen.queryByText("First part")).toBeNull();
+  expect(await screen.findByText("First part")).toBeTruthy();
   expect(sent).toMatchObject({ type: "message.send", text: "Що таке OKIL?" });
   socket.event({ type: "answer.completed", requestId: sent.requestId, text: "Жива відповідь AI" });
-  expect(screen.getByText("Жива відповідь AI")).toBeTruthy();
+  expect(await screen.findByText("Жива відповідь AI")).toBeTruthy();
 });
 
 it("keeps a contextual next prompt from the completed answer and from restored history", () => {
+  vi.useFakeTimers();
   const socket = mount();
   fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "Що таке OKIL?" } });
   fireEvent.click(screen.getByRole("button", { name: "Надіслати запитання" }));
@@ -76,6 +89,7 @@ it("keeps a contextual next prompt from the completed answer and from restored h
     text: "Жива відповідь AI",
     nextPrompt: "  Які категорії оцінює OKIL?  ",
   });
+  act(() => vi.advanceTimersByTime(1000));
   expect(screen.getByText("Жива відповідь AI").closest(".chat-turn")?.getAttribute("data-next-prompt")).toBe(
     "Які категорії оцінює OKIL?",
   );
@@ -191,9 +205,62 @@ function beginClear(socket: Socket) {
   return JSON.parse(socket.send.mock.calls.at(-1)![0]);
 }
 
-it("renders no clear button by default", () => {
-  mount();
-  expect(screen.queryByRole("button", { name: /очист/i })).toBeNull();
+it("shows the clear button after the first AI answer, including restored history", () => {
+  const socket = mount();
+  expect(screen.queryByRole("button", { name: "Очистити чат" })).toBeNull();
+  expect(document.querySelector(".chat-history-toolbar")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Твоє запитання"), { target: { value: "Що таке OKIL?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Надіслати запитання" }));
+  const sent = JSON.parse(socket.send.mock.calls.at(-1)![0]);
+  expect(screen.queryByRole("button", { name: "Очистити чат" })).toBeNull();
+  socket.event({ type: "answer.completed", requestId: sent.requestId, text: "Відповідь AI" });
+  const button = screen.getByRole("button", { name: "Очистити чат" }) as HTMLButtonElement;
+  expect(button.disabled).toBe(false);
+  socket.event({ type: "session.ready", sessionToken: "empty-session", history: [] });
+  expect(screen.queryByRole("button", { name: "Очистити чат" })).toBeNull();
+  restoreHistory(socket);
+  const restoredButton = screen.getByRole("button", { name: "Очистити чат" }) as HTMLButtonElement;
+  expect(restoredButton.disabled).toBe(false);
+  act(() => socket.onclose?.());
+  expect(restoredButton.disabled).toBe(true);
+});
+
+it("lets the user cancel with Escape without clearing history or closing the chat", async () => {
+  const user = userEvent.setup();
+  const socket = mount();
+  restoreHistory(socket);
+  await user.click(screen.getByRole("button", { name: "Очистити чат" }));
+  const dialog = screen.getByRole("alertdialog", { name: "Очистити історію чату?" });
+  await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Залишити чат" })));
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(socket.send).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("Стара відповідь")).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Чат із помічником" })).toBeTruthy();
+});
+
+it("confirms from the default UI, preserves history on error, and clears after retry acknowledgement", async () => {
+  const user = userEvent.setup();
+  const socket = mount();
+  restoreHistory(socket);
+  await user.click(screen.getByRole("button", { name: "Очистити чат" }));
+  expect(socket.send).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole("button", { name: "Очистити" }));
+  const sent = JSON.parse(socket.send.mock.calls.at(-1)![0]);
+  expect(sent.type).toBe("session.clear");
+  expect((screen.getByRole("button", { name: "Очищуємо…" }) as HTMLButtonElement).disabled).toBe(true);
+  await act(async () => socket.event({ type: "error", requestId: sent.requestId, code: "storage_unavailable", message: "Не вдалося видалити історію" }));
+  expect(within(screen.getByRole("alertdialog")).getByRole("alert").textContent).toContain("Не вдалося видалити історію");
+  expect(screen.getByText("Стара відповідь")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Очистити" }));
+  const retry = JSON.parse(socket.send.mock.calls.at(-1)![0]);
+  await act(async () => socket.event({ type: "session.cleared", requestId: retry.requestId, deleted: true }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(screen.queryByText("Стара відповідь")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Очистити чат" })).toBeNull();
+  expect(document.querySelector(".chat-history-toolbar")).toBeNull();
+  expect(screen.getByText("Запитай про місто")).toBeTruthy();
+  expect(sessionStorage.getItem("okil.chat.token")).toBeNull();
 });
 
 it("requires confirmation, allows cancellation and prevents double submission", async () => {
@@ -274,4 +341,44 @@ it("times out unacknowledged deletion and disconnects before reconciling on reco
   expect(controls.error).toContain("Немає підтвердження");
   expect(socket.close).toHaveBeenCalled();
   expect(sessionStorage.getItem("okil.chat.token")).toBe("old-token");
+});
+
+it("sends applied weights and matching anchor coordinates with a question and its retry", () => {
+  const assessmentWeights = { ...buildAssessmentWeights(defaultTogglers()), weight_mobility: 3 };
+  const appliedAnchors = [{ lat: 49.84, lng: 24.03 }, { lat: 49.81, lng: 24.05 }];
+  const socket = mount(null, null, false, { assessmentWeights, appliedAnchors });
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Top hexagons" } });
+  fireEvent.submit(screen.getByRole("textbox").closest("form")!);
+  const sent = JSON.parse(socket.send.mock.lastCall![0]);
+  expect(sent).toMatchObject({
+    text: "Top hexagons",
+    weights: assessmentWeights,
+    mobility: { anchor_lat: [49.84, 49.81], anchor_lon: [24.03, 24.05] },
+    stream: true,
+  });
+  socket.event({
+    type: "session.ready", sessionToken: "test-session", history: [],
+    pending: { requestId: sent.requestId, question: sent.text, status: "interrupted" },
+  });
+  expect(JSON.parse(socket.send.mock.lastCall![0])).toEqual(sent);
+});
+
+it("checks a generating turn and resumes an interrupted turn with the same ID", () => {
+  vi.useFakeTimers();
+  const socket = mount();
+  const ready = { type: "session.ready", sessionToken: "token", history: [] };
+  const pending = { requestId: "old", question: "Original question" };
+  socket.event({ ...ready, pending: { ...pending, status: "generating" } });
+  expect(screen.getByText(pending.question)).toBeTruthy();
+  act(() => vi.advanceTimersByTime(2000));
+  expect(JSON.parse(socket.send.mock.lastCall![0])).toEqual({ type: "session.open", sessionToken: "token" });
+  socket.event({ ...ready, pending: { ...pending, status: "interrupted" } });
+  expect(JSON.parse(socket.send.mock.lastCall![0])).toEqual({
+    type: "message.send", requestId: "old", text: pending.question, stream: true,
+  });
+  socket.event({ type: "answer.delta", requestId: "old", text: "Partial" });
+  socket.event({ type: "answer.completed", requestId: "old", text: "Final" });
+  expect(screen.queryByText("Partial")).toBeNull();
+  expect(screen.getByText("Final")).toBeTruthy();
+  expect(screen.getAllByText(pending.question)).toHaveLength(1);
 });
