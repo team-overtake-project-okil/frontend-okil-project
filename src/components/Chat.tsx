@@ -14,6 +14,7 @@ import "./Chat.scss";
 import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { chatWebSocketUrl } from "../lib/chatUrl";
+import type { AssessmentWeights } from "../lib/assessmentWeights";
 import { ClearChatHistory } from "./ClearChatHistory";
 import type { ClearChatHistoryControls } from "./ClearChatHistory";
 import { ClearChatHistoryButton } from "./ClearChatHistoryButton";
@@ -25,6 +26,13 @@ export type HexChatContext = {
   categories: { title: string; score: number }[];
 };
 
+export type ChatAnchor = { lat: number; lng: number };
+
+type ChatAssessment = {
+  assessmentWeights?: AssessmentWeights | null;
+  appliedAnchors?: readonly ChatAnchor[];
+};
+
 const TOKEN_KEY = "okil.chat.token";
 const CHAT_URL = chatWebSocketUrl();
 
@@ -33,10 +41,39 @@ type Turn = {
   question: string;
   answer?: string;
   nextPrompt?: string;
+  partial?: string;
+  live?: boolean;
 };
 
+type PendingTurn = Pick<Turn, "requestId" | "question"> & {
+  status: "generating" | "interrupted";
+};
+
+function sendTurn(
+  socket: WebSocket,
+  requestId: string,
+  text: string,
+  { assessmentWeights, appliedAnchors }: ChatAssessment,
+) {
+  const mobility = appliedAnchors?.length
+    ? {
+        anchor_lat: appliedAnchors.map(({ lat }) => lat),
+        anchor_lon: appliedAnchors.map(({ lng }) => lng),
+      }
+    : undefined;
+  socket.send(JSON.stringify({
+    type: "message.send",
+    requestId,
+    text,
+    stream: true,
+    weights: assessmentWeights ?? undefined,
+    mobility,
+  }));
+}
+
 type ChatEvent =
-  | { type: "session.ready"; sessionToken: string; history: Turn[] }
+  | { type: "session.ready"; sessionToken: string; history: Turn[]; pending?: PendingTurn | null }
+  | { type: "answer.delta"; requestId: string; text: string }
   | { type: "session.cleared"; requestId: string; deleted: boolean }
   | { type: "message.accepted"; requestId: string }
   | { type: "answer.status"; requestId: string; stage: string }
@@ -57,12 +94,32 @@ function turnWithPrompt(turn: Turn, prompt: unknown): Turn {
   const next: Turn = {
     requestId: turn.requestId,
     question: turn.question,
+    ...(turn.live ? { live: true } : {}),
     ...(turn.answer !== undefined ? { answer: turn.answer } : {}),
   };
   return nextPrompt ? { ...next, nextPrompt } : next;
 }
 
+function LiveAnswer({ text, onReveal }: { text: string; onReveal: () => void }) {
+  const [length, setLength] = useState(0);
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const visible = reducedMotion ? text : text.slice(0, Math.max(8, length));
+  const finished = visible.length >= text.length;
+  useEffect(() => {
+    if (finished) return;
+    const timer = setInterval(() => {
+      setLength((previous) => Math.min(text.length,
+        Math.max(8, previous) + Math.max(3, Math.ceil((text.length - previous) / 35))));
+    }, 24);
+    return () => clearInterval(timer);
+  }, [text, finished]);
+  useLayoutEffect(onReveal, [visible, onReveal]);
+  return <>{visible}</>;
+}
+
 export function Chat({
+  assessmentWeights,
+  appliedAnchors,
   open,
   onOpenChange: setOpen,
   host,
@@ -78,13 +135,14 @@ export function Chat({
   attachedContext: HexChatContext | null;
   onContextChange: (context: HexChatContext | null) => void;
   renderClearHistory?: (controls: ClearChatHistoryControls) => ReactNode;
-}) {
+} & ChatAssessment) {
   const [attempt, setAttempt] = useState(0);
   const [started, setStarted] = useState(false);
   if (open && !started) setStarted(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<WebSocket | null>(null);
+  const sentAssessment = useRef<{ requestId: string; settings: ChatAssessment } | null>(null);
   const clearRef = useRef<{
     requestId: string;
     resolve: () => void;
@@ -118,12 +176,19 @@ export function Chat({
   const [waiting, setWaiting] = useState(false);
   const [status, setStatus] = useState("Підключаємося…");
   const resetContext = useEffectEvent(() => onContextChange(null));
+  const assessmentForRetry = useEffectEvent((requestId: string): ChatAssessment => {
+    const sent = sentAssessment.current;
+    return sent?.requestId === requestId
+      ? sent.settings
+      : { assessmentWeights, appliedAnchors };
+  });
 
   useEffect(() => {
     if (!CHAT_URL || !started) return;
 
     const socket = new WebSocket(CHAT_URL);
     socketRef.current = socket;
+    let refresh: ReturnType<typeof setTimeout> | undefined;
 
     socket.onopen = () => {
       const sessionToken = sessionStorage.getItem(TOKEN_KEY);
@@ -139,6 +204,7 @@ export function Chat({
       const event = JSON.parse(data) as ChatEvent;
 
       if (event.type === "session.cleared") {
+        clearTimeout(refresh);
         const pending = clearRef.current;
         if (!pending || event.requestId !== pending.requestId) return;
         clearTimeout(pending.timer);
@@ -174,9 +240,21 @@ export function Chat({
       switch (event.type) {
         case "session.ready":
           sessionStorage.setItem(TOKEN_KEY, event.sessionToken);
-          setTurns(
-            event.history.map((turn) => turnWithPrompt(turn, turn.nextPrompt)),
-          );
+          clearTimeout(refresh);
+          {
+            const history = event.history.map((turn) => turnWithPrompt(turn, turn.nextPrompt));
+            const pending = event.pending;
+            setWaiting(Boolean(pending));
+            setTurns(pending ? [...history, { requestId: pending.requestId, question: pending.question, live: true }] : history);
+            if (pending?.status === "interrupted") {
+              sendTurn(socket, pending.requestId, pending.question, assessmentForRetry(pending.requestId));
+            } else if (pending) {
+              refresh = setTimeout(() => {
+                if (socket.readyState === WebSocket.OPEN)
+                  socket.send(JSON.stringify({ type: "session.open", sessionToken: event.sessionToken }));
+              }, 2000);
+            }
+          }
           setReady(true);
           setStatus("Чат готовий");
           break;
@@ -187,6 +265,14 @@ export function Chat({
 
         case "answer.status":
           setStatus("Готуємо відповідь…");
+          break;
+
+        case "answer.delta":
+          setTurns((current) => current.map((turn) =>
+            turn.requestId === event.requestId && turn.answer === undefined
+              ? { ...turn, partial: (turn.partial ?? "") + event.text }
+              : turn,
+          ));
           break;
 
         case "answer.completed":
@@ -230,6 +316,7 @@ export function Chat({
     };
 
     socket.onclose = () => {
+      clearTimeout(refresh);
       rejectClear("Зв’язок втрачено. Перепідключися та спробуй ще раз.");
       setReady(false);
       setWaiting(false);
@@ -237,6 +324,7 @@ export function Chat({
     };
 
     return () => {
+      clearTimeout(refresh);
       rejectClear("Чат відключено. Спробуй ще раз після підключення.");
       socket.onopen = null;
       socket.onmessage = null;
@@ -344,11 +432,11 @@ export function Chat({
       );
       return;
     }
-    socket.send(
-      JSON.stringify({ type: "message.send", requestId, text: message }),
-    );
+    const settings = { assessmentWeights, appliedAnchors };
+    sendTurn(socket, requestId, message, settings);
+    sentAssessment.current = { requestId, settings };
 
-    setTurns((current) => [...current, { requestId, question: message }]);
+    setTurns((current) => [...current, { requestId, question: message, live: true }]);
     setText("");
     setWaiting(true);
     setStatus("Надсилаємо…");
@@ -464,22 +552,32 @@ export function Chat({
                 {turn.question}
               </div>
             </div>
-            {turn.answer !== undefined && (
+            {(turn.answer !== undefined || turn.partial !== undefined) && (
               <div className="chat-message chat-message-assistant">
                 <span className="chat-author">Помічник Окіл</span>
                 <div className="text-block chat-message-text">
-                  <ChatAnswer content={turn.answer} />
+            {turn.answer !== undefined ? (
+              <ChatAnswer content={turn.answer} />
+            ) : (
+              <LiveAnswer
+                text={turn.partial ?? ""}
+                onReveal={() => {
+                  const messages = messagesRef.current;
+                  if (messages && open) messages.scrollTop = messages.scrollHeight;
+                }}
+              />
+            )}
                 </div>
               </div>
             )}
           </div>
         ))}
-        {waiting && (
+        {waiting && !turns.at(-1)?.partial && (
           <div className="chat-typing">
             <span />
             <span />
             <span />
-            <span className="chat-typing-label">Готуємо відповідь…</span>
+            <span className="chat-typing-label">Звіряємо дані проєкту…</span>
           </div>
         )}
       </div>
