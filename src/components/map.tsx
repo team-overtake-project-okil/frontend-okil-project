@@ -1,6 +1,6 @@
 import { CategoryScore } from "./map/CategoryScore";
 import { useMemo, useState } from "react";
-import { Chat, type ChatAnchor, type HexChatContext } from "./Chat";
+import { Chat, type HexChatContext } from "./Chat";
 import { anchorRouteColors, categoryLabels } from "../lib/hexagonAssessment";
 import type { AddressSuggestion } from "../services/geocoding";
 import { AssessmentCard } from "./map/AssessmentCard";
@@ -36,9 +36,7 @@ export const Map = ({
   const [pickingAnchorLabel, setPickingAnchorLabel] = useState("");
   const workspace = useMapWorkspace();
   const { sectionRef, expandRef, panelRef, toggleRef } = workspace.refs;
-  const ratings: ReturnType<typeof useMapRatings> & {
-    appliedAnchors?: readonly ChatAnchor[];
-  } = useMapRatings(workspace.selectedHexId);
+  const ratings = useMapRatings(workspace.selectedHexId);
 
   const assessmentRoutes =
     ratings.personalRoutesEnabled && ratings.appliedRoutesEnabled
