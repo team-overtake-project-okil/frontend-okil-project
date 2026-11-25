@@ -18,6 +18,7 @@ import type { AssessmentWeights } from "../lib/assessmentWeights";
 import { ClearChatHistory } from "./ClearChatHistory";
 import type { ClearChatHistoryControls } from "./ClearChatHistory";
 import { ClearChatHistoryButton } from "./ClearChatHistoryButton";
+import { ChatAnswer } from "./ChatAnswer";
 
 export type HexChatContext = {
   id: string;
@@ -555,12 +556,17 @@ export function Chat({
               <div className="chat-message chat-message-assistant">
                 <span className="chat-author">Помічник Окіл</span>
                 <div className="text-block chat-message-text">
-                  {turn.live ? (
-                    <LiveAnswer text={turn.answer ?? turn.partial ?? ""} onReveal={() => {
-                      const messages = messagesRef.current;
-                      if (messages && open) messages.scrollTop = messages.scrollHeight;
-                    }} />
-                  ) : turn.answer}
+            {turn.answer !== undefined ? (
+              <ChatAnswer content={turn.answer} />
+            ) : (
+              <LiveAnswer
+                text={turn.partial ?? ""}
+                onReveal={() => {
+                  const messages = messagesRef.current;
+                  if (messages && open) messages.scrollTop = messages.scrollHeight;
+                }}
+              />
+            )}
                 </div>
               </div>
             )}
