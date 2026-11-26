@@ -37,7 +37,12 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (url: string) =>
       Response.json(
-        url.includes("/hexagons/")
+        new URL(url).pathname === "/hexagons/compare"
+          ? [
+              { h3_id: "selected-hex", overall_rating: 94, categories: [], routes: { type: "FeatureCollection", features: [] } },
+              { h3_id: "selected-hex-b", overall_rating: 72, categories: [], routes: { type: "FeatureCollection", features: [] } },
+            ]
+          : url.includes("/hexagons/")
           ? {
               h3_id: url.includes("selected-hex-b")
                 ? "selected-hex-b"
@@ -187,7 +192,9 @@ it("keeps all comparison actions in the separate comparison panel", async () => 
   expect(
     screen.queryByRole("button", { name: "Додати до порівняння" }),
   ).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Пріоритети" }));
   await user.click(screen.getByRole("button", { name: "Порівняти ділянки" }));
+  expect(document.getElementById("weights-panel")).toBeTruthy();
   const add = screen.getByRole("button", { name: "Додати вибрану ділянку" });
   expect(add.closest('[aria-label="Порівняння ділянок"]')).toBeTruthy();
   await user.click(add);
@@ -208,6 +215,18 @@ it("keeps all comparison actions in the separate comparison panel", async () => 
   expect(screen.getByText("Порівняння · 2/3")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Порівняти" }));
   expect(screen.getByRole("table")).toBeTruthy();
+  expect(document.getElementById("weights-panel")).toBeTruthy();
+  await screen.findByText("94", { selector: ".comparison-score .inline-text" });
+  const requests = vi.mocked(fetch).mock.calls.filter(([url]) =>
+    new URL(String(url)).pathname === "/hexagons/compare",
+  );
+  expect(requests).toHaveLength(1);
+  expect(requests[0][1]?.method).toBe("GET");
+  expect(requests[0][1]?.body).toBeUndefined();
+  const params = new URL(String(requests[0][0])).searchParams;
+  expect(params.getAll("h3_id")).toEqual(["selected-hex", "selected-hex-b"]);
+  expect(params.getAll("color")).toEqual(["#b26782", "#827eae"]);
+  expect(params.has("weight_mobility")).toBe(true);
 });
 
 it("restores the selected assessment after toggling the assistant twice", async () =>

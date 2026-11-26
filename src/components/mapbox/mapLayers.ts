@@ -15,6 +15,7 @@ import {
 } from "./stopPopup";
 
 interface CityLayersOptions {
+  hexes: ReturnType<typeof lvivHexes>;
   padding: { top: number; bottom: number; left: number; right: number };
   limitOverview: () => void;
   hexScoresRef: RefObject<Map<string, number | undefined>>;
@@ -29,6 +30,7 @@ export function installCityLayers(
   options: CityLayersOptions,
 ) {
   const {
+    hexes,
     padding,
     limitOverview,
     hexScoresRef,
@@ -37,7 +39,6 @@ export function installCityLayers(
     stopNameTagRef,
     canvas,
   } = options;
-  const hexes = lvivHexes([]);
   hexScoresRef.current = hexScoreIndex(hexes);
 
   map.addSource("h3-hexes", {

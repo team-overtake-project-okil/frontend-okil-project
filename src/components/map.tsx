@@ -1,7 +1,12 @@
 import { CategoryScore } from "./map/CategoryScore";
 import { useMemo, useState } from "react";
 import { Chat, type HexChatContext } from "./Chat";
-import { anchorRouteColors, categoryLabels } from "../lib/hexagonAssessment";
+import {
+  anchorRouteColors,
+  categoryLabels,
+  hexagonComparisonOptions,
+} from "../lib/hexagonAssessment";
+import { useQuery } from "@tanstack/react-query";
 import type { AddressSuggestion } from "../services/geocoding";
 import { AssessmentCard } from "./map/AssessmentCard";
 import { HexagonComparison } from "./map/HexagonComparison";
@@ -36,13 +41,65 @@ export const Map = ({
   const [pickingAnchorLabel, setPickingAnchorLabel] = useState("");
   const workspace = useMapWorkspace();
   const { sectionRef, expandRef, panelRef, toggleRef } = workspace.refs;
-  const ratings = useMapRatings(workspace.selectedHexId);
+  const comparing = comparisonActive && workspace.comparisonOpen;
+  const ratings = useMapRatings(comparing ? null : workspace.selectedHexId);
+  const comparison = useQuery(
+    hexagonComparisonOptions(
+      workspace.comparisonIds,
+      ratings.assessmentWeights,
+      ratings.appliedAnchors,
+      comparing,
+    ),
+  );
+  const [anchorIndex, setAnchorIndex] = useState(0);
+  const currentAnchorIndex = Math.min(
+    anchorIndex,
+    Math.max(0, ratings.appliedAnchors.length - 1),
+  );
+  const endComparison = () => {
+    setAnchorIndex(0);
+    setReplacement(null);
+    workspace.endComparison();
+    setComparisonActive(false);
+  };
+  const [replacement, setReplacement] = useState<{
+    id: string;
+    highlight?: () => void;
+  } | null>(null);
+  const selectHex = (id: string | null) => {
+    setReplacement(null);
+    workspace.setSelectedHexId(id);
+    setPanelMode((mode) =>
+      mode === "chat" ? "chat" : id ? "assessment" : null,
+    );
+  };
 
-  const assessmentRoutes =
-    ratings.personalRoutesEnabled && ratings.appliedRoutesEnabled
-      ? (ratings.assessmentData?.routes ?? null)
-      : null;
+  const assessmentRoutes = useMemo(
+    () =>
+      comparing
+        ? {
+            type: "FeatureCollection" as const,
+            features: (comparison.data ?? []).flatMap((item) =>
+              (item.routes?.features ?? []).filter(
+                (feature) =>
+                  feature.properties.anchor_index === currentAnchorIndex,
+              ),
+            ),
+          }
+        : ratings.personalRoutesEnabled && ratings.appliedRoutesEnabled
+          ? (ratings.assessmentData?.routes ?? null)
+          : null,
+    [
+      comparing,
+      comparison.data,
+      currentAnchorIndex,
+      ratings.personalRoutesEnabled,
+      ratings.appliedRoutesEnabled,
+      ratings.assessmentData?.routes,
+    ],
+  );
   const anchorPoints = useMemo(() => {
+    if (comparing) return ratings.appliedAnchors;
     if (!ratings.personalRoutesEnabled) return [];
     const colors = anchorRouteColors(assessmentRoutes);
     if (colors.size === 0) return ratings.anchors;
@@ -57,6 +114,7 @@ export const Map = ({
     });
   }, [
     assessmentRoutes,
+    comparing,
     ratings.anchors,
     ratings.appliedAnchors,
     ratings.personalRoutesEnabled,
@@ -96,7 +154,8 @@ export const Map = ({
   };
   const hideMapControls =
     chatOpen ||
-    (panelMode === "assessment" &&
+    (!comparisonActive &&
+      panelMode === "assessment" &&
       Boolean(workspace.selectedHexId) &&
       workspace.assessmentExpanded);
   const categoryDetails =
@@ -135,7 +194,7 @@ export const Map = ({
     <div
       ref={sectionRef}
       id="map"
-      className={`map-section ${hideMapControls ? "map-details-open" : ""} ${workspace.expanded ? "map-expanded" : ""} ${workspace.panelOpen ? "panel-open" : ""} ${comparisonActive && workspace.comparisonOpen && !workspace.panelOpen ? "comparison-table-open" : ""}`}
+      className={`map-section ${hideMapControls ? "map-details-open" : ""} ${workspace.expanded ? "map-expanded" : ""} ${workspace.panelOpen ? "panel-open" : ""} ${comparing ? "comparison-table-open" : ""}`}
       role={workspace.expanded ? "dialog" : undefined}
       aria-modal={workspace.expanded ? true : undefined}
       aria-labelledby="map-heading"
@@ -178,12 +237,12 @@ export const Map = ({
               setPanelMode("chat");
             }
           }}
-          comparisonActive={comparisonActive && !workspace.panelOpen}
+          comparisonActive={comparisonActive}
           onToggleComparisonPanel={() => {
-            if (comparisonActive && !workspace.panelOpen) {
-              setComparisonActive(false);
+            if (comparisonActive) {
+              endComparison();
             } else {
-              workspace.closeMapPanelsForComparison();
+              workspace.prepareComparison();
               setComparisonActive(true);
             }
           }}
@@ -228,15 +287,21 @@ export const Map = ({
                   }
                 : null
             }
-            onHexSelect={(id) => {
-              workspace.setSelectedHexId(id);
-              setPanelMode((mode) =>
-                mode === "chat" ? "chat" : id ? "assessment" : null,
-              );
+            onHexSelect={(id, highlight) => {
+              if (
+                id &&
+                comparisonActive &&
+                workspace.atComparisonLimit &&
+                !workspace.comparisonIds.includes(id)
+              ) {
+                setReplacement({ id, highlight });
+                return false;
+              }
+              selectHex(id);
             }}
             onStopInPanel={workspace.takeStopInPanel}
             onStopPanelDismiss={workspace.clearStopPanel}
-            routesEnabled={workspace.routesEnabled}
+            routesEnabled={!comparing && workspace.routesEnabled}
           />
           {pickingAnchor !== null && (
             <div className="anchor-map-hint" role="status">
@@ -293,7 +358,7 @@ export const Map = ({
             onStopClose={workspace.clearStopPanel}
           />
         )}
-        {panelMode !== null && (
+        {panelMode !== null && (!comparisonActive || chatOpen) && (
           <AssessmentCard
             selectedHexId={workspace.selectedHexId}
             assessmentData={ratings.assessmentData}
@@ -326,16 +391,30 @@ export const Map = ({
             Оновлюємо оцінки…
           </div>
         )}
-        {comparisonActive && !workspace.panelOpen && (
+        {comparisonActive && (
           <HexagonComparison
             ids={workspace.comparisonIds}
             selectedId={workspace.selectedHexId}
             onAdd={workspace.onAddToComparison}
-            weights={ratings.assessmentWeights}
+            onExit={endComparison}
+            replacementPending={Boolean(replacement)}
+            onCancelReplacement={() => setReplacement(null)}
+            onConfirmReplacement={() => {
+              if (!replacement) return;
+              workspace.replaceLastComparison(replacement.id);
+              selectHex(replacement.id);
+              replacement.highlight?.();
+            }}
+            comparison={comparison}
+            anchorIndex={currentAnchorIndex}
+            onAnchorChange={setAnchorIndex}
             anchors={ratings.appliedAnchors}
             open={workspace.comparisonOpen}
             onToggle={workspace.onToggleComparison}
-            onRemove={workspace.onRemoveComparison}
+            onRemove={(id) => {
+              setReplacement(null);
+              workspace.onRemoveComparison(id);
+            }}
           />
         )}
       </div>

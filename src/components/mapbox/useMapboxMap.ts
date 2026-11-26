@@ -38,7 +38,10 @@ interface UseMapboxMapArgs {
   comparisonIds: readonly string[];
   searchedLocation?: { lat: number; lng: number } | null;
   selectedHexId: string | null;
-  onHexSelect?: (hexId: string | null) => void;
+  onHexSelect?: (
+    hexId: string | null,
+    highlight?: () => void,
+  ) => boolean | void;
   clearSelectionKey?: number;
   routesEnabled: boolean;
   assessmentRoutes: HexagonRoutes | null;
@@ -72,6 +75,7 @@ export function useMapboxMap({
   const onStopInPanelRef = useRef(onStopInPanel);
   const onStopPanelDismissRef = useRef(onStopPanelDismiss);
   const hexScoresRef = useRef(new Map<string, number | undefined>());
+  const hexesRef = useRef<ReturnType<typeof lvivHexes> | null>(null);
 
   // Fetch routes only when enabled and a hexagon is selected.
   const routesQuery = useRoutesByHex(routesEnabled ? selectedHexId : null);
@@ -108,26 +112,27 @@ export function useMapboxMap({
     const hexId = coordsToH3(lat, lng);
     // Only cells present in the city layer can be selected.
     if (!hexScoresRef.current.has(hexId)) return;
+    const highlight = () => {
+      const [centerLat, centerLng] = cellToLatLng(hexId);
+      const score = hexScoresRef.current.get(hexId);
 
-    const [centerLat, centerLng] = cellToLatLng(hexId);
-    const score = hexScoresRef.current.get(hexId);
+      source.setData({
+        type: "Feature",
+        properties: { id: hexId, ...(score !== undefined ? { score } : {}) },
+        geometry: {
+          type: "Polygon",
+          coordinates: [cellToBoundary(hexId, true)],
+        },
+      });
 
-    source.setData({
-      type: "Feature",
-      properties: { id: hexId, ...(score !== undefined ? { score } : {}) },
-      geometry: {
-        type: "Polygon",
-        coordinates: [cellToBoundary(hexId, true)],
-      },
-    });
-
-    map.flyTo({
-      center: [centerLng, centerLat],
-      zoom: SELECTION_ZOOM,
-      bearing: GRID_BEARING,
-      padding: { top: 0, bottom: 0, left: 0, right: 0 },
-    });
-    onHexSelectRef.current?.(hexId);
+      map.flyTo({
+        center: [centerLng, centerLat],
+        zoom: SELECTION_ZOOM,
+        bearing: GRID_BEARING,
+        padding: { top: 0, bottom: 0, left: 0, right: 0 },
+      });
+    };
+    if (onHexSelectRef.current?.(hexId, highlight) !== false) highlight();
   }, []);
 
   useEffect(() => {
@@ -207,6 +212,7 @@ export function useMapboxMap({
 
     map.on("load", () => {
       installCityLayers(map, {
+        hexes: hexesRef.current ?? lvivHexes([]),
         padding: overviewPadding,
         limitOverview,
         hexScoresRef,
@@ -296,16 +302,17 @@ export function useMapboxMap({
   }, [stops]);
 
   useEffect(() => {
+    const hexes = lvivHexes(hexagons);
+    hexesRef.current = hexes;
     const map = mapRef.current;
     if (!map) return;
 
-    return whenMapSourceReady(map, "h3-hexes", () => {
-      const source = map.getSource("h3-hexes") as
-        mapboxgl.GeoJSONSource | undefined;
-      const hexes = lvivHexes(hexagons);
-      source?.setData(hexes);
+    const source = map.getSource("h3-hexes") as
+      mapboxgl.GeoJSONSource | undefined;
+    if (source) {
+      source.setData(hexes);
       hexScoresRef.current = hexScoreIndex(hexes);
-    });
+    }
   }, [hexagons]);
 
   useEffect(() => {

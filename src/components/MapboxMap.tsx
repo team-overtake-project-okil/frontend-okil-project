@@ -10,7 +10,7 @@ interface MapboxMapProps {
   comparisonIds: readonly string[];
   searchedLocation?: { lat: number; lng: number } | null;
   selectedHexId: string | null;
-  onHexSelect?: (hexId: string | null) => void;
+  onHexSelect?: (hexId: string | null, highlight?: () => void) => boolean | void;
   clearSelectionKey?: number;
   routesEnabled?: boolean;
   assessmentRoutes: HexagonRoutes | null;

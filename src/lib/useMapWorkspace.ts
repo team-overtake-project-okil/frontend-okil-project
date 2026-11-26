@@ -49,10 +49,8 @@ export function useMapWorkspace() {
     expanded,
     onEscape: onExpandedEscape,
   });
-  const closeMapPanelsForComparison = () => {
-    restoreSlidersRef.current = false;
+  const prepareComparison = () => {
     clearStopPanel();
-    setPanelOpen(false);
     setRoutesEnabled(false);
   };
   const takeStopInPanel = useCallback((stop: HexStopProperties) => {
@@ -125,7 +123,7 @@ export function useMapWorkspace() {
     expanded,
     routesEnabled,
     clearStopPanel,
-    closeMapPanelsForComparison,
+    prepareComparison,
     takeStopInPanel,
     closePanel,
     onRoutesChange: (enabled: boolean) => {
@@ -138,7 +136,6 @@ export function useMapWorkspace() {
         clearStopPanel();
         return;
       }
-      if (!panelOpen) setComparisonOpen(false);
       setPanelOpen(!panelOpen);
     },
     onToggleExpanded: () => {
@@ -161,16 +158,23 @@ export function useMapWorkspace() {
       ),
     onAddToComparison: () => {
       if (selectedHexId === null) return;
-      closeMapPanelsForComparison();
+      prepareComparison();
       setComparisonIds([...comparisonIds, selectedHexId]);
     },
     onToggleComparison: () => {
-      if (!comparisonOpen) closeMapPanelsForComparison();
+      if (!comparisonOpen) prepareComparison();
       setComparisonOpen(!comparisonOpen);
     },
     onRemoveComparison: (id: string) => {
       setComparisonIds(comparisonIds.filter((item) => item !== id));
       if (comparisonIds.length <= 2) setComparisonOpen(false);
+    },
+    endComparison: () => {
+      setComparisonIds([]);
+      setComparisonOpen(false);
+    },
+    replaceLastComparison: (id: string) => {
+      setComparisonIds((ids) => [...ids.slice(0, -1), id]);
     },
   };
 }
