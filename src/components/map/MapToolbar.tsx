@@ -1,10 +1,8 @@
-import {
-  ChatBubbleLeftRightIcon,
-  Square3Stack3DIcon,
-} from "@heroicons/react/24/outline";
+import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 // Панель над картою: пошук адреси, пріоритети, маршрути і розгортання
 import type { Ref } from "react";
 import BusIcon from "../../icons/bus";
+import CompareHexagonsIcon from "../../icons/compare-hexagons";
 import Expand from "../../icons/arrows-pointing-out";
 import Minimize2 from "../../icons/arrows-pointing-in";
 import SlidersHorizontal from "../../icons/adjustments-horizontal";
@@ -97,7 +95,7 @@ export function MapToolbar({
         aria-expanded={comparisonActive}
         onClick={onToggleComparisonPanel}
       >
-        <Square3Stack3DIcon aria-hidden="true" />
+        <CompareHexagonsIcon aria-hidden="true" />
         <span>Порівняти ділянки</span>
       </button>
       <label className="route-toggle">

@@ -7,6 +7,15 @@ import {
 } from "../../lib/hexagonAssessment";
 import { SELECTION_ZOOM } from "./lvivGrid";
 
+export function comparisonLabelAppearance(zoom: number) {
+  const scale = Math.min(1, 2 ** (zoom - SELECTION_ZOOM));
+  const fade = Math.max(0, Math.min(1, (scale - 0.35) / 0.12));
+  return {
+    size: Math.max(12, 18 * scale),
+    visibility: fade * fade * (3 - 2 * fade),
+  };
+}
+
 export function mountComparison(
   map: mapboxgl.Map,
   comparisonIds: readonly string[],
@@ -37,14 +46,15 @@ export function mountComparison(
   });
 
   const resizeLabels = () => {
-    const scale = Math.min(1, 2 ** (map.getZoom() - SELECTION_ZOOM));
+    const { size, visibility } = comparisonLabelAppearance(map.getZoom());
     for (const label of labels) {
       const element = label.getElement();
       element.style.setProperty(
         "--comparison-label-size",
-        `${Math.max(12, 18 * scale)}px`,
+        `${size}px`,
       );
-      element.hidden = scale < 0.35;
+      element.style.setProperty("--comparison-label-visibility", String(visibility));
+      element.hidden = visibility === 0;
     }
   };
   resizeLabels();

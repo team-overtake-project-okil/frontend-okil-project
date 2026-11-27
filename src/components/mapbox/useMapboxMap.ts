@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { cellToBoundary, cellToLatLng } from "h3-js";
+import { cellToBoundary, cellToLatLng, isValidCell } from "h3-js";
 import { coordsToH3 } from "../../lib/h3";
 import { useRoutesByHex } from "../../lib/useRoutesByHex";
 import {
@@ -13,7 +13,8 @@ import {
 import type { Hexagon } from "../../lib/hexagonRating";
 import { handleMapClick } from "./mapClick";
 import { installCityLayers } from "./mapLayers";
-import { mountComparison } from "./syncComparison";
+import { comparisonLabelAppearance, mountComparison } from "./syncComparison";
+import { clipRoutesAroundOrigin } from "./clipRoutesAroundOrigin";
 import { mountMobilityAnchors } from "./syncMobilityAnchors";
 import { whenMapSourceReady } from "./whenMapSourceReady";
 import {
@@ -36,6 +37,9 @@ const overviewPadding = { top: 76, bottom: 44, left: 40, right: 40 };
 interface UseMapboxMapArgs {
   hexagons: Hexagon[];
   comparisonIds: readonly string[];
+  comparisonRouteOriginId?: string | null;
+  onAddToComparison?: () => void;
+  comparisonActionLabel?: string;
   searchedLocation?: { lat: number; lng: number } | null;
   selectedHexId: string | null;
   onHexSelect?: (hexId: string | null) => void;
@@ -51,6 +55,9 @@ interface UseMapboxMapArgs {
 export function useMapboxMap({
   hexagons,
   comparisonIds,
+  comparisonRouteOriginId,
+  onAddToComparison,
+  comparisonActionLabel,
   searchedLocation,
   selectedHexId,
   onHexSelect,
@@ -72,6 +79,7 @@ export function useMapboxMap({
   const onStopInPanelRef = useRef(onStopInPanel);
   const onStopPanelDismissRef = useRef(onStopPanelDismiss);
   const hexScoresRef = useRef(new Map<string, number | undefined>());
+  const hexesRef = useRef<ReturnType<typeof lvivHexes> | null>(null);
 
   // Fetch routes only when enabled and a hexagon is selected.
   const routesQuery = useRoutesByHex(routesEnabled ? selectedHexId : null);
@@ -108,7 +116,6 @@ export function useMapboxMap({
     const hexId = coordsToH3(lat, lng);
     // Only cells present in the city layer can be selected.
     if (!hexScoresRef.current.has(hexId)) return;
-
     const [centerLat, centerLng] = cellToLatLng(hexId);
     const score = hexScoresRef.current.get(hexId);
 
@@ -207,6 +214,7 @@ export function useMapboxMap({
 
     map.on("load", () => {
       installCityLayers(map, {
+        hexes: hexesRef.current ?? lvivHexes([]),
         padding: overviewPadding,
         limitOverview,
         hexScoresRef,
@@ -230,6 +238,43 @@ export function useMapboxMap({
     if (!map) return;
     return mountComparison(map, comparisonIds);
   }, [comparisonIds]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !onAddToComparison || onAnchorPick ||
+        !selectedHexId || !isValidCell(selectedHexId)) return;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "map-comparison-add assessment-ask assessment-ask-inline";
+    button.setAttribute("aria-label", comparisonActionLabel ?? "Додати до порівняння");
+    button.textContent = comparisonActionLabel ?? "Додати";
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      onAddToComparison();
+    });
+
+    const [lat, lng] = cellToLatLng(selectedHexId);
+    const boundary = cellToBoundary(selectedHexId, true);
+    const marker = new mapboxgl.Marker({ element: button, anchor: "bottom" })
+      .setLngLat([lng, lat])
+      .addTo(map);
+    const placeAboveHexagon = () => {
+      const center = map.project([lng, lat]);
+      const top = Math.min(
+        ...boundary.map(([lng, lat]) => map.project([lng, lat]).y),
+      );
+      marker.setOffset([0, top - center.y - 8]);
+    };
+    placeAboveHexagon();
+    map.on("move", placeAboveHexagon);
+    map.on("resize", placeAboveHexagon);
+    return () => {
+      map.off("move", placeAboveHexagon);
+      map.off("resize", placeAboveHexagon);
+      marker.remove();
+    };
+  }, [selectedHexId, onAddToComparison, comparisonActionLabel, onAnchorPick]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -261,12 +306,36 @@ export function useMapboxMap({
       type: "FeatureCollection" as const,
       features: [],
     };
-    return whenMapSourceReady(map, "assessment-routes", () => {
-      const source = map.getSource("assessment-routes") as
-        mapboxgl.GeoJSONSource | undefined;
-      source?.setData(data);
-    });
-  }, [assessmentRoutes]);
+    let frame: number | undefined;
+    let previousRadius: number | undefined;
+    const updateRoutes = () => {
+      frame = undefined;
+      const source = map.getSource<mapboxgl.GeoJSONSource>("assessment-routes");
+      if (!source) return;
+
+      const { size, visibility } = comparisonLabelAppearance(map.getZoom());
+      const radius = comparisonRouteOriginId ? (size * 17 * visibility) / 18 : 0;
+      if (!radius && previousRadius === 0) return;
+
+      source.setData(
+        comparisonRouteOriginId && radius > 0
+          ? clipRoutesAroundOrigin(map, data, comparisonRouteOriginId, radius)
+          : data,
+      );
+      previousRadius = radius;
+    };
+    const scheduleRouteUpdate = () => {
+      if (frame === undefined) frame = requestAnimationFrame(updateRoutes);
+    };
+    const cancel = whenMapSourceReady(map, "assessment-routes", updateRoutes);
+
+    if (comparisonRouteOriginId) map.on("zoom", scheduleRouteUpdate);
+    return () => {
+      cancel?.();
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      if (comparisonRouteOriginId) map.off("zoom", scheduleRouteUpdate);
+    };
+  }, [assessmentRoutes, comparisonRouteOriginId]);
 
   useEffect(() => {
     const next = new Map<number, HexStopProperties>();
@@ -296,16 +365,17 @@ export function useMapboxMap({
   }, [stops]);
 
   useEffect(() => {
+    const hexes = lvivHexes(hexagons);
+    hexesRef.current = hexes;
     const map = mapRef.current;
     if (!map) return;
 
-    return whenMapSourceReady(map, "h3-hexes", () => {
-      const source = map.getSource("h3-hexes") as
-        mapboxgl.GeoJSONSource | undefined;
-      const hexes = lvivHexes(hexagons);
-      source?.setData(hexes);
+    const source = map.getSource("h3-hexes") as
+      mapboxgl.GeoJSONSource | undefined;
+    if (source) {
+      source.setData(hexes);
       hexScoresRef.current = hexScoreIndex(hexes);
-    });
+    }
   }, [hexagons]);
 
   useEffect(() => {

@@ -107,6 +107,36 @@ export const comparisonLabels = ["А", "Б", "В"] as const;
 
 export const comparisonColors = ["#b26782", "#827eae", "#ad8053"] as const;
 
+export function hexagonComparisonOptions(
+  ids: readonly string[],
+  weights: AssessmentWeights | null,
+  anchors: readonly MobilityAnchor[],
+  enabled: boolean,
+) {
+  return queryOptions({
+    queryKey: ["hexagon-comparison", ids, weights, anchors] as const,
+    enabled: enabled && ids.length >= 2,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams(assessmentSearch(weights, anchors));
+      ids.forEach((id, index) => {
+        params.append("h3_id", id);
+        params.append("color", comparisonColors[index]);
+      });
+      const result = (await fetcher(`/hexagons/compare?${params}`, {
+        method: "GET",
+        signal,
+      })) as HexagonAssessment[];
+      return result.map((item) => ({
+        ...item,
+        overall_rating: Math.trunc(item.overall_rating),
+      }));
+    },
+  });
+}
+
 export function categoryExplanation(
   category: CategoryRating | undefined,
 ): string {

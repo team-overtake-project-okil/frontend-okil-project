@@ -26,6 +26,7 @@
 }
 .map-section .weights-panel .heading-3,
 .map-section .assessment-card .assistant-panel-heading h2,
+.map-section .hex-comparison .assistant-panel-heading h2,
 .map-section .assessment-card .chat-welcome .chat-welcome-title,
 .map-section .chat-panel-heading h2 {
   font-size: var(--map-type-heading);
@@ -87,6 +88,11 @@
   line-height: 1.5;
   letter-spacing: 0.08em;
 }
+.map-section .hex-comparison .comparison-hint {
+  font-size: var(--map-type-caption);
+  font-weight: 400;
+  line-height: 1.5;
+}
 .map-section .assessment-card .score .inline-text {
   max-width: 80px;
   font-size: var(--map-type-caption);
@@ -105,7 +111,8 @@
     .route-toggle
   ),
 .map-section .weights-panel .panel-actions button,
-.map-section .hex-comparison button,
+.map-section .hex-comparison > .comparison-run,
+.map-section .hex-comparison :not(.assistant-panel-heading) > button,
 .map-section .assessment-ask,
 .map-section .assessment-card :is(.chat-suggestions button, .chat-reconnect) {
   font-size: var(--map-type-control);

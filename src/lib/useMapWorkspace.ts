@@ -49,10 +49,8 @@ export function useMapWorkspace() {
     expanded,
     onEscape: onExpandedEscape,
   });
-  const closeMapPanelsForComparison = () => {
-    restoreSlidersRef.current = false;
+  const prepareComparison = () => {
     clearStopPanel();
-    setPanelOpen(false);
     setRoutesEnabled(false);
   };
   const takeStopInPanel = useCallback((stop: HexStopProperties) => {
@@ -115,9 +113,7 @@ export function useMapWorkspace() {
     openCategory,
     setOpenCategory,
     canAddToComparison:
-      selectedHexId !== null &&
-      !comparisonIds.includes(selectedHexId) &&
-      comparisonIds.length < comparisonLabels.length,
+      selectedHexId !== null && !comparisonIds.includes(selectedHexId),
     atComparisonLimit: comparisonIds.length === comparisonLabels.length,
     panelOpen,
     panelStop,
@@ -125,7 +121,7 @@ export function useMapWorkspace() {
     expanded,
     routesEnabled,
     clearStopPanel,
-    closeMapPanelsForComparison,
+    prepareComparison,
     takeStopInPanel,
     closePanel,
     onRoutesChange: (enabled: boolean) => {
@@ -138,7 +134,6 @@ export function useMapWorkspace() {
         clearStopPanel();
         return;
       }
-      if (!panelOpen) setComparisonOpen(false);
       setPanelOpen(!panelOpen);
     },
     onToggleExpanded: () => {
@@ -161,16 +156,24 @@ export function useMapWorkspace() {
       ),
     onAddToComparison: () => {
       if (selectedHexId === null) return;
-      closeMapPanelsForComparison();
-      setComparisonIds([...comparisonIds, selectedHexId]);
+      prepareComparison();
+      setComparisonIds((ids) => {
+        if (ids.includes(selectedHexId)) return ids;
+        if (ids.length < comparisonLabels.length) return [...ids, selectedHexId];
+        return [...ids.slice(0, -1), selectedHexId];
+      });
     },
     onToggleComparison: () => {
-      if (!comparisonOpen) closeMapPanelsForComparison();
+      if (!comparisonOpen) prepareComparison();
       setComparisonOpen(!comparisonOpen);
     },
     onRemoveComparison: (id: string) => {
       setComparisonIds(comparisonIds.filter((item) => item !== id));
       if (comparisonIds.length <= 2) setComparisonOpen(false);
+    },
+    clearComparison: () => {
+      setComparisonIds([]);
+      setComparisonOpen(false);
     },
   };
 }
