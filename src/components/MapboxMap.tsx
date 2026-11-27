@@ -8,9 +8,12 @@ import type { HexagonRoutes } from "../lib/hexagonAssessment";
 interface MapboxMapProps {
   hexagons: Hexagon[];
   comparisonIds: readonly string[];
+  comparisonRouteOriginId?: string | null;
+  onAddToComparison?: () => void;
+  comparisonActionLabel?: string;
   searchedLocation?: { lat: number; lng: number } | null;
   selectedHexId: string | null;
-  onHexSelect?: (hexId: string | null, highlight?: () => void) => boolean | void;
+  onHexSelect?: (hexId: string | null) => void;
   clearSelectionKey?: number;
   routesEnabled?: boolean;
   assessmentRoutes: HexagonRoutes | null;
@@ -25,6 +28,9 @@ interface MapboxMapProps {
 export function MapboxMap({
   hexagons,
   comparisonIds,
+  comparisonRouteOriginId,
+  onAddToComparison,
+  comparisonActionLabel,
   searchedLocation,
   selectedHexId,
   onHexSelect,
@@ -39,6 +45,9 @@ export function MapboxMap({
   const map = useMapboxMap({
     hexagons,
     comparisonIds,
+    comparisonRouteOriginId,
+    onAddToComparison,
+    comparisonActionLabel,
     searchedLocation,
     selectedHexId,
     onHexSelect,

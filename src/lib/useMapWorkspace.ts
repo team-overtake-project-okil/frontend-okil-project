@@ -113,9 +113,7 @@ export function useMapWorkspace() {
     openCategory,
     setOpenCategory,
     canAddToComparison:
-      selectedHexId !== null &&
-      !comparisonIds.includes(selectedHexId) &&
-      comparisonIds.length < comparisonLabels.length,
+      selectedHexId !== null && !comparisonIds.includes(selectedHexId),
     atComparisonLimit: comparisonIds.length === comparisonLabels.length,
     panelOpen,
     panelStop,
@@ -159,7 +157,11 @@ export function useMapWorkspace() {
     onAddToComparison: () => {
       if (selectedHexId === null) return;
       prepareComparison();
-      setComparisonIds([...comparisonIds, selectedHexId]);
+      setComparisonIds((ids) => {
+        if (ids.includes(selectedHexId)) return ids;
+        if (ids.length < comparisonLabels.length) return [...ids, selectedHexId];
+        return [...ids.slice(0, -1), selectedHexId];
+      });
     },
     onToggleComparison: () => {
       if (!comparisonOpen) prepareComparison();
@@ -169,12 +171,9 @@ export function useMapWorkspace() {
       setComparisonIds(comparisonIds.filter((item) => item !== id));
       if (comparisonIds.length <= 2) setComparisonOpen(false);
     },
-    endComparison: () => {
+    clearComparison: () => {
       setComparisonIds([]);
       setComparisonOpen(false);
-    },
-    replaceLastComparison: (id: string) => {
-      setComparisonIds((ids) => [...ids.slice(0, -1), id]);
     },
   };
 }

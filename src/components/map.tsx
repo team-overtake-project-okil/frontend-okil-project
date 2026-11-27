@@ -4,6 +4,8 @@ import { Chat, type HexChatContext } from "./Chat";
 import {
   anchorRouteColors,
   categoryLabels,
+  comparisonLabels,
+  hexagonAssessmentOptions,
   hexagonComparisonOptions,
 } from "../lib/hexagonAssessment";
 import { useQuery } from "@tanstack/react-query";
@@ -42,7 +44,7 @@ export const Map = ({
   const workspace = useMapWorkspace();
   const { sectionRef, expandRef, panelRef, toggleRef } = workspace.refs;
   const comparing = comparisonActive && workspace.comparisonOpen;
-  const ratings = useMapRatings(comparing ? null : workspace.selectedHexId);
+  const ratings = useMapRatings(comparisonActive ? null : workspace.selectedHexId);
   const comparison = useQuery(
     hexagonComparisonOptions(
       workspace.comparisonIds,
@@ -51,59 +53,52 @@ export const Map = ({
       comparing,
     ),
   );
-  const [anchorIndex, setAnchorIndex] = useState(0);
-  const currentAnchorIndex = Math.min(
-    anchorIndex,
-    Math.max(0, ratings.appliedAnchors.length - 1),
-  );
+  const [routeOriginId, setRouteOriginId] = useState<string | null>(null);
+  const currentRouteOriginId =
+    routeOriginId && workspace.comparisonIds.includes(routeOriginId)
+      ? routeOriginId
+      : null;
+  const comparisonRoutes = useQuery({
+    ...hexagonAssessmentOptions(
+      comparing && ratings.appliedAnchors.length > 0 ? currentRouteOriginId : null,
+      ratings.assessmentWeights,
+      ratings.appliedAnchors,
+    ),
+    retry: false,
+    staleTime: (query) => query.state.data?.routes?.features.length ? Infinity : 0,
+  });
+  const hasComparisonRoutes = Boolean(comparisonRoutes.data?.routes?.features.length);
+  const routePending = !hasComparisonRoutes && comparisonRoutes.isFetching;
+  const routeError =
+    !hasComparisonRoutes && !routePending && (comparisonRoutes.isError || comparisonRoutes.isSuccess)
+      ? "Не вдалося побудувати маршрут"
+      : undefined;
+  const clearComparison = () => {
+    setRouteOriginId(null);
+    workspace.clearComparison();
+  };
   const endComparison = () => {
-    setAnchorIndex(0);
-    setReplacement(null);
-    workspace.endComparison();
+    clearComparison();
     setComparisonActive(false);
   };
-  const [replacement, setReplacement] = useState<{
-    id: string;
-    highlight?: () => void;
-  } | null>(null);
   const selectHex = (id: string | null) => {
-    setReplacement(null);
     workspace.setSelectedHexId(id);
     setPanelMode((mode) =>
       mode === "chat" ? "chat" : id ? "assessment" : null,
     );
   };
 
-  const assessmentRoutes = useMemo(
-    () =>
-      comparing
-        ? {
-            type: "FeatureCollection" as const,
-            features: (comparison.data ?? []).flatMap((item) =>
-              (item.routes?.features ?? []).filter(
-                (feature) =>
-                  feature.properties.anchor_index === currentAnchorIndex,
-              ),
-            ),
-          }
-        : ratings.personalRoutesEnabled && ratings.appliedRoutesEnabled
-          ? (ratings.assessmentData?.routes ?? null)
-          : null,
-    [
-      comparing,
-      comparison.data,
-      currentAnchorIndex,
-      ratings.personalRoutesEnabled,
-      ratings.appliedRoutesEnabled,
-      ratings.assessmentData?.routes,
-    ],
-  );
+  const assessmentRoutes = comparing
+    ? comparisonRoutes.data?.routes ?? null
+    : !comparisonActive && ratings.personalRoutesEnabled && ratings.appliedRoutesEnabled
+      ? ratings.assessmentData?.routes ?? null
+      : null;
   const anchorPoints = useMemo(() => {
-    if (comparing) return ratings.appliedAnchors;
-    if (!ratings.personalRoutesEnabled) return [];
+    if (!comparing && !ratings.personalRoutesEnabled) return [];
+    const anchors = comparing ? ratings.appliedAnchors : ratings.anchors;
     const colors = anchorRouteColors(assessmentRoutes);
-    if (colors.size === 0) return ratings.anchors;
-    return ratings.anchors.map((anchor) => {
+    if (colors.size === 0) return anchors;
+    return anchors.map((anchor) => {
       const index = ratings.appliedAnchors.findIndex(
         (applied) =>
           applied.id === anchor.id &&
@@ -147,7 +142,10 @@ export const Map = ({
     ratings.isAssessmentError,
   ]);
   const setChatOpen = (open: boolean) => {
-    if (open) setChatContext(selectedChatContext);
+    if (open) {
+      if (comparisonActive) endComparison();
+      setChatContext(selectedChatContext);
+    }
     setPanelMode(
       open ? "chat" : chatOpen && workspace.selectedHexId ? "assessment" : null,
     );
@@ -233,6 +231,7 @@ export const Map = ({
             if (chatOpen) {
               setChatOpen(false);
             } else {
+              if (comparisonActive) endComparison();
               setChatContext(null);
               setPanelMode("chat");
             }
@@ -243,6 +242,7 @@ export const Map = ({
               endComparison();
             } else {
               workspace.prepareComparison();
+              setPanelMode(workspace.selectedHexId ? "assessment" : null);
               setComparisonActive(true);
             }
           }}
@@ -262,6 +262,19 @@ export const Map = ({
           <MapboxMap
             hexagons={ratings.hexagonsData}
             comparisonIds={workspace.comparisonIds}
+            comparisonRouteOriginId={
+              comparing && hasComparisonRoutes ? currentRouteOriginId : null
+            }
+            onAddToComparison={
+              comparisonActive && workspace.canAddToComparison
+                ? workspace.onAddToComparison
+                : undefined
+            }
+            comparisonActionLabel={
+              workspace.atComparisonLimit
+                ? `Додати замість ${comparisonLabels[comparisonLabels.length - 1]}`
+                : undefined
+            }
             clearSelectionKey={clearSelectionKey}
             searchedLocation={searchedLocation}
             selectedHexId={workspace.selectedHexId}
@@ -287,21 +300,10 @@ export const Map = ({
                   }
                 : null
             }
-            onHexSelect={(id, highlight) => {
-              if (
-                id &&
-                comparisonActive &&
-                workspace.atComparisonLimit &&
-                !workspace.comparisonIds.includes(id)
-              ) {
-                setReplacement({ id, highlight });
-                return false;
-              }
-              selectHex(id);
-            }}
+            onHexSelect={selectHex}
             onStopInPanel={workspace.takeStopInPanel}
             onStopPanelDismiss={workspace.clearStopPanel}
-            routesEnabled={!comparing && workspace.routesEnabled}
+            routesEnabled={!comparisonActive && workspace.routesEnabled}
           />
           {pickingAnchor !== null && (
             <div className="anchor-map-hint" role="status">
@@ -358,7 +360,7 @@ export const Map = ({
             onStopClose={workspace.clearStopPanel}
           />
         )}
-        {panelMode !== null && (!comparisonActive || chatOpen) && (
+        {panelMode !== null && !comparisonActive && (
           <AssessmentCard
             selectedHexId={workspace.selectedHexId}
             assessmentData={ratings.assessmentData}
@@ -394,25 +396,23 @@ export const Map = ({
         {comparisonActive && (
           <HexagonComparison
             ids={workspace.comparisonIds}
-            selectedId={workspace.selectedHexId}
-            onAdd={workspace.onAddToComparison}
             onExit={endComparison}
-            replacementPending={Boolean(replacement)}
-            onCancelReplacement={() => setReplacement(null)}
-            onConfirmReplacement={() => {
-              if (!replacement) return;
-              workspace.replaceLastComparison(replacement.id);
-              selectHex(replacement.id);
-              replacement.highlight?.();
-            }}
+            onClear={clearComparison}
             comparison={comparison}
-            anchorIndex={currentAnchorIndex}
-            onAnchorChange={setAnchorIndex}
-            anchors={ratings.appliedAnchors}
+            showRouteControls={ratings.appliedAnchors.length > 0}
+            routeOriginId={currentRouteOriginId}
+            onRouteOriginChange={(id) =>
+              setRouteOriginId((current) => current === id ? null : id)
+            }
+            routePending={routePending}
+            routeError={routeError}
             open={workspace.comparisonOpen}
-            onToggle={workspace.onToggleComparison}
+            onToggle={() => {
+              setRouteOriginId(null);
+              workspace.onToggleComparison();
+            }}
             onRemove={(id) => {
-              setReplacement(null);
+              if (routeOriginId === id) setRouteOriginId(null);
               workspace.onRemoveComparison(id);
             }}
           />

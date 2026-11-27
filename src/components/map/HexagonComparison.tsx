@@ -1,4 +1,4 @@
-import type { MobilityAnchor } from "../../lib/mobilityAnchors";
+import { ExclamationCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useId, type CSSProperties } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import {
@@ -8,24 +8,33 @@ import {
   type HexagonAssessment,
 } from "../../lib/hexagonAssessment";
 import { comfortColor } from "../../lib/palette";
-import { Chip } from "../Chip/Chip";
+import CompareHexagonsIcon from "../../icons/compare-hexagons";
+import { Skeleton } from "../ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import "./HexagonComparison.scss";
 
 interface HexagonComparisonProps {
-  selectedId: string | null;
-  onAdd: () => void;
   onExit: () => void;
-  replacementPending: boolean;
-  onCancelReplacement: () => void;
-  onConfirmReplacement: () => void;
+  onClear: () => void;
   ids: readonly string[];
   comparison: UseQueryResult<HexagonAssessment[]>;
-  anchorIndex: number;
-  onAnchorChange: (index: number) => void;
-  anchors?: readonly MobilityAnchor[];
+  showRouteControls: boolean;
+  routeOriginId: string | null;
+  onRouteOriginChange: (id: string) => void;
+  routePending: boolean;
+  routeError?: string;
   open: boolean;
   onToggle: () => void;
   onRemove: (id: string) => void;
+}
+
+function ComparisonScoreSkeleton() {
+  return (
+    <div className="comparison-score comparison-score-skeleton" aria-hidden="true">
+      <Skeleton className="assessment-placeholder assessment-placeholder-value" />
+      <Skeleton className="assessment-placeholder assessment-placeholder-bar" />
+    </div>
+  );
 }
 
 function ComparisonScore({ value }: { value: number }) {
@@ -44,17 +53,15 @@ function ComparisonScore({ value }: { value: number }) {
 }
 
 export function HexagonComparison({
-  selectedId,
-  onAdd,
   onExit,
-  replacementPending,
-  onCancelReplacement,
-  onConfirmReplacement,
+  onClear,
   ids,
   comparison,
-  anchorIndex,
-  onAnchorChange,
-  anchors,
+  showRouteControls,
+  routeOriginId,
+  onRouteOriginChange,
+  routePending,
+  routeError,
   open,
   onToggle,
   onRemove,
@@ -64,100 +71,53 @@ export function HexagonComparison({
     comparison.data?.find((item) => item.h3_id === id),
   );
 
+  const loading = comparison.isPending || (comparison.isError && comparison.isFetching);
+  const selectedCount = (
+    <span className="anchor-count" aria-label={`${ids.length} із ${comparisonLabels.length} ділянок`}>
+      {ids.length}/{comparisonLabels.length}
+    </span>
+  );
+  const selectionTag = (id: string, index: number) => (
+    <button
+      type="button"
+      className="comparison-selection-tag"
+      style={{ "--hex-color": comparisonColors[index] } as CSSProperties}
+      aria-label={`Прибрати ділянку ${comparisonLabels[index]}`}
+      title={`Прибрати ділянку ${comparisonLabels[index]}`}
+      onClick={() => onRemove(id)}
+    >
+      <span className="comparison-selection-hexagon" aria-hidden="true" />
+      <span>{comparisonLabels[index]}</span>
+      <XMarkIcon className="comparison-selection-remove" aria-hidden="true" />
+    </button>
+  );
+
   return (
     <div
       className="hex-comparison"
       data-open={open}
+      style={{ "--comparison-count": ids.length } as CSSProperties}
       aria-label="Порівняння ділянок"
     >
-      <div className="hex-comparison-controls">
-        <div className="inline-text">Порівняння · {ids.length}/3</div>
-        {open ? (
-          <button type="button" onClick={onExit}>
-            Завершити
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={ids.length < 2}
-            aria-expanded={open}
-            aria-controls={tableId}
-            onClick={onToggle}
-          >
-            Порівняти
-          </button>
-        )}
-      </div>
-      {open && (
-        <button
-          type="button"
-          className="comparison-add-selected"
-          aria-controls={tableId}
-          aria-expanded={open}
-          onClick={onToggle}
-        >
-          Згорнути
+      <header className="assistant-panel-heading">
+        <CompareHexagonsIcon aria-hidden="true" />
+        <h2>Порівняти гексагони</h2>
+        <button type="button" aria-label="Завершити порівняння" onClick={onExit}>
+          ✕
         </button>
-      )}
-      {replacementPending && (
-        <div className="comparison-replacement">
-          <p role="status">
-            У порівнянні вже три ділянки. Замінити третю на вибрану?
-          </p>
-          <div>
-            <button type="button" onClick={onConfirmReplacement}>
-              Замінити третю
-            </button>
-            <button type="button" onClick={onCancelReplacement}>
-              Скасувати
-            </button>
-          </div>
-        </div>
-      )}
-      <button
-        type="button"
-        className="comparison-add-selected"
-        disabled={
-          !selectedId ||
-          ids.includes(selectedId) ||
-          ids.length >= comparisonLabels.length
-        }
-        onClick={onAdd}
-      >
-        {selectedId && ids.includes(selectedId)
-          ? "Вибрану ділянку вже додано"
-          : ids.length >= comparisonLabels.length
-            ? "Вибрано максимум ділянок"
-            : "Додати вибрану ділянку"}
-      </button>
-      {!selectedId && (
-        <p>Виберіть ділянку на мапі, щоб додати її до порівняння.</p>
-      )}
-      {!open && (
+      </header>
+      <p className="comparison-hint">
+        {open
+          ? "Оцінки комфорту вибраних гексагонів за категоріями."
+          : "Додайте 2–3 гексагони з мапи, щоб порівняти їхні оцінки й маршрути."}
+      </p>
+      {!open && ids.length > 0 && (
         <div className="hex-comparison-selection">
           {ids.map((id, index) => (
-            <button
-              key={id}
-              type="button"
-              className="comparison-selection-tag"
-              style={
-                { "--hex-color": comparisonColors[index] } as CSSProperties
-              }
-              aria-label={`Прибрати ділянку ${comparisonLabels[index]}`}
-              title={`Прибрати ділянку ${comparisonLabels[index]}`}
-              onClick={() => onRemove(id)}
-            >
-              <span className="comparison-selection-dot" aria-hidden="true" />
-              <span>{comparisonLabels[index]}</span>
-              <span className="comparison-selection-remove" aria-hidden="true">
-                ×
-              </span>
-            </button>
+            <div key={id}>{selectionTag(id, index)}</div>
           ))}
+          {selectedCount}
         </div>
-      )}
-      {ids.length === 1 && (
-        <div className="text-block">Додайте ще одну ділянку на карті.</div>
       )}
       <div
         id={tableId}
@@ -166,19 +126,20 @@ export function HexagonComparison({
         tabIndex={open ? 0 : undefined}
         role="region"
         aria-label="Таблиця оцінок ділянок"
+        aria-busy={open && loading}
       >
         {open && (
           <table>
+            <colgroup>
+              <col className="comparison-label-column" />
+              <col span={ids.length} className="comparison-score-column" />
+            </colgroup>
             <thead>
               <tr>
-                <th scope="col">Показник</th>
+                <th scope="col">Категорія</th>
                 {ids.map((id, index) => (
                   <th scope="col" key={id}>
-                    <Chip
-                      label={comparisonLabels[index]}
-                      color={comparisonColors[index]}
-                      onRemove={() => onRemove(id)}
-                    />
+                    {selectionTag(id, index)}
                   </th>
                 ))}
               </tr>
@@ -188,9 +149,8 @@ export function HexagonComparison({
                 <th scope="row">Загальна оцінка</th>
                 {columns.map((column, index) => (
                   <td key={ids[index]}>
-                    {comparison.isPending ||
-                    (comparison.isError && comparison.isFetching) ? (
-                      <span role="status">Завантаження…</span>
+                    {loading ? (
+                      <ComparisonScoreSkeleton />
                     ) : comparison.isError || !column ? (
                       <>
                         <span role="alert">Оцінка недоступна.</span>
@@ -207,60 +167,98 @@ export function HexagonComparison({
                   </td>
                 ))}
               </tr>
-              {categoryLabels.map(([category, label]) => (
-                <tr key={category}>
-                  <th scope="row">{label}</th>
-                  {columns.map((column, index) => {
-                    const item = column?.categories.find(
-                      (rating) => rating.category === category,
-                    );
-                    return (
+              {categoryLabels.map(([category, label]) => {
+                const items = columns.map((column) =>
+                  column?.categories.find((rating) => rating.category === category),
+                );
+
+                return (
+                  <tr key={category}>
+                    <th scope="row">{label}</th>
+                    {items.map((item, index) => (
                       <td key={ids[index]}>
-                        {!comparison.isSuccess ? (
+                        {loading ? (
+                          <ComparisonScoreSkeleton />
+                        ) : !comparison.isSuccess ? (
                           "—"
                         ) : !item ? (
                           "Немає даних"
                         ) : item.enabled ? (
                           <ComparisonScore value={item.score} />
                         ) : (
-                          "Вимкнено"
+                          <div className="comparison-score comparison-disabled">Вимкнено</div>
                         )}
                       </td>
-                    );
-                  })}
-                </tr>
-              ))}
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
+            {showRouteControls && (
+              <tfoot>
+                <tr>
+                  <th scope="row">
+                    <div className="comparison-route-heading">
+                      Маршрути
+                      {routeError && (
+                        <TooltipProvider delay={200}>
+                          <Tooltip>
+                            <TooltipTrigger
+                              type="button"
+                              className="comparison-route-error"
+                              aria-label={routeError}
+                            >
+                              <ExclamationCircleIcon aria-hidden="true" />
+                            </TooltipTrigger>
+                            <TooltipContent>{routeError}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                  </th>
+                  {ids.map((id, index) => (
+                    <td key={id}>
+                      <button
+                        type="button"
+                        className="comparison-route-origin"
+                        aria-label={`Маршрути з гексагону ${comparisonLabels[index]}`}
+                        aria-pressed={routeOriginId === id}
+                        disabled={loading || routePending}
+                        aria-busy={routePending && routeOriginId === id}
+                        onClick={() => onRouteOriginChange(id)}
+                      >
+                        <span
+                          className="comparison-selection-hexagon"
+                          style={{ "--hex-color": comparisonColors[index] } as CSSProperties}
+                          aria-hidden="true"
+                        />
+                        {comparisonLabels[index]}
+                      </button>
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
+            )}
           </table>
         )}
       </div>
-      {open && anchors && anchors.length > 0 && (
-        <div className="comparison-anchor-picker">
-          <div className="comparison-anchor-heading">
-            <span>Маршрути до</span>
-            <span>
-              {anchorIndex + 1} / {anchors.length}
-            </span>
-          </div>
-          <div
-            className="comparison-anchor-labels"
-            role="group"
-            aria-label="Точка призначення"
-          >
-            {anchors.map((anchor, index) => (
-              <button
-                key={anchor.id}
-                type="button"
-                aria-pressed={anchorIndex === index}
-                onClick={() => onAnchorChange(index)}
-              >
-                <span className="comparison-anchor-dot" aria-hidden="true" />
-                <span>{anchor.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <div className="hex-comparison-controls">
+        {ids.length > 0 && (
+          <button type="button" className="secondary-button comparison-clear" onClick={onClear}>
+            Очистити
+          </button>
+        )}
+        <button
+          type="button"
+          className="comparison-run"
+          disabled={ids.length < 2}
+          aria-expanded={open}
+          aria-controls={tableId}
+          onClick={onToggle}
+        >
+          {open ? "Згорнути" : "Порівняти"}
+        </button>
+      </div>
     </div>
   );
 }

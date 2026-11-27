@@ -181,7 +181,8 @@
   color: tokens.$assistant-ink;
   white-space: nowrap;
 }
-.map-compare-toggle > svg {
+.map-compare-toggle > svg,
+.hex-comparison > .assistant-panel-heading > svg {
   width: 18px;
   height: 18px;
   flex: none;
@@ -892,14 +893,24 @@
 .map-section {
   --panel-bottom-gap: calc(56px + env(safe-area-inset-bottom));
   --panel-top: 76px;
+  --panel-right: 16px;
 }
 .map-section.map-expanded {
   --panel-top: var(--assistant-panel-top, 78px);
+  --panel-right: 12px;
+}
+@include media.mobile {
+  .map-section {
+    --panel-right: 12px;
+  }
 }
 .map-section .assessment-card,
 .map-section.map-expanded .assessment-card,
-.map-section:not(.map-expanded) .assessment-card {
+.map-section:not(.map-expanded) .assessment-card,
+.map-section .hex-comparison {
   top: var(--panel-top);
+  right: var(--panel-right);
+  left: auto;
   bottom: auto;
   height: auto;
   max-height: calc(100% - var(--panel-top) - var(--panel-bottom-gap));
@@ -916,15 +927,18 @@
   flex: 0 1 auto;
 }
 
-.assessment-card .assistant-panel-heading {
+.assessment-card .assistant-panel-heading,
+.hex-comparison > .assistant-panel-heading {
   gap: 8px;
   padding: 12px 16px 8px;
 }
-.assessment-card .assistant-panel-heading h2 {
+.assessment-card .assistant-panel-heading h2,
+.hex-comparison > .assistant-panel-heading h2 {
   font-size: 14px;
   line-height: 24px;
 }
-.assessment-card .assistant-panel-heading button {
+.assessment-card .assistant-panel-heading button,
+.hex-comparison > .assistant-panel-heading button {
   width: 28px;
   height: 28px;
 }
@@ -1023,6 +1037,7 @@
   grid-column: 2;
   grid-row: 1;
 }
+
 .map-section .assessment-ask.assessment-ask-inline {
   display: inline-flex;
   align-items: center;
@@ -1047,7 +1062,7 @@
   gap: 8px;
   min-height: 45px;
 }
-.assessment-card .assessment-placeholder {
+:is(.assessment-card, .hex-comparison) .assessment-placeholder {
   height: 9px;
   border-radius: 5px;
   background: #e2e9e3;
@@ -1086,7 +1101,7 @@
 .assessment-placeholder-value {
   width: 24px;
 }
-.assessment-card .assessment-placeholder-bar {
+:is(.assessment-card, .hex-comparison) .assessment-placeholder-bar {
   height: 7px;
   border-radius: 999px;
 }
@@ -1096,7 +1111,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .assessment-card .assessment-placeholder {
+  :is(.assessment-card, .hex-comparison) .assessment-placeholder {
     animation: none;
   }
 }
